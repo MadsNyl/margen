@@ -119,6 +119,11 @@ export interface HostCalls {
   'session.resume': (id: string) => SessionView
   /** The open Document's Sessions that have had a Turn, newest first. */
   'sessions.list': () => SessionSummary[]
+  /**
+   * The Project page's chat bar. Opens the Document the message `@`-mentions, or
+   * makes a new one named from it, and starts that Document's Session with the message.
+   */
+  'project.send': (text: string) => OpenDocument
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
