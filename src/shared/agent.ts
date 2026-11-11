@@ -3,10 +3,15 @@
 
 export interface AgentStatus {
   installed: boolean
+  /** Where the Agent's CLI was found. */
+  path?: string
   version?: string
   signedIn: boolean
   plan?: string
 }
+
+/** How an onboarding step (Install, Sign in) ended, with the status detected afterwards. */
+export type AgentSetupResult = { ok: true; status: AgentStatus } | { ok: false; status: AgentStatus; message: string }
 
 interface AnnotationBase {
   number: number

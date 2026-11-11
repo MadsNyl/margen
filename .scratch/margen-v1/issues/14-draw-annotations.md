@@ -12,3 +12,7 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Seam 2 tests: circling the fixture's card grid resolves to the grid; drawing on empty space resolves to nothing; a second stroke joins the same Annotation
 - [ ] Screenshots are attached to the Turn as images (fake provider receives them)
 - [ ] Strokes and markers use the blue accent and stay in page coordinates
+
+
+**Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
+- `capturePage` hangs when the window is hidden and returns 2× images on Retina; handle both.

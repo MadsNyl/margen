@@ -27,7 +27,7 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
 - **The host API** is the only bridge between renderer and main. To add a call or event: add it to `HostCalls` / `HostEvents` in `src/shared/host-api.ts`, implement it in `createHost` (`src/main/host/index.ts`), and for events add the name to `FORWARDED_EVENTS` in `src/main/index.ts`. The preload and `src/main/ipc.ts` need no changes. The renderer uses `host` and `useHostValue` from `src/renderer/src/host.ts`.
 - **Domain logic** lives in framework-free modules under `src/main/<area>/`, composed by `createHost`. No `electron` imports there; take paths and providers as arguments. `src/main/index.ts` and `src/main/ipc.ts` are the only Electron-aware main files.
   - `projects/`: Projects, recents, Document discovery and watching (tickets 03, 04, 15)
-  - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter goes in `agent/claude/` (02, 07)
+  - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter in `agent/claude/` (02, 07). Everything it runs on the Mac (`claude`, the login shell, the installer, Terminal) goes through `ClaudeSystem` (`claude/system.ts`) so tests pass a pretend one; `claude/node-system.ts` is the real one
   - `turns/`: building prompts from text and Annotations, the Queue, interrupts (07, 10)
   - `permissions/`: the Editor preset and Allow everything (09)
   - `sessions/`: one Session per Document, resume, persistence (08)
@@ -41,4 +41,4 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
 
 - Seam 1 (`test/seam1/*.test.ts`): `createHost({ dataDir, agent })` with a temp folder and `createFakeAgentProvider(script)`. Assert host API results, emitted events and files on disk.
 - Seam 2 (`e2e/*.spec.ts`): `launchApp({ recents, agent })` from `e2e/app.ts` launches the built app with a fresh data directory and a fake Agent script. Keep it to a handful of flows that need real layout.
-- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect` and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.
+- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect`, the outcome of `install` and `signIn`, and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.

@@ -45,6 +45,8 @@ export function createHost({ dataDir, agent, pickFolder = async () => undefined 
 
   const handlers: Handlers = {
     'agent.detect': () => agent.detect(),
+    'agent.install': () => agent.install(),
+    'agent.signIn': () => agent.signIn(),
     'projects.choose': async () => {
       const folder = await pickFolder()
       return folder ? open(folder) : null

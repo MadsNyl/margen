@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { AgentEvent, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
 import { createChannel } from './channel'
 import type { AgentProvider, AgentSession, StartSessionOptions } from './provider'
 
@@ -8,6 +8,8 @@ import type { AgentProvider, AgentSession, StartSessionOptions } from './provide
 // next scripted Turn; a turn-end is added when the script doesn't end with one.
 // An approval-request pauses the Turn until it's answered, `wait` makes a slow
 // Turn, and `interrupt` ends the running Turn with turn-end "interrupted".
+// Install and Sign in play back their scripted outcome (done by default) after
+// `ms`; a done one updates what `detect` reports from then on.
 
 type ToolEvent = Extract<AgentEvent, { type: 'tool' }>
 
@@ -17,8 +19,18 @@ export type FakeStep =
   | (ToolEvent & { content?: string })
   | { type: 'wait'; ms: number }
 
+export interface FakeSetupStep {
+  result: 'done' | 'failed'
+  /** How long the step takes. */
+  ms?: number
+  /** For failed: what went wrong. */
+  message?: string
+}
+
 export interface FakeAgentScript {
   detect?: AgentStatus
+  install?: FakeSetupStep & { version?: string }
+  signIn?: FakeSetupStep & { plan?: string }
   turns?: FakeStep[][]
 }
 
@@ -32,7 +44,7 @@ export interface FakeAgentProvider extends AgentProvider {
 const fallbackTurn: FakeStep[] = [{ type: 'text', text: 'OK.' }]
 
 export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgentProvider {
-  const status = script.detect ?? { installed: true, version: 'fake', signedIn: true }
+  let status = script.detect ?? { installed: true, version: 'fake', signedIn: true }
   const turns = [...(script.turns ?? [])]
   const sent: TurnInput[] = []
   const approvals: FakeAgentProvider['approvals'] = []
@@ -102,5 +114,20 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
     }
   }
 
-  return { sent, approvals, detect: async () => status, startSession }
+  async function setup(step: FakeSetupStep | undefined, change: Partial<AgentStatus>): Promise<AgentSetupResult> {
+    if (step?.ms) await new Promise((resolve) => setTimeout(resolve, step.ms))
+    if (step?.result === 'failed') return { ok: false, status, message: step.message ?? 'Failed' }
+    status = { ...status, ...change }
+    return { ok: true, status }
+  }
+
+  return {
+    sent,
+    approvals,
+    detect: async () => status,
+    install: () => setup(script.install, { installed: true, version: script.install?.version ?? status.version ?? 'fake' }),
+    signIn: () =>
+      setup(script.signIn, { signedIn: true, ...(script.signIn?.plan !== undefined && { plan: script.signIn.plan }) }),
+    startSession,
+  }
 }

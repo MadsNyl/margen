@@ -3,7 +3,7 @@
 // via `createHost`. Add new calls to `HostCalls` and new events to
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
-import type { AgentStatus } from './agent'
+import type { AgentSetupResult, AgentStatus } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
 export interface Project {
@@ -37,6 +37,10 @@ export interface DocumentList {
 
 export interface HostCalls {
   'agent.detect': () => AgentStatus
+  /** Runs the Agent's official installer. Resolves when it has finished. */
+  'agent.install': () => AgentSetupResult
+  /** Opens the Agent's own login in Terminal. Resolves once the Agent reports signed in, or gives up. */
+  'agent.signIn': () => AgentSetupResult
   /** Shows the folder picker and opens the chosen folder. `null` if the user cancels. */
   'projects.choose': () => Project | null
   /** Opens a folder as the current Project. Rejects if it isn't there. */
