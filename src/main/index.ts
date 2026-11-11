@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell, type WebContents } from 'electron'
@@ -22,6 +23,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'permissions.changed',
   'session.queue',
   'session.changed',
+  'checkpoints.changed',
   'update.changed',
 ]
 
@@ -137,6 +139,8 @@ void app.whenReady().then(() => {
     openExternal: (url) => shell.openExternal(url),
     // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
     projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
+    // Unpackaged (dev, Seam 2) `getVersion()` is Electron's own, so read Margen's package.json.
+    version: app.isPackaged ? app.getVersion() : JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8')).version,
   })
   serveDocuments(host)
   bindHostToIpc(host, ipcMain, () => BrowserWindow.getAllWindows(), FORWARDED_EVENTS)

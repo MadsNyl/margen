@@ -47,11 +47,29 @@ export interface OpenDocument {
   url: string
 }
 
-/** One thing in a Session's conversation: what the user sent, how they answered an approval-request, or something the Agent did. */
+/**
+ * One thing in a Session's conversation: what the user sent, how they answered an approval-request, or something the Agent did.
+ * A user entry names the Checkpoint taken just before its Turn, when there is one.
+ */
 export type SessionEntry =
-  | { type: 'user'; turn: TurnInput }
+  | { type: 'user'; turn: TurnInput; checkpoint?: string }
   | { type: 'approval-answer'; id: string; decision: ApprovalDecision }
   | AgentEvent
+
+/** A snapshot of the whole Project, taken before a Turn or before a revert. */
+export interface Checkpoint {
+  /** What `checkpoints.revert` takes. */
+  id: string
+  /** 1, 2, 3… in the order the Project's Checkpoints were taken. */
+  number: number
+  takenAt: string
+  /** `turn`: just before a Turn. `revert`: just before a revert, so the revert can be undone. */
+  reason: 'turn' | 'revert'
+  /** For `turn`: the Document and the number of the Session the Turn was in, and what the user wrote. */
+  document?: string
+  session?: number
+  text?: string
+}
 
 /** The open Document's Session, as the chat shows it. */
 export interface SessionView {
@@ -155,6 +173,13 @@ export interface HostCalls {
   'session.resume': (id: string) => SessionView
   /** The open Document's Sessions that have had a Turn, newest first. */
   'sessions.list': () => SessionSummary[]
+  /** The current Project's Checkpoints from every Session, newest first. */
+  'checkpoints.list': () => Checkpoint[]
+  /**
+   * Restores every file of the current Project to a Checkpoint, deleting files made since.
+   * Takes a `revert` Checkpoint first. Rejects while a Turn runs or the Queue is about to start one.
+   */
+  'checkpoints.revert': (id: string) => void
   /**
    * The Project page's chat bar. Opens the Document the message `@`-mentions, or
    * makes a new one named from it, and starts that Document's Session with the message.
@@ -162,6 +187,8 @@ export interface HostCalls {
   'project.send': (text: string) => OpenDocument
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
+  /** The running app's version, for Settings' About. */
+  'app.version': () => string
   'update.status': () => UpdateStatus
   /** Checks GitHub Releases and downloads a newer version if there is one. */
   'update.check': () => UpdateStatus
@@ -186,6 +213,8 @@ export interface HostEvents {
   'session.entry': { document: string; session: string; index: number; entry: SessionEntry }
   /** The open Document's active Session was replaced (New session, resume). */
   'session.changed': SessionView
+  /** The current Project's Checkpoints, newest first, whenever one is taken. */
+  'checkpoints.changed': Checkpoint[]
   'permissions.changed': PermissionPreset
   /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
   'session.queue': QueueView

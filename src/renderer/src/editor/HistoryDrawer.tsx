@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import type { SessionSummary } from '@shared/host-api'
 import { plural } from '../format'
 import { host } from '../host'
+import { CheckpointList } from './Checkpoints'
 
 type Tab = 'sessions' | 'checkpoints'
 
-/** The history drawer over the chat: the Document's Sessions to resume, and the Project's Checkpoints (ticket 11). */
-export function HistoryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** The history drawer over the chat: the Document's Sessions to resume, and the Project's Checkpoints. `running`: a Turn is, so reverting waits. */
+export function HistoryDrawer({ open, running, onClose }: { open: boolean; running: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('sessions')
   const [sessions, setSessions] = useState<SessionSummary[]>([])
 
@@ -35,8 +36,7 @@ export function HistoryDrawer({ open, onClose }: { open: boolean; onClose: () =>
         <DrawerTab selected={tab === 'sessions'} onSelect={() => setTab('sessions')}>
           Sessions
         </DrawerTab>
-        {/* Ticket 11 fills this tab with the Project's Checkpoints. */}
-        <DrawerTab selected={tab === 'checkpoints'} disabled onSelect={() => setTab('checkpoints')}>
+        <DrawerTab selected={tab === 'checkpoints'} onSelect={() => setTab('checkpoints')}>
           Checkpoints
         </DrawerTab>
         <button
@@ -71,6 +71,11 @@ export function HistoryDrawer({ open, onClose }: { open: boolean; onClose: () =>
             {sessions.length === 0 ? 'Sessions show up here once you send a message. ' : 'Resume any Session to pick up where you left off. '}
             Checkpoints belong to the Project, so every Session shares them.
           </p>
+        </div>
+      )}
+      {tab === 'checkpoints' && (
+        <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">
+          <CheckpointList disabled={running} />
         </div>
       )}
     </div>

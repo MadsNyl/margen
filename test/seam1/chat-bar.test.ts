@@ -56,8 +56,11 @@ describe('The Project chat bar', () => {
     expect(await host.call('document.current')).toEqual(opened)
     expect(entries[0]).toEqual({
       document: opened.path,
-      entry: { type: 'user', turn: { text: 'A summer menu for the café, with prices', annotations: [] } },
+      entry: { type: 'user', turn: { text: 'A summer menu for the café, with prices', annotations: [] }, checkpoint: expect.any(String) },
     })
+    expect(await host.call('checkpoints.list')).toMatchObject([
+      { reason: 'turn', document: opened.path, text: 'A summer menu for the café, with prices' },
+    ])
     expect(agent.sent).toEqual([{ text: 'A summer menu for the café, with prices', annotations: [] }])
   })
 
@@ -85,6 +88,7 @@ describe('The Project chat bar', () => {
     expect((await host.call('session.current'))?.entries[0]).toEqual({
       type: 'user',
       turn: { text: 'Make @campaigns/christmas.html warmer', annotations: [] },
+      checkpoint: expect.any(String),
     })
   })
 

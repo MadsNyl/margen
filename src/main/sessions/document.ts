@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { QueueView, SessionEntry, SessionSummary } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import type { PermissionPolicy } from '../permissions'
-import { startDocumentSession, type DocumentSession } from '.'
+import { startDocumentSession, type DocumentSession, type DocumentSessionOptions } from '.'
 import type { SessionStore, StoredSession } from './store'
 
 // One Document's Sessions: the active one, which the chat shows, and the past
@@ -27,6 +27,8 @@ export interface DocumentSessionsOptions {
   projectDir: string
   document: string
   permissions: PermissionPolicy
+  /** Takes the Checkpoint before each Turn: see `DocumentSessionOptions`. */
+  beforeTurn?: DocumentSessionOptions['beforeTurn']
   onEntry(session: string, entry: SessionEntry, index: number): void
   /** The active Session's Queue changed. */
   onQueue(queue: QueueView): void

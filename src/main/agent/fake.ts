@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
 import { approvalRequest, editorPolicy, type ToolRequest } from '../permissions'
@@ -20,6 +20,8 @@ export type FakeStep =
   | Exclude<AgentEvent, ToolEvent>
   /** With `content`, an edit or write really writes the file (relative to the Project) before the event is emitted. */
   | (ToolEvent & { content?: string })
+  /** With `removes`, a tool really deletes those files (relative to the Project) before the event is emitted, like `rm`. */
+  | (ToolEvent & { removes?: string[] })
   | { type: 'wait'; ms: number }
   /** A tool call that goes through the permission policy first; `id` becomes the approval-request's. */
   | { type: 'permission'; id: string; request: ToolRequest }
@@ -101,12 +103,13 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
           continue
         }
         if (step.type === 'tool') {
-          const { content, ...event } = step
+          const { content, removes, ...event } = step as ToolEvent & { content?: string; removes?: string[] }
           if (content !== undefined && 'file' in step) {
             const path = join(projectDir, step.file)
             await mkdir(dirname(path), { recursive: true })
             await writeFile(path, content)
           }
+          for (const file of removes ?? []) await rm(join(projectDir, file), { force: true })
           channel.push(event as ToolEvent)
           continue
         }

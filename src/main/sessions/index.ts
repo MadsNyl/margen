@@ -13,8 +13,13 @@ export interface DocumentSession {
   queue(): QueueView
   /** The Agent's session id, once a Turn has started it. */
   agentSessionId(): string | undefined
-  /** Starts a Turn, or queues it while one runs. */
-  send(turn: TurnInput): void
+  /**
+   * Starts a Turn, or queues it while one runs. Resolves once a Turn started now has
+   * reached the Agent, after `beforeTurn`; a queued one gets its own when it starts.
+   */
+  send(turn: TurnInput): Promise<void>
+  /** A Turn is running, or the Queue is about to start one. */
+  running(): boolean
   /** Answers a waiting approval-request, once; the answer becomes an entry. */
   answerApproval(id: string, decision: ApprovalDecision): void
   /** Allows every approval-request still waiting (the preset became Allow everything). */
@@ -39,6 +44,8 @@ export interface DocumentSessionOptions {
   permissions: PermissionPolicy
   /** Resumes this Agent session instead of starting a new one. */
   resumeId?: string
+  /** Runs before each Turn reaches the Agent: takes its Checkpoint and resolves with the id, or `undefined` if none was taken. */
+  beforeTurn?(turn: TurnInput): Promise<string | undefined>
   onEntry(entry: SessionEntry, index: number): void
   onQueue(queue: QueueView): void
 }
@@ -52,6 +59,7 @@ export function startDocumentSession({
   entries: stored = [],
   permissions,
   resumeId,
+  beforeTurn = async () => undefined,
   onEntry,
   onQueue,
 }: DocumentSessionOptions): DocumentSession {
@@ -60,10 +68,20 @@ export function startDocumentSession({
   const waiting = new Set<string>()
   let session: AgentSession | undefined
   let disposed = false
+  /** The latest Turn's way to the Agent: its Checkpoint, then the send. */
+  let starting = Promise.resolve()
   const queue = createTurnQueue({
+    // Every Turn, sent now or released from the Queue, gets its Checkpoint here.
     start(turn) {
-      add({ type: 'user', turn })
-      agentSession().send(turn)
+      starting = (async () => {
+        const checkpoint = await beforeTurn(turn).catch((error: unknown) => {
+          console.error('No Checkpoint before this Turn:', error)
+          return undefined
+        })
+        if (disposed) return
+        add({ type: 'user', turn, ...(checkpoint && { checkpoint }) })
+        agentSession().send(turn)
+      })()
     },
     onChange: () => !disposed && onQueue(queueView()),
   })
@@ -110,7 +128,11 @@ export function startDocumentSession({
     view: () => ({ document, id, number, entries: [...entries] }),
     queue: queueView,
     agentSessionId: () => session?.id,
-    send: (turn) => queue.send(turn),
+    async send(turn) {
+      queue.send(turn)
+      await starting
+    },
+    running: () => queue.running(),
     unqueue: (messageId) => queue.unqueue(messageId),
     answerApproval,
     allowWaiting() {
@@ -118,6 +140,8 @@ export function startDocumentSession({
     },
     async interrupt() {
       queue.hold()
+      // A Turn still taking its Checkpoint reaches the Agent first, then stops.
+      await starting
       await session?.interrupt()
     },
     dispose() {

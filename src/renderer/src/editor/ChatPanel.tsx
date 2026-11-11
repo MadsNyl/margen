@@ -1,10 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision, ToolEvent } from '@shared/agent'
 import type { PermissionPreset, SessionView } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
+import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
 import { AnnotationRows, Chips } from './annotations'
 import { useDraft } from './draft'
+import { CheckpointDivider } from './Checkpoints'
 import { HistoryDrawer } from './HistoryDrawer'
 import { ModelPicker } from './ModelPicker'
 import { QueuePanel } from './Queue'
@@ -19,6 +21,8 @@ export function ChatPanel({ document }: { document: string }) {
   const running = isRunning(items)
   const queue = useHostValue('session.queue', 'session.queue')
   const queued = queue?.document === document && queue.messages.length > 0 ? queue : undefined
+  // Reverting waits while a Turn runs or the Queue is about to start one.
+  const busy = running || (queued !== undefined && !queued.held)
   const scroller = useRef<HTMLDivElement>(null)
 
   // Esc stops the running Turn, unless something else (a menu, a popup) took it first.
@@ -58,12 +62,17 @@ export function ChatPanel({ document }: { document: string }) {
         {items.length === 0 ? (
           <div className="m-auto px-8 text-center text-[13px] leading-relaxed text-tx3">Describe a change, or Pick and Draw on the page.</div>
         ) : (
-          items.map((item, i) => <Item key={i} item={item} running={running && i === items.length - 1} />)
+          items.map((item, i) => (
+            <Fragment key={i}>
+              {item.kind === 'user' && item.checkpoint && <CheckpointDivider id={item.checkpoint} disabled={busy} />}
+              <Item item={item} running={running && i === items.length - 1} />
+            </Fragment>
+          ))
         )}
       </div>
       {queued && <QueuePanel queue={queued} />}
       <Composer running={running} queued={queued !== undefined} onStop={() => void host.call('session.interrupt')} />
-      <HistoryDrawer open={history} onClose={() => setHistory(false)} />
+      <HistoryDrawer open={history} running={busy} onClose={() => setHistory(false)} />
     </aside>
   )
 }
@@ -379,19 +388,20 @@ function Composer({
 
 const PRESET_LABEL: Record<PermissionPreset, string> = { editor: 'Editor', 'allow-everything': 'Allow all' }
 
-/** The active permission preset. It's switched in Settings (ticket 16). */
+/** The active permission preset. Clicking it opens Settings, where it's switched. */
 function PresetBadge() {
   const preset = useHostValue('permissions.preset', 'permissions.changed')
+  const openSettings = useOpenSettings()
   return (
-    <span
-      role="status"
+    <button
       aria-label="Permission preset"
       title={preset === 'allow-everything' ? 'Allow everything: Claude never asks' : 'Editor preset: shell commands and paths outside the Project ask first'}
-      className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2"
+      className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2 hover:bg-muted hover:text-tx"
+      onClick={openSettings}
     >
       <ShieldIcon />
       {preset && PRESET_LABEL[preset]}
-    </span>
+    </button>
   )
 }
 

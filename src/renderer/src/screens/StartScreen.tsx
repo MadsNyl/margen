@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
+import { useOpenSettings } from '../components/Settings'
 import { ArrowRightIcon, FolderIcon, PlusIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { plural } from '../format'
 import { host, useHostValue } from '../host'
@@ -8,13 +9,14 @@ import { host, useHostValue } from '../host'
 /** `naming` shows the New project card's name field; ⌘N in the app root turns it on. */
 export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (naming: boolean) => void }) {
   const recents = useHostValue('recents.list', 'recents.changed')
+  const openSettings = useOpenSettings()
 
   return (
     <main className="relative mx-2 mb-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
       <div className="grain-banner" aria-hidden />
       <header className="relative z-10 flex h-12 flex-none items-center justify-between px-3">
         <Brand />
-        <button className="icon-btn" title="Settings" aria-label="Settings">
+        <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
           <SettingsIcon />
         </button>
       </header>

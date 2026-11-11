@@ -240,6 +240,17 @@
   animation: notice-in 0.3s ease-out;
 }
 
+/* Settings and other dialogs rise into place. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.modal-in {
+  animation: modal-in 0.2s;
+}
+
 @utility crumb {
   display: inline-flex;
   align-items: center;
@@ -392,4 +403,22 @@
     border-color: rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.5);
   }
+}
+
+/* Checkpoints: the dashed divider before a Turn, and the line down the list. */
+.checkpoint::before,
+.checkpoint::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: repeating-linear-gradient(90deg, #dcdce0 0 4px, transparent 4px 8px);
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: #dcdce0;
 }

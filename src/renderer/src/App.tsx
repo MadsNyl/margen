@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AgentStatus } from '@shared/agent'
+import { SettingsProvider } from './components/Settings'
 import { host, useHostValue } from './host'
 import { EditorScreen } from './screens/EditorScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
@@ -51,21 +52,23 @@ export function App() {
   }, [ready, project])
 
   return (
-    <div className="flex h-full flex-col bg-shell">
-      {/* The macOS traffic lights sit in this draggable strip. */}
-      <div className="app-drag h-9 flex-none" />
-      {screen.name === 'onboarding' && (
-        <OnboardingScreen initial={screen.status} onContinue={() => setScreen({ name: 'start' })} />
-      )}
-      {ready &&
-        project !== undefined &&
-        (!project ? (
-          <StartScreen naming={naming} onNaming={setNaming} />
-        ) : document ? (
-          <EditorScreen project={project} document={document} />
-        ) : (
-          <ProjectPage key={project.path} project={project} />
-        ))}
-    </div>
+    <SettingsProvider>
+      <div className="flex h-full flex-col bg-shell">
+        {/* The macOS traffic lights sit in this draggable strip. */}
+        <div className="app-drag h-9 flex-none" />
+        {screen.name === 'onboarding' && (
+          <OnboardingScreen initial={screen.status} onContinue={() => setScreen({ name: 'start' })} />
+        )}
+        {ready &&
+          project !== undefined &&
+          (!project ? (
+            <StartScreen naming={naming} onNaming={setNaming} />
+          ) : document ? (
+            <EditorScreen project={project} document={document} />
+          ) : (
+            <ProjectPage key={project.path} project={project} />
+          ))}
+      </div>
+    </SettingsProvider>
   )
 }
