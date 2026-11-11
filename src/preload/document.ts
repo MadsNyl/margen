@@ -4,13 +4,16 @@ import type { Box } from '@shared/agent'
 import {
   DOCUMENT_BRIDGE_CHANNEL,
   MODE_KEYS,
+  PICK_KEYS,
   type FromDocument,
   type Mode,
   type ModeKey,
+  type PickKey,
   type ScrollPosition,
   type ToDocument,
   type TrackedElement,
 } from '@shared/document-bridge'
+import { arrowTarget, type ArrowKey } from './arrows'
 import { describeElement, findElement, rectOf, selectorOf } from './elements'
 
 // Margen's script inside the Document view. It is the `<webview>`'s preload, so it
@@ -104,6 +107,12 @@ window.addEventListener(
   'keydown',
   (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return
+    if (mode === 'pick' && PICK_KEYS.includes(event.key as PickKey) && !editable(event.target)) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      pickKey(event.key as PickKey)
+      return
+    }
     const key = event.key === 'Escape' ? 'Escape' : event.key.toLowerCase()
     if (!MODE_KEYS.includes(key as ModeKey) || (key !== 'Escape' && editable(event.target))) return
     send({ type: 'key', key: key as ModeKey })
@@ -133,19 +142,27 @@ function setMode(next: Mode) {
     document.adoptedStyleSheets = mode === 'browse' ? others : [...others, plainCursor]
   }
   if (mode !== 'pick') hovered = null
+  byKey = false
   watch()
 }
 
 // Pick: the highlight follows the mouse; a click picks.
 
 let hovered: Element | null = null
+/** Whether the highlight got where it is by the arrow keys (the editor shows the key guide). */
+let byKey = false
 let picks = 0
+let pointer = { x: NaN, y: NaN }
 
 window.addEventListener(
   'pointermove',
   (event) => {
-    if (mode !== 'pick' || !isElement(event.target) || event.target === hovered) return
+    // Only a real move takes the highlight back from the keys, not the page scrolling under a still mouse.
+    const moved = event.clientX !== pointer.x || event.clientY !== pointer.y
+    pointer = { x: event.clientX, y: event.clientY }
+    if (mode !== 'pick' || !isElement(event.target) || (event.target === hovered && !byKey) || !moved) return
     hovered = event.target
+    byKey = false
     watch()
   },
   { capture: true, passive: true },
@@ -156,6 +173,26 @@ window.addEventListener('mouseout', (event) => {
     watch()
   }
 })
+
+/** Arrow-key Pick: ← → walk every visible element in document order, ↑ parent, ↓ first child, ↵ picks. */
+function pickKey(key: PickKey) {
+  if (key === 'Enter') {
+    if (hovered?.isConnected) pick(hovered)
+    return
+  }
+  const from = hovered?.isConnected ? hovered : null
+  const next = arrowTarget<Element>(document.body, from, key as ArrowKey, visible)
+  if (!next) return
+  hovered = next
+  byKey = true
+  next.scrollIntoView({ block: 'nearest' })
+  watch()
+}
+
+function visible(element: Element): boolean {
+  const { width, height } = element.getBoundingClientRect()
+  return width > 0 && height > 0 && element.checkVisibility({ visibilityProperty: true })
+}
 
 function pick(element: Element) {
   const id = `pick-${++picks}`
@@ -168,7 +205,7 @@ function pick(element: Element) {
 // and the followed elements' boxes go to the editor when they've changed.
 
 let followed = new Map<string, { selector: string; element: Element | null }>()
-let sentHover = 'null'
+let sentHover = '[null,false]'
 let sentRects = '{}'
 let frame = 0
 
@@ -189,10 +226,10 @@ function watch() {
 function update() {
   frame = 0
   const target = hovered?.isConnected ? { selector: selectorOf(hovered), rect: rectOf(hovered) } : null
-  const hover = JSON.stringify(target)
+  const hover = JSON.stringify([target, byKey])
   if (hover !== sentHover) {
     sentHover = hover
-    send({ type: 'hover', target })
+    send({ type: 'hover', target, ...(target && byKey && { byKey: true }) })
   }
   const rects: Record<string, Box | null> = {}
   for (const [id, entry] of followed) {
@@ -211,6 +248,7 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   if (message.type === 'restore-scroll') restore(message.scroll)
   else if (message.type === 'mode') setMode(message.mode)
   else if (message.type === 'track') track(message.elements)
+  else if (message.type === 'key' && mode === 'pick') pickKey(message.key)
 })
 
 window.addEventListener('DOMContentLoaded', () => send({ type: 'ready', url: location.href }))

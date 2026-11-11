@@ -5,7 +5,7 @@ import type { Mode } from '@shared/document-bridge'
 // per Mode. Draw (D) joins it in ticket 14.
 
 const HINTS: Partial<Record<Mode, string>> = {
-  pick: 'Hover over an element and click to pick it',
+  pick: 'Hover or use the arrow keys to move between elements. Click or ↵ to pick',
 }
 
 const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactNode }[] = [
@@ -20,7 +20,7 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
     mode: 'pick',
     label: 'Pick',
     key: 'P',
-    tip: 'Pick: click an element',
+    tip: 'Pick: click an element, or move with the arrow keys',
     icon: (
       <>
         <rect x="2.5" y="2.5" width="10" height="10" rx="1.5" strokeDasharray="2.2 2" />
@@ -30,11 +30,38 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
   },
 ]
 
-export function Toolbar({ mode, onMode }: { mode: Mode; onMode: (mode: Mode) => void }) {
+/** While Pick moves by the arrow keys: which key does what. */
+const KEY_GUIDE: [string, string][] = [
+  ['↑', 'parent'],
+  ['↓', 'child'],
+  ['← →', 'previous / next'],
+  ['↵', 'pick'],
+  ['esc', 'done'],
+]
+
+export function Toolbar({ mode, onMode, keyGuide }: { mode: Mode; onMode: (mode: Mode) => void; keyGuide?: boolean }) {
   const hint = HINTS[mode]
   return (
     <>
-      {hint && (
+      {keyGuide && (
+        <div
+          role="note"
+          aria-label="Keys"
+          className="pointer-events-none absolute bottom-20 left-1/2 z-19 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] whitespace-nowrap text-tx2 shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
+        >
+          {KEY_GUIDE.map(([keys, action]) => (
+            <span key={action} className="flex items-center gap-1.5">
+              {keys.split(' ').map((key) => (
+                <kbd key={key} className="ml-1">
+                  {key}
+                </kbd>
+              ))}
+              {action}
+            </span>
+          ))}
+        </div>
+      )}
+      {hint && !keyGuide && (
         <div
           key={mode}
           className="mode-hint pointer-events-none absolute bottom-20 left-1/2 z-19 -translate-x-1/2 rounded-full bg-white px-3.5 py-[7px] text-[12.5px] whitespace-nowrap text-tx2 shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"

@@ -30,6 +30,10 @@ export type Mode = 'browse' | 'pick' | 'draw'
 export const MODE_KEYS = ['v', 'p', 'd', 'Escape'] as const
 export type ModeKey = (typeof MODE_KEYS)[number]
 
+/** Arrow-key Pick (13): the arrows move the highlight, ↵ picks. */
+export const PICK_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'] as const
+export type PickKey = (typeof PICK_KEYS)[number]
+
 /** An element the editor follows (a marker, a glow), and how to find it again after a reload. */
 export interface TrackedElement {
   id: string
@@ -42,8 +46,8 @@ export type FromDocument =
   | { type: 'ready'; url: string }
   /** The user scrolled the page (throttled). */
   | { type: 'scroll'; scroll: ScrollPosition }
-  /** In Pick: the element the highlight is on, or `null` when it's on nothing. */
-  | { type: 'hover'; target: { selector: string; rect: Box } | null }
+  /** In Pick: the element the highlight is on, or `null` when it's on nothing. `byKey`: moved there with the arrow keys. */
+  | { type: 'hover'; target: { selector: string; rect: Box } | null; byKey?: boolean }
   /** In Pick: the user picked an element. The script follows it as `id` until the next `track` leaves it out. */
   | { type: 'pick'; id: string; element: ElementDescriptor; rect: Box }
   /** Where the followed elements are now, sent when any of them moves. `null`: not on the page. */
@@ -58,6 +62,8 @@ export type ToDocument =
   | { type: 'mode'; mode: Mode }
   /** The elements to follow (replacing the last list); their rects come back as `rects`. */
   | { type: 'track'; elements: TrackedElement[] }
+  /** In Pick: an arrow or ↵ pressed in the editor while the page didn't have focus. */
+  | { type: 'key'; key: PickKey }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isScroll = (value: unknown): value is ScrollPosition =>
@@ -90,7 +96,8 @@ export function parseFromDocument(value: unknown): FromDocument | null {
     if (message.target === null) return { type: 'hover', target: null }
     const target = message.target
     const rect = isObject(target) ? box(target.rect) : null
-    return rect && isObject(target) && isString(target.selector, 2000) ? { type: 'hover', target: { selector: target.selector, rect } } : null
+    const byKey = message.byKey === true && { byKey: true }
+    return rect && isObject(target) && isString(target.selector, 2000) ? { type: 'hover', target: { selector: target.selector, rect }, ...byKey } : null
   }
   if (message.type === 'pick') {
     const element = descriptor(message.element)
