@@ -3,7 +3,8 @@ import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
-import { projectPolicy } from '../permissions'
+import { presetPolicy } from '../permissions'
+import { createPresetStore, isPreset } from '../permissions/preset'
 import { startDocumentSession, type DocumentSession } from '../sessions'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
@@ -50,6 +51,7 @@ export function createHost({
   let document: OpenDocument | null = null
   let stopWatchingDocument = () => {}
   let session: DocumentSession | null = null
+  const preset = createPresetStore(dataDir)
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -74,7 +76,7 @@ export function createHost({
       agent,
       projectDir: project.path,
       document: path,
-      permissions: projectPolicy(project.path),
+      permissions: presetPolicy(project.path, preset.get),
       onEntry: (entry, index) => events.emit('session.entry', { document: path, index, entry }),
     })
     events.emit('document.opened', document)
@@ -126,6 +128,14 @@ export function createHost({
       session.send(turn)
     },
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
+    'permissions.preset': () => preset.get(),
+    'permissions.setPreset': async (next) => {
+      if (!isPreset(next)) throw new Error(`Not a permission preset: ${String(next)}`)
+      await preset.set(next)
+      events.emit('permissions.changed', next)
+      if (next === 'allow-everything') session?.allowWaiting()
+      return next
+    },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
       await clearRecents(dataDir)

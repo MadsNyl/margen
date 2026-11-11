@@ -9,7 +9,7 @@ export interface StartSessionOptions {
   model?: string
   effort?: string
   resumeId?: string
-  /** Decides which tool calls run without asking. Defaults to `projectPolicy(projectDir)`. */
+  /** Decides which tool calls run without asking. Defaults to the Editor preset, `editorPolicy(projectDir)`. */
   permissions?: PermissionPolicy
 }
 

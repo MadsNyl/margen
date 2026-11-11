@@ -92,7 +92,8 @@ export type AgentEvent =
   /** A piece of the reply. Consecutive text events join up into one reply. */
   | { type: 'text'; text: string }
   | ToolEvent
-  | { type: 'approval-request'; id: string; kind: 'shell' | 'outside-project'; detail: string }
+  /** A tool call waiting for Allow once or Deny. `other`: a tool Margen doesn't know, by name. */
+  | { type: 'approval-request'; id: string; kind: 'shell' | 'outside-project' | 'other'; detail: string }
   /** Every Turn ends with exactly one turn-end; `failed` comes after an error event. */
   | { type: 'turn-end'; reason: 'done' | 'interrupted' | 'failed' }
   /** `signed-out`: the Agent's own login is missing or expired, so the fix is to sign in again. */

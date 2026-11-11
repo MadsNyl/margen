@@ -47,8 +47,11 @@ export interface OpenDocument {
   url: string
 }
 
-/** One thing in a Session's conversation: what the user sent, or something the Agent did. */
-export type SessionEntry = { type: 'user'; turn: TurnInput } | AgentEvent
+/** One thing in a Session's conversation: what the user sent, how they answered an approval-request, or something the Agent did. */
+export type SessionEntry =
+  | { type: 'user'; turn: TurnInput }
+  | { type: 'approval-answer'; id: string; decision: ApprovalDecision }
+  | AgentEvent
 
 /** The open Document's Session, as the chat shows it. */
 export interface SessionView {
@@ -56,6 +59,12 @@ export interface SessionView {
   document: string
   entries: SessionEntry[]
 }
+
+/**
+ * How much the Agent may do without asking. `editor`: read the Project, write inside it
+ * and use the web; shell commands and paths outside the Project ask. `allow-everything`: never asks.
+ */
+export type PermissionPreset = 'editor' | 'allow-everything'
 
 /** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
 export type UpdateStatus =
@@ -96,6 +105,10 @@ export interface HostCalls {
   /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
   'session.send': (turn: TurnInput) => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** The permission preset every tool request goes through. */
+  'permissions.preset': () => PermissionPreset
+  /** Switches the preset and keeps it; it applies from the next tool request, also in a running Turn. */
+  'permissions.setPreset': (preset: PermissionPreset) => PermissionPreset
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
@@ -120,6 +133,7 @@ export interface HostEvents {
   'document.updated': { path: string }
   /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
   'session.entry': { document: string; index: number; entry: SessionEntry }
+  'permissions.changed': PermissionPreset
 }
 
 export type HostCallName = keyof HostCalls

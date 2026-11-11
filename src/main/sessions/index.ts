@@ -12,7 +12,10 @@ export interface DocumentSession {
   /** The Agent's session id, once a Turn has started it. */
   agentSessionId(): string | undefined
   send(turn: TurnInput): void
+  /** Answers a waiting approval-request, once; the answer becomes an entry. */
   answerApproval(id: string, decision: ApprovalDecision): void
+  /** Allows every approval-request still waiting (the preset became Allow everything). */
+  allowWaiting(): void
   interrupt(): Promise<void>
   /** Stops the Agent and sends no more entries. */
   dispose(): void
@@ -38,6 +41,8 @@ export function startDocumentSession({
   onEntry,
 }: DocumentSessionOptions): DocumentSession {
   const entries: SessionEntry[] = []
+  /** approval-requests of the running Turn not answered yet. */
+  const waiting = new Set<string>()
   let session: AgentSession | undefined
   let running = false
   let disposed = false
@@ -51,7 +56,11 @@ export function startDocumentSession({
   async function pump(from: AgentSession) {
     for await (const event of from.events) {
       if (disposed) return
-      if (event.type === 'turn-end') running = false
+      if (event.type === 'turn-end') {
+        running = false
+        waiting.clear()
+      }
+      if (event.type === 'approval-request') waiting.add(event.id)
       add(event)
     }
   }
@@ -64,6 +73,12 @@ export function startDocumentSession({
     return session
   }
 
+  function answerApproval(id: string, decision: ApprovalDecision) {
+    if (!waiting.delete(id)) return
+    add({ type: 'approval-answer', id, decision })
+    session?.answerApproval(id, decision)
+  }
+
   return {
     view: () => ({ document, entries: [...entries] }),
     agentSessionId: () => session?.id,
@@ -73,7 +88,10 @@ export function startDocumentSession({
       add({ type: 'user', turn })
       agentSession().send(turn)
     },
-    answerApproval: (id, decision) => session?.answerApproval(id, decision),
+    answerApproval,
+    allowWaiting() {
+      for (const id of [...waiting]) answerApproval(id, 'allow-once')
+    },
     interrupt: async () => session?.interrupt(),
     dispose() {
       disposed = true
