@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
-import { open } from 'node:fs/promises'
+import { open, stat } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { IGNORED_FOLDERS } from './documents'
 
@@ -11,6 +11,8 @@ export const DOCUMENT_SCHEME = 'margen-doc'
 
 /** How long the folder must be quiet after a write before the view reloads. */
 const SETTLE_MS = 200
+/** How often the Document's own file is checked, backing up file events that macOS delivers late or drops. */
+const POLL_MS = 500
 
 /** A stable id for a Project folder: the host part of its `margen-doc://` URLs, so its origin never changes. */
 export function projectId(projectDir: string): string {
@@ -73,20 +75,45 @@ export function watchDocument(projectDir: string, path: string, onChange: () => 
     return parts.join('/') === path || !/\.html$/i.test(filename)
   }
 
+  const file = resolve(projectDir, path)
+  const signature = () => stat(file).then((s) => `${s.size}:${s.mtimeMs}`, () => 'gone')
+  let seen: string | undefined
+  let stopped = false
+  // One reload per settled change, whichever noticed it first: the poll then treats the new state as seen.
+  const fire = async () => {
+    seen = await signature()
+    if (!stopped) onChange()
+  }
+
   let watcher: FSWatcher | undefined
   try {
     watcher = watch(projectDir, { recursive: true }, (_type, filename) => {
       if (!filename || !counts(filename)) return
       clearTimeout(timer)
-      timer = setTimeout(onChange, SETTLE_MS)
+      timer = setTimeout(fire, SETTLE_MS)
     })
     watcher.on('error', () => watcher?.close())
   } catch {
     watcher = undefined
   }
 
+  // Backs up the watcher for the Document itself: a changed size or mtime counts as a write.
+  const check = async () => {
+    const now = await signature()
+    if (stopped) return
+    if (seen !== undefined && now !== seen) {
+      clearTimeout(timer)
+      timer = setTimeout(fire, SETTLE_MS)
+    }
+    seen = now
+  }
+  void check()
+  const poll = setInterval(() => void check(), POLL_MS)
+
   return () => {
+    stopped = true
     clearTimeout(timer)
+    clearInterval(poll)
     watcher?.close()
   }
 }

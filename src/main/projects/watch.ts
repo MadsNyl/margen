@@ -3,6 +3,11 @@ import type { DocumentList } from '@shared/host-api'
 import { IGNORED_FOLDERS, listDocuments } from './documents'
 
 const SETTLE_MS = 80
+/**
+ * macOS file events can arrive late or not at all for writes made just after
+ * the watch starts or under heavy load, so a slow rescan backs them up.
+ */
+const POLL_MS = 1000
 
 /**
  * Watches a Project folder and calls `onChange` with the new Documents list
@@ -40,9 +45,12 @@ export function watchDocuments(projectDir: string, initial: DocumentList, onChan
     watcher = undefined
   }
 
+  const poll = setInterval(rescan, POLL_MS)
+
   return () => {
     stopped = true
     clearTimeout(timer)
+    clearInterval(poll)
     watcher?.close()
   }
 }
