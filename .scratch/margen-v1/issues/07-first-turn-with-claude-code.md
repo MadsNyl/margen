@@ -22,3 +22,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - Request summarised thinking, or thinking text arrives empty.
 - Ignore unknown SDK message types (the user's `claude` may be older or newer than the SDK expects).
 - Paths come back resolved (e.g. `/private/tmp/...`); resolve both sides before comparing to the Project.
+- From ticket 02: pass `AgentStatus.path` as the SDK executable path; the Claude provider's `startSession` currently throws. User story 7 (expired login) is yours: route "Sign in again" to `agent.signIn` or the Onboarding screen.
+- Run `claude` with the user's login-shell PATH/env (npm-installed `claude` needs `node` on PATH; T3 Code captures the login shell env).
