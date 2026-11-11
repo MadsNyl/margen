@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, Options, PermissionResult, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { AgentEvent, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
-import { projectPolicy, type ToolRequest } from '../../permissions'
+import type { CanUseTool, HookCallbackMatcher, PermissionResult, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { AgentEvent, AgentStatus, ApprovalDecision, Effort, TurnInput } from '@shared/agent'
+import { approvalRequest, editorPolicy, type ToolRequest } from '../../permissions'
 import { createChannel } from '../channel'
 import type { AgentSession, StartSessionOptions } from '../provider'
 import { createMessageMapper } from './messages'
@@ -9,34 +9,55 @@ import type { ClaudeRun, ClaudeSystem } from './system'
 
 // One Claude Code session: a long-lived `query()` fed one user message per
 // Turn (streaming input), started on the first Turn. If `claude` exits, the
-// next Turn starts it again, resuming the same session.
+// next Turn starts it again, resuming the same session. So does a Turn with
+// another model or effort than the running `claude` has.
 
 const SIGNED_OUT = 'Claude Code is signed out. Sign in again to continue.'
 const NOT_INSTALLED = "Claude Code isn't installed. Set it up from the Start screen."
 const STDERR_LINES = 20
 
-type Effort = NonNullable<Options['effort']>
+interface RunSettings {
+  model: string | undefined
+  effort: Effort | undefined
+}
+
+/**
+ * `claude` runs read-only shell commands (`ls`, `cat`) without calling `canUseTool`.
+ * Saying "ask" here sends every shell command through it, so the policy decides.
+ */
+const ASK_BEFORE_SHELL: HookCallbackMatcher = {
+  matcher: 'Bash',
+  hooks: [async () => ({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask' } })],
+}
 
 export function startClaudeSession(
   system: ClaudeSystem,
   detect: () => Promise<AgentStatus>,
-  { projectDir, model, effort, resumeId, permissions = projectPolicy(projectDir) }: StartSessionOptions,
+  { projectDir, model, effort, resumeId, permissions = editorPolicy(projectDir) }: StartSessionOptions,
 ): AgentSession {
   const id = resumeId ?? randomUUID()
   const events = createChannel<AgentEvent>()
   const approvals = new Map<string, (decision: ApprovalDecision) => void>()
-  let run: { claude: ClaudeRun; input: ReturnType<typeof createChannel<SDKUserMessage>> } | undefined
+  let run: { claude: ClaudeRun; input: ReturnType<typeof createChannel<SDKUserMessage>>; settings: RunSettings } | undefined
   /** Whether `claude` already knows this session, so a restart resumes it. */
   let known = resumeId !== undefined
   let running = false
+  /** Whether the running Turn's message has reached `claude`. */
+  let pushed = false
   let interrupting = false
+  /** Interrupted before its message reached `claude`: the Turn ends without running. */
+  let interruptBeforePush = false
+  /** Turns sent and not yet started. */
+  let waiting = 0
   let closed = false
   let turns = Promise.resolve()
 
   function emit(event: AgentEvent) {
     if (event.type === 'turn-end') {
       running = false
+      pushed = false
       interrupting = false
+      interruptBeforePush = false
     }
     events.push(event)
   }
@@ -55,18 +76,13 @@ export function startClaudeSession(
       approvals.set(approvalId, resolve)
       signal.addEventListener('abort', () => resolve('deny'), { once: true })
     })
-    events.push({
-      type: 'approval-request',
-      id: approvalId,
-      kind: request.kind === 'shell' ? 'shell' : 'outside-project',
-      detail: describe(toolName, request),
-    })
+    events.push(approvalRequest(approvalId, request))
     const answer = await decision
     approvals.delete(approvalId)
     return answer === 'allow-once' ? allow : { behavior: 'deny', message: 'The user denied this.' }
   }
 
-  function start(claudePath: string, env: Record<string, string>) {
+  function start(claudePath: string, env: Record<string, string>, settings: RunSettings) {
     const input = createChannel<SDKUserMessage>()
     const mapper = createMessageMapper(projectDir)
     const stderr: string[] = []
@@ -83,8 +99,9 @@ export function startClaudeSession(
         thinking: { type: 'adaptive', display: 'summarized' },
         includePartialMessages: true,
         canUseTool,
-        ...(model && { model }),
-        ...(effort && { effort: effort as Effort }),
+        hooks: { PreToolUse: [ASK_BEFORE_SHELL] },
+        ...(settings.model && { model: settings.model }),
+        ...(settings.effort && { effort: settings.effort }),
         ...(known ? { resume: id } : { sessionId: id }),
         stderr: (text) => {
           stderr.push(...text.split('\n').filter((line) => line.trim()))
@@ -92,7 +109,7 @@ export function startClaudeSession(
         },
       },
     })
-    const current = { claude, input }
+    const current = { claude, input, settings }
     run = current
 
     void (async () => {
@@ -105,9 +122,10 @@ export function startClaudeSession(
       } catch (error) {
         failure = error instanceof Error ? error.message : String(error)
       }
-      if (run === current) run = undefined
+      const replaced = run !== current
+      if (!replaced) run = undefined
       input.close()
-      if (closed || !running) return
+      if (closed || replaced || !running) return
       const detail = stderr.at(-1)
       const message = failure ?? 'Claude Code stopped unexpectedly.'
       fail(detail && !message.includes(detail) ? `${message}: ${detail}` : message)
@@ -115,16 +133,29 @@ export function startClaudeSession(
     return current
   }
 
+  function stop(current: NonNullable<typeof run>) {
+    run = undefined
+    current.claude.close()
+    current.input.close()
+  }
+
   async function turn(input: TurnInput) {
+    waiting--
     if (closed) return
     running = true
-    if (!run) {
+    const settings: RunSettings = { model: input.model ?? model, effort: input.effort ?? effort }
+    if (run && (run.settings.model !== settings.model || run.settings.effort !== settings.effort)) stop(run)
+    if (!run && !interruptBeforePush) {
       const status = await detect()
       if (!status.path) return fail(NOT_INSTALLED, 'not-installed')
       if (!status.signedIn) return fail(SIGNED_OUT, 'signed-out')
       if (closed) return
-      start(status.path, await system.loginEnv())
+      const env = await system.loginEnv()
+      if (closed) return
+      if (!interruptBeforePush) start(status.path, env, settings)
     }
+    if (interruptBeforePush) return emit({ type: 'turn-end', reason: 'interrupted' })
+    pushed = true
     // Ticket 12 builds the prompt from the Annotations too (src/main/turns/).
     run?.input.push({ type: 'user', parent_tool_use_id: null, message: { role: 'user', content: input.text } })
   }
@@ -138,12 +169,17 @@ export function startClaudeSession(
     id,
     events: events.iterable,
     send(input) {
+      waiting++
       turns = turns.then(() => turn(input))
     },
     async interrupt() {
-      if (!running || !run) return
-      interrupting = true
+      if (!running && waiting === 0) return
       denyAll()
+      if (!pushed || !run) {
+        interruptBeforePush = true
+        return
+      }
+      interrupting = true
       await run.claude.interrupt()
     },
     answerApproval(approvalId, decision) {
@@ -168,12 +204,12 @@ function toolRequest(toolName: string, input: Record<string, unknown>, projectDi
     case 'Glob':
     case 'Grep':
     case 'LS':
-      return { kind: 'read', path }
+      return { kind: 'read', path, tool: toolName }
     case 'Write':
     case 'Edit':
     case 'MultiEdit':
     case 'NotebookEdit':
-      return { kind: 'write', path }
+      return { kind: 'write', path, tool: toolName }
     case 'Bash':
       return { kind: 'shell', command: typeof input.command === 'string' ? input.command : '' }
     case 'WebFetch':
@@ -181,17 +217,5 @@ function toolRequest(toolName: string, input: Record<string, unknown>, projectDi
       return { kind: 'web' }
     default:
       return { kind: 'other', name: toolName }
-  }
-}
-
-function describe(toolName: string, request: ToolRequest): string {
-  switch (request.kind) {
-    case 'shell':
-      return request.command
-    case 'read':
-    case 'write':
-      return `${toolName} ${request.path}`
-    default:
-      return toolName
   }
 }

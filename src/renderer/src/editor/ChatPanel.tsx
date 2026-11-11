@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
-import type { SessionView } from '@shared/host-api'
+import type { PermissionPreset, SessionView } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
-import { host } from '../host'
+import { host, useHostValue } from '../host'
 import { CheckpointDivider } from './Checkpoints'
 import { HistoryDrawer } from './HistoryDrawer'
+import { ModelPicker, type ModelChoice } from './ModelPicker'
+import { QueuePanel } from './Queue'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
 
 /** The chat panel: the open Document's Session and the Composer. */
@@ -14,7 +16,21 @@ export function ChatPanel({ document }: { document: string }) {
   const items = useMemo(() => toChat(entries ?? []), [entries])
   const [history, setHistory] = useState(false)
   const running = isRunning(items)
+  const queue = useHostValue('session.queue', 'session.queue')
+  const queued = queue?.document === document && queue.messages.length > 0 ? queue : undefined
+  // Reverting waits while a Turn runs or the Queue is about to start one.
+  const busy = running || (queued !== undefined && !queued.held)
   const scroller = useRef<HTMLDivElement>(null)
+
+  // Esc stops the running Turn, unless something else (a menu, a popup) took it first.
+  useEffect(() => {
+    if (!running) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) void host.call('session.interrupt')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [running])
 
   useLayoutEffect(() => {
     const el = scroller.current
@@ -45,14 +61,20 @@ export function ChatPanel({ document }: { document: string }) {
         ) : (
           items.map((item, i) => (
             <Fragment key={i}>
-              {item.kind === 'user' && item.checkpoint && <CheckpointDivider id={item.checkpoint} disabled={running} />}
+              {item.kind === 'user' && item.checkpoint && <CheckpointDivider id={item.checkpoint} disabled={busy} />}
               <Item item={item} running={running && i === items.length - 1} />
             </Fragment>
           ))
         )}
       </div>
-      <Composer running={running} onSend={(turn) => void host.call('session.send', turn).catch(() => {})} />
-      <HistoryDrawer open={history} running={running} onClose={() => setHistory(false)} />
+      {queued && <QueuePanel queue={queued} />}
+      <Composer
+        running={running}
+        queued={queued !== undefined}
+        onSend={(turn) => void host.call('session.send', turn).catch(() => {})}
+        onStop={() => void host.call('session.interrupt')}
+      />
+      <HistoryDrawer open={history} running={busy} onClose={() => setHistory(false)} />
     </aside>
   )
 }
@@ -135,7 +157,7 @@ function Part({ part }: { part: ReplyPart }) {
     case 'tool':
       return <ToolCard tool={part.tool} />
     case 'approval':
-      return <Approval request={part.request} />
+      return <Approval request={part.request} answer={part.answer} />
     case 'error':
       return <ErrorCard error={part.error} />
   }
@@ -200,25 +222,36 @@ function ToolCard({ tool }: { tool: ToolEvent }) {
   )
 }
 
-/** An approval request. Ticket 09 makes these the prototype's cards and adds the permission presets. */
-function Approval({ request }: { request: ApprovalRequest }) {
-  const [answer, setAnswer] = useState<ApprovalDecision>()
-  const what = request.kind === 'shell' ? 'run a shell command' : 'go outside the Project'
+const ASKS_TO: Record<ApprovalRequest['kind'], string> = {
+  shell: 'run a shell command',
+  'outside-project': 'go outside the Project',
+  other: 'use a tool',
+}
+
+/** An approval request: Allow once or Deny, then the answer as a resolved card. */
+function Approval({ request, answer }: { request: ApprovalRequest; answer: ApprovalDecision | undefined }) {
+  const [sent, setSent] = useState<ApprovalDecision>()
+  const resolved = answer ?? sent
   const decide = (decision: ApprovalDecision) => {
-    setAnswer(decision)
+    setSent(decision)
     void host.call('session.answerApproval', request.id, decision)
   }
-  if (answer) {
+  if (resolved) {
+    const allowed = resolved === 'allow-once'
     return (
-      <div className="my-1.5 rounded-xl bg-mint px-3 py-2 text-xs text-[#185a36]">
-        {answer === 'allow-once' ? '✓ Allowed once' : 'Denied'} · <span className="font-mono">{request.detail}</span>
+      <div
+        role="group"
+        aria-label="Approval"
+        className={`my-1.5 rounded-xl px-3 py-2 text-xs ${allowed ? 'bg-mint text-[#185a36]' : 'bg-muted text-tx2'}`}
+      >
+        {allowed ? '✓ Allowed once' : 'Denied'} · <span className="font-mono break-all">{request.detail}</span>
       </div>
     )
   }
   return (
-    <div className="my-1.5 rounded-xl border border-line bg-white px-3 py-2.5 text-[12.5px]">
+    <div role="group" aria-label="Approval" className="my-1.5 rounded-xl border border-line bg-white px-3 py-2.5 text-[12.5px]">
       <div className="mb-2 text-tx2">
-        Claude wants to {what}: <span className="font-mono text-[11.5px] break-all text-tx">{request.detail}</span>
+        Claude wants to {ASKS_TO[request.kind]}: <span className="font-mono text-[11.5px] break-all text-tx">{request.detail}</span>
       </div>
       <div className="flex gap-1.5">
         <button className="btn btn-primary h-7 px-3 text-[12px]" onClick={() => decide('allow-once')}>
@@ -270,11 +303,23 @@ function ErrorCard({ error }: { error: AgentError }) {
 
 const MAX_INPUT_HEIGHT = 160
 
-/** The draft message. ↵ sends, ⇧↵ makes a new line. The Queue (ticket 10) lets it send during a Turn. */
-function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnInput) => void }) {
+/** The draft message. ↵ sends, or queues it during a Turn; ⇧↵ makes a new line. */
+function Composer({
+  running,
+  queued,
+  onSend,
+  onStop,
+}: {
+  running: boolean
+  /** The Queue shows above, so the top corners join it. */
+  queued: boolean
+  onSend: (turn: TurnInput) => void
+  onStop: () => void
+}) {
   const [text, setText] = useState('')
+  const [choice, setChoice] = useState<ModelChoice>({})
   const input = useRef<HTMLTextAreaElement>(null)
-  const canSend = text.trim() !== '' && !running
+  const canSend = text.trim() !== ''
 
   useLayoutEffect(() => {
     const el = input.current
@@ -285,12 +330,17 @@ function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnIn
 
   const send = () => {
     if (!canSend) return
-    onSend({ text: text.trim(), annotations: [] })
+    onSend({
+      text: text.trim(),
+      annotations: [],
+      ...(choice.model && { model: choice.model }),
+      ...(choice.effort && { effort: choice.effort }),
+    })
     setText('')
   }
 
   return (
-    <div className="mx-1 mb-2 rounded-[22px] bg-white shadow-[0_8px_28px_-10px_rgba(0,0,0,.18),0_0_0_1px_rgba(0,0,0,.07)]">
+    <div className={`mx-1 mb-2 rounded-[22px] bg-white ${queued ? 'rounded-t-none' : ''} shadow-[0_8px_28px_-10px_rgba(0,0,0,.18),0_0_0_1px_rgba(0,0,0,.07)]`}>
       <textarea
         ref={input}
         rows={1}
@@ -307,28 +357,57 @@ function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnIn
         className="block max-h-[160px] min-h-[50px] w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-sm leading-normal outline-0 placeholder:text-tx3"
       />
       <div className="flex items-center gap-0.5 pt-1 pr-2 pb-2 pl-2.5">
-        {/* The model and effort picker (ticket 10) and the permission preset (ticket 09). */}
-        <span className="inline-flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12px] text-tx2" title="Claude Code's default model">
-          Default model
-        </span>
-        <span className="inline-flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12px] text-tx2" title="Permission preset">
-          <ShieldIcon />
-          Editor
-        </span>
+        <ModelPicker value={choice} onChange={setChoice} />
+        <PresetBadge />
         <span className="flex-1" />
-        <button
-          aria-label="Send"
-          title="Send (↵)"
-          disabled={!canSend}
-          onClick={send}
-          className="grid size-8 place-items-center rounded-full bg-primary text-white disabled:cursor-default disabled:bg-[#d4d4d8]"
-        >
-          <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M10 16V4M5 9l5-5 5 5" />
-          </svg>
-        </button>
+        {running && (
+          <button aria-label="Stop" title="Stop (Esc)" onClick={onStop} className="mr-1 grid size-8 place-items-center rounded-full bg-muted hover:bg-muted2">
+            <i className="size-2.5 rounded-[2px] bg-tx" />
+          </button>
+        )}
+        {running ? (
+          <button
+            aria-label="Queue"
+            title="Queue (↵): sends when Claude finishes"
+            disabled={!canSend}
+            onClick={send}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-yellow-strong px-3 text-[12.5px] font-semibold text-[#2b1d00] disabled:cursor-default disabled:bg-[#d4d4d8] disabled:text-white"
+          >
+            Queue <kbd className="border-black/20 bg-transparent text-black/55">↵</kbd>
+          </button>
+        ) : (
+          <button
+            aria-label="Send"
+            title="Send (↵)"
+            disabled={!canSend}
+            onClick={send}
+            className="grid size-8 place-items-center rounded-full bg-primary text-white disabled:cursor-default disabled:bg-[#d4d4d8]"
+          >
+            <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M10 16V4M5 9l5-5 5 5" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
+  )
+}
+
+const PRESET_LABEL: Record<PermissionPreset, string> = { editor: 'Editor', 'allow-everything': 'Allow all' }
+
+/** The active permission preset. It's switched in Settings (ticket 16). */
+function PresetBadge() {
+  const preset = useHostValue('permissions.preset', 'permissions.changed')
+  return (
+    <span
+      role="status"
+      aria-label="Permission preset"
+      title={preset === 'allow-everything' ? 'Allow everything: Claude never asks' : 'Editor preset: shell commands and paths outside the Project ask first'}
+      className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2"
+    >
+      <ShieldIcon />
+      {preset && PRESET_LABEL[preset]}
+    </span>
   )
 }
 

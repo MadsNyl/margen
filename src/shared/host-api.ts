@@ -48,10 +48,13 @@ export interface OpenDocument {
 }
 
 /**
- * One thing in a Session's conversation: what the user sent, or something the Agent did.
+ * One thing in a Session's conversation: what the user sent, how they answered an approval-request, or something the Agent did.
  * A user entry names the Checkpoint taken just before its Turn, when there is one.
  */
-export type SessionEntry = { type: 'user'; turn: TurnInput; checkpoint?: string } | AgentEvent
+export type SessionEntry =
+  | { type: 'user'; turn: TurnInput; checkpoint?: string }
+  | { type: 'approval-answer'; id: string; decision: ApprovalDecision }
+  | AgentEvent
 
 /** A snapshot of the whole Project, taken before a Turn or before a revert. */
 export interface Checkpoint {
@@ -77,6 +80,26 @@ export interface SessionView {
   /** Counts up per Document: "Session 2". */
   number: number
   entries: SessionEntry[]
+}
+
+/**
+ * How much the Agent may do without asking. `editor`: read the Project, write inside it
+ * and use the web; shell commands and paths outside the Project ask. `allow-everything`: never asks.
+ */
+export type PermissionPreset = 'editor' | 'allow-everything'
+
+/** A message waiting in the Queue to go out as its own Turn. */
+export interface QueuedMessage {
+  id: string
+  turn: TurnInput
+}
+
+/** The open Document's Queue, in the order it sends. */
+export interface QueueView {
+  document: string
+  messages: QueuedMessage[]
+  /** After an interrupt the Queue waits: nothing sends until the user sends again. */
+  held: boolean
 }
 
 /** One of a Document's Sessions, as the history drawer lists it. */
@@ -128,9 +151,22 @@ export interface HostCalls {
   'document.openInBrowser': () => void
   /** The open Document's Session, or `null` when no Document is open. */
   'session.current': () => SessionView | null
-  /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
+  /**
+   * Starts a Turn in the open Document's Session, or queues it while a Turn runs. Sending
+   * while the Queue is held releases it: the new message goes last. Rejects when no Document is open.
+   */
   'session.send': (turn: TurnInput) => void
+  /** The open Document's Queue, or `null` when no Document is open. */
+  'session.queue': () => QueueView | null
+  /** Takes a message out of the Queue before it sends. */
+  'session.unqueue': (id: string) => void
+  /** Stops the running Turn (it ends with turn-end "interrupted") and holds the Queue. */
+  'session.interrupt': () => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** The permission preset every tool request goes through. */
+  'permissions.preset': () => PermissionPreset
+  /** Switches the preset and keeps it; it applies from the next tool request, also in a running Turn. */
+  'permissions.setPreset': (preset: PermissionPreset) => PermissionPreset
   /** Puts the active Session away and starts an empty one. An empty Session stays as it is. */
   'session.new': () => SessionView
   /** Makes one of the open Document's past Sessions the active one; its Agent session continues. */
@@ -141,9 +177,14 @@ export interface HostCalls {
   'checkpoints.list': () => Checkpoint[]
   /**
    * Restores every file of the current Project to a Checkpoint, deleting files made since.
-   * Takes a `revert` Checkpoint first. Rejects while a Turn runs.
+   * Takes a `revert` Checkpoint first. Rejects while a Turn runs or the Queue is about to start one.
    */
   'checkpoints.revert': (id: string) => void
+  /**
+   * The Project page's chat bar. Opens the Document the message `@`-mentions, or
+   * makes a new one named from it, and starts that Document's Session with the message.
+   */
+  'project.send': (text: string) => OpenDocument
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
@@ -172,6 +213,9 @@ export interface HostEvents {
   'session.changed': SessionView
   /** The current Project's Checkpoints, newest first, whenever one is taken. */
   'checkpoints.changed': Checkpoint[]
+  'permissions.changed': PermissionPreset
+  /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
+  'session.queue': QueueView
 }
 
 export type HostCallName = keyof HostCalls

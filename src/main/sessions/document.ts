@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { SessionEntry, SessionSummary } from '@shared/host-api'
+import type { QueueView, SessionEntry, SessionSummary } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import type { PermissionPolicy } from '../permissions'
 import { startDocumentSession, type DocumentSession, type DocumentSessionOptions } from '.'
@@ -30,6 +30,8 @@ export interface DocumentSessionsOptions {
   /** Takes the Checkpoint before each Turn: see `DocumentSessionOptions`. */
   beforeTurn?: DocumentSessionOptions['beforeTurn']
   onEntry(session: string, entry: SessionEntry, index: number): void
+  /** The active Session's Queue changed. */
+  onQueue(queue: QueueView): void
   /** The active Session was replaced by `startNew` or `resume`. */
   onChanged(session: DocumentSession): void
 }

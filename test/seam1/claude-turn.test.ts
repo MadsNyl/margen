@@ -71,8 +71,13 @@ function pretendMac({ signedIn = true, turns = [] as SdkTurn[] } = {}) {
           const interrupted = new Promise<void>((resolve) => (interrupt = resolve))
           const turn = turns.shift()
           if (!turn) throw new Error('No more scripted Turns')
-          const canUseTool = async (tool: string, input: Record<string, unknown>, toolUseID: string) =>
-            options.canUseTool?.(tool, input, { signal: new AbortController().signal, toolUseID, requestId: `req-${toolUseID}` })
+          const canUseTool = async (tool: string, input: Record<string, unknown>, toolUseID: string) => {
+            // Like the real `claude`, read-only shell commands run without asking, unless a PreToolUse hook says ask.
+            if (tool === 'Bash' && READ_ONLY.test(String(input.command)) && !(await hookAsks(options, tool, input, toolUseID))) {
+              return { behavior: 'allow', updatedInput: input }
+            }
+            return options.canUseTool?.(tool, input, { signal: new AbortController().signal, toolUseID, requestId: `req-${toolUseID}` })
+          }
           yield* turn({ options, interrupted, canUseTool })
         }
       })()
@@ -90,6 +95,25 @@ function pretendMac({ signedIn = true, turns = [] as SdkTurn[] } = {}) {
     },
   }
   return { provider: createClaudeCodeProvider(system), runs }
+}
+
+const READ_ONLY = /^(ls|cat|pwd)\b/
+
+/** Whether the PreToolUse hooks Margen passed ask about this tool call, as `claude` runs them. */
+async function hookAsks(options: Options, tool: string, input: Record<string, unknown>, toolUseID: string): Promise<boolean> {
+  for (const matcher of options.hooks?.PreToolUse ?? []) {
+    if (matcher.matcher && !new RegExp(`^(${matcher.matcher})$`).test(tool)) continue
+    for (const hook of matcher.hooks) {
+      const output = await hook(
+        { hook_event_name: 'PreToolUse', tool_name: tool, tool_input: input, tool_use_id: toolUseID, session_id: 's', transcript_path: '', cwd: options.cwd ?? '' },
+        toolUseID,
+        { signal: new AbortController().signal },
+      )
+      const specific = 'hookSpecificOutput' in output ? output.hookSpecificOutput : undefined
+      if (specific?.hookEventName === 'PreToolUse' && specific.permissionDecision === 'ask') return true
+    }
+  }
+  return false
 }
 
 // SDK messages, as the user's `claude` sends them.
@@ -318,6 +342,54 @@ describe('permissions', () => {
     ])
   })
 
+  test("a read-only shell command asks too, though claude would run it without asking", async () => {
+    let decision: unknown
+    const { provider } = pretendMac({
+      turns: [
+        async function* ({ canUseTool }) {
+          decision = await canUseTool('Bash', { command: 'ls -la' }, 'b')
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+
+    const events = await untilTurnEnd(session, (event) => {
+      if (event.type === 'approval-request') session.answerApproval(event.id, 'deny')
+    })
+
+    expect(events.filter((event) => event.type === 'approval-request')).toEqual([
+      { type: 'approval-request', id: 'b', kind: 'shell', detail: 'ls -la' },
+    ])
+    expect(decision).toEqual({ behavior: 'deny', message: 'The user denied this.' })
+  })
+
+  test('web search and fetch go ahead; a tool Margen does not know asks by name', async () => {
+    const decisions: unknown[] = []
+    const { provider } = pretendMac({
+      turns: [
+        async function* ({ canUseTool }) {
+          decisions.push(await canUseTool('WebFetch', { url: 'https://example.com', prompt: 'x' }, 'f'))
+          decisions.push(await canUseTool('WebSearch', { query: 'bread photo' }, 's'))
+          decisions.push(await canUseTool('mcp__figma__export', {}, 'm'))
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+
+    const events = await untilTurnEnd(session, (event) => {
+      if (event.type === 'approval-request') session.answerApproval(event.id, 'allow-once')
+    })
+
+    expect(events.filter((event) => event.type === 'approval-request')).toEqual([
+      { type: 'approval-request', id: 'm', kind: 'other', detail: 'mcp__figma__export' },
+    ])
+    expect(decisions.map((decision) => (decision as { behavior: string }).behavior)).toEqual(['allow', 'allow', 'allow'])
+  })
+
   test('the permission policy passed in decides', async () => {
     let decision: unknown
     const { provider } = pretendMac({
@@ -359,6 +431,29 @@ describe('interrupting and failing', () => {
       { type: 'turn-end', reason: 'interrupted' },
     ])
     expect(runs[0]?.interrupts).toBe(1)
+  })
+
+  test('Stop while an approval waits denies it, and the Turn ends as interrupted', async () => {
+    let decision: unknown
+    const { provider } = pretendMac({
+      turns: [
+        async function* ({ canUseTool, interrupted }) {
+          decision = await canUseTool('Bash', { command: 'npm install' }, 'b')
+          await interrupted
+          yield { type: 'result', subtype: 'error_during_execution', is_error: true, errors: [], stop_reason: null }
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+
+    const events = await untilTurnEnd(session, (event) => {
+      if (event.type === 'approval-request') void session.interrupt()
+    })
+
+    expect(decision).toEqual({ behavior: 'deny', message: 'The user denied this.' })
+    expect(events.map((event) => event.type)).toEqual(['approval-request', 'turn-end'])
+    expect(events.at(-1)).toEqual({ type: 'turn-end', reason: 'interrupted' })
   })
 
   test('a signed-out claude says so before running anything', async () => {
@@ -436,5 +531,89 @@ describe('interrupting and failing', () => {
     expect(await untilTurnEnd(session)).toEqual([{ type: 'turn-end', reason: 'done' }])
     expect(runs).toHaveLength(2)
     expect(runs[1]?.options).toMatchObject({ resume: session.id })
+  })
+})
+
+describe('model and effort', () => {
+  const done = async function* () {
+    yield success
+  }
+
+  test("a Turn's model and effort reach claude; without them claude uses its own default", async () => {
+    const { provider, runs } = pretendMac({ turns: [done] })
+    const session = provider.startSession({ projectDir })
+    session.send({ ...ask, model: 'opus', effort: 'high' })
+    await untilTurnEnd(session)
+
+    expect(runs[0]?.options).toMatchObject({ model: 'opus', effort: 'high' })
+
+    const { provider: other, runs: otherRuns } = pretendMac({ turns: [done] })
+    const plain = other.startSession({ projectDir })
+    plain.send(ask)
+    await untilTurnEnd(plain)
+    expect(otherRuns[0]?.options).not.toHaveProperty('model')
+    expect(otherRuns[0]?.options).not.toHaveProperty('effort')
+  })
+
+  test('changing the model or effort between Turns restarts claude on the same session; keeping them does not', async () => {
+    const { provider, runs } = pretendMac({ turns: [done, done, done, done] })
+    const session = provider.startSession({ projectDir })
+
+    for (const turn of [
+      { ...ask, model: 'sonnet' },
+      { ...ask, model: 'sonnet' },
+      { ...ask, model: 'haiku', effort: 'low' as const },
+      ask,
+    ]) {
+      session.send(turn)
+      expect(await untilTurnEnd(session)).toEqual([{ type: 'turn-end', reason: 'done' }])
+    }
+
+    expect(runs.map((run) => [run.options.model, run.options.effort, run.prompts.length])).toEqual([
+      ['sonnet', undefined, 2],
+      ['haiku', 'low', 1],
+      [undefined, undefined, 1],
+    ])
+    expect(runs.map((run) => run.closed)).toEqual([true, true, false])
+    expect(runs[1]?.options).toMatchObject({ resume: session.id })
+    expect(runs[2]?.options).toMatchObject({ resume: session.id })
+  })
+
+  test('after a restart for another model, shell commands still ask and the policy passed in still decides', async () => {
+    const asked: string[] = []
+    const lsAsks = async function* ({ canUseTool }: Parameters<SdkTurn>[0]) {
+      await canUseTool('Bash', { command: 'ls' }, 'b')
+      await canUseTool('Write', { file_path: join(realProjectDir, 'index.html'), content: '' }, 'w')
+      yield success
+    }
+    const { provider, runs } = pretendMac({ turns: [lsAsks, lsAsks] })
+    const session = provider.startSession({
+      projectDir,
+      permissions: async (request) => {
+        asked.push(request.kind)
+        return request.kind === 'shell' ? 'ask' : 'allow'
+      },
+    })
+
+    for (const turn of [{ ...ask, model: 'sonnet' }, { ...ask, model: 'haiku' }]) {
+      session.send(turn)
+      const events = await untilTurnEnd(session, (event) => {
+        if (event.type === 'approval-request') session.answerApproval(event.id, 'allow-once')
+      })
+      expect(events.map((event) => event.type)).toEqual(['approval-request', 'turn-end'])
+    }
+
+    expect(runs).toHaveLength(2)
+    expect(asked).toEqual(['shell', 'write', 'shell', 'write'])
+  })
+
+  test('a Turn interrupted before claude has started ends as interrupted without running', async () => {
+    const { provider, runs } = pretendMac({ turns: [done] })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+    void session.interrupt()
+
+    expect(await untilTurnEnd(session)).toEqual([{ type: 'turn-end', reason: 'interrupted' }])
+    expect(runs.flatMap((run) => run.prompts)).toEqual([])
   })
 })

@@ -4,13 +4,15 @@ import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import { openCheckpoints, type CheckpointStore } from '../checkpoints'
-import { projectPolicy } from '../permissions'
+import { presetPolicy } from '../permissions'
+import { createPresetStore, isPreset } from '../permissions/preset'
 import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
 import { openSessionStore } from '../sessions/store'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
+import { makeDocumentFile, mentionedDocument } from '../projects/new-document'
 import { makeProjectFolder } from '../projects/new-project'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
@@ -55,6 +57,7 @@ export function createHost({
   let session: DocumentSession | null = null
   let sessions: DocumentSessions | null = null
   let checkpoints: CheckpointStore | null = null
+  const preset = createPresetStore(dataDir)
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -81,7 +84,7 @@ export function createHost({
       agent,
       projectDir: project.path,
       document: path,
-      permissions: projectPolicy(project.path),
+      permissions: presetPolicy(project.path, preset.get),
       beforeTurn: async (turn) => {
         const store = checkpoints
         if (!store) return undefined
@@ -91,9 +94,11 @@ export function createHost({
         return checkpoint.id
       },
       onEntry: (id, entry, index) => events.emit('session.entry', { document: path, session: id, index, entry }),
+      onQueue: (queue) => events.emit('session.queue', queue),
       onChanged: (next) => {
         session = next
         events.emit('session.changed', next.view())
+        events.emit('session.queue', next.queue())
       },
     })
     session = sessions.current()
@@ -147,6 +152,9 @@ export function createHost({
       if (!session) throw new Error('No Document is open')
       await session.send(turn)
     },
+    'session.queue': async () => session?.queue() ?? null,
+    'session.unqueue': async (id) => session?.unqueue(id),
+    'session.interrupt': async () => session?.interrupt(),
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
     'session.new': async () => {
       if (!sessions) throw new Error('No Document is open')
@@ -164,6 +172,26 @@ export function createHost({
       if (session?.running()) throw new Error('A Turn is running')
       await store.revert(id)
       if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
+    },
+    'project.send': async (text) => {
+      if (!current) throw new Error('No Project is open')
+      const { documents } = await listDocuments(current.path)
+      const path =
+        mentionedDocument(
+          text,
+          documents.map((doc) => doc.path),
+        ) ?? (await makeDocumentFile(current.path, text))
+      const opened = await openDocument(path)
+      await session?.send({ text, annotations: [] })
+      return opened
+    },
+    'permissions.preset': () => preset.get(),
+    'permissions.setPreset': async (next) => {
+      if (!isPreset(next)) throw new Error(`Not a permission preset: ${String(next)}`)
+      await preset.set(next)
+      events.emit('permissions.changed', next)
+      if (next === 'allow-everything') session?.allowWaiting()
+      return next
     },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {

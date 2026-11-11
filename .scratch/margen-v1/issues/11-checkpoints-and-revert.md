@@ -25,3 +25,9 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - **Revert** takes a `revert` Checkpoint first, so it's undoable, then `read-tree -u --reset` + `clean -fdq`. No confirm dialog (the prototype has none); it also deletes files the user added outside Margen since that Checkpoint, but they're in the `revert` Checkpoint. Nested git repos are stored as gitlinks and left alone.
 - **No size guard** yet (notes suggest warning over ~200 MB) and no `gc`; git's own `gc --auto` runs on commit.
 - **17 (Releases):** dugite's git (about 150 MB unpacked, the dmg grew to ~160 MB) is `asarUnpack`ed. dugite only downloads the host arch on install, so `build/dugite-git.mjs` (`beforePack`) fetches the arch being packed and `afterAllArtifactBuild` puts the host's back; checked with an x64 `--mac dir` build on arm64. electron-builder signs the unpacked binaries; not yet verified with notarization. `pnpm-workspace.yaml` allows dugite's postinstall.
+
+## Notes after merging tickets 09, 10 and 15
+
+- `beforeTurn` now runs inside the Queue's `start` (`sessions/index.ts`), so every Turn gets its Checkpoint whether it was sent straight away, released from the Queue, or came from the Project chat bar (`project.send` awaits the send, so the Checkpoint exists before it returns). `send` resolves once a Turn started now has reached the Agent; a queued one resolves at once.
+- `running()` comes from the Queue: a Turn is running, or messages are queued and the Queue isn't held (the next goes out the moment the Turn ends). A held Queue doesn't block reverting. The chat's dividers and the Checkpoints tab use the same rule (`busy` in `ChatPanel.tsx`).
+- Stop while a Turn is still taking its Checkpoint waits for it to reach the Agent, then interrupts it.

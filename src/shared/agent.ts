@@ -60,9 +60,15 @@ export interface DrawAnnotation extends AnnotationBase {
 
 export type Annotation = PickAnnotation | DrawAnnotation
 
+/** How hard the Agent thinks. Left out, the Agent uses its own default. */
+export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface TurnInput {
   text: string
   annotations: Annotation[]
+  /** The model for this Turn (`opus`, `sonnet`, `haiku` or a full id). Left out, the Agent's own default. */
+  model?: string
+  effort?: Effort
 }
 
 export type ApprovalDecision = 'allow-once' | 'deny'
@@ -92,7 +98,8 @@ export type AgentEvent =
   /** A piece of the reply. Consecutive text events join up into one reply. */
   | { type: 'text'; text: string }
   | ToolEvent
-  | { type: 'approval-request'; id: string; kind: 'shell' | 'outside-project'; detail: string }
+  /** A tool call waiting for Allow once or Deny. `other`: a tool Margen doesn't know, by name. */
+  | { type: 'approval-request'; id: string; kind: 'shell' | 'outside-project' | 'other'; detail: string }
   /** Every Turn ends with exactly one turn-end; `failed` comes after an error event. */
   | { type: 'turn-end'; reason: 'done' | 'interrupted' | 'failed' }
   /** `signed-out`: the Agent's own login is missing or expired, so the fix is to sign in again. */

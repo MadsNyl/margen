@@ -210,6 +210,45 @@ describe('Checkpoints', () => {
     expect(await host.call('checkpoints.list')).toEqual(list)
   })
 
+  test('a queued Turn gets its own Checkpoint when the Queue starts it, after the Turn before it', async () => {
+    await write(before)
+    await editor({
+      turns: [
+        [
+          { type: 'wait', ms: 200 },
+          { type: 'tool', tool: 'edit', file: 'index.html', content: '<h1>One</h1>' },
+        ],
+        [{ type: 'tool', tool: 'edit', file: 'index.html', content: '<h1>Two</h1>' }],
+      ],
+    })
+    const seen: SessionEntry[] = []
+    const bothDone = new Promise<void>((resolve) =>
+      host.on('session.entry', ({ entry }) => {
+        seen.push(entry)
+        if (seen.filter((e) => e.type === 'turn-end').length === 2) resolve()
+      }),
+    )
+
+    await host.call('session.send', { text: 'One', annotations: [] })
+    await host.call('session.send', { text: 'Two', annotations: [] })
+    expect((await host.call('session.queue'))?.messages).toHaveLength(1)
+    await bothDone
+
+    const users = seen.filter((entry) => entry.type === 'user')
+    expect(users.map((entry) => entry.turn.text)).toEqual(['One', 'Two'])
+    const [one, two] = users.map((entry) => entry.checkpoint)
+    expect(one).toEqual(expect.any(String))
+    expect(two).toEqual(expect.any(String))
+    expect(two).not.toBe(one)
+    expect((await host.call('checkpoints.list')).map(({ id, reason, text }) => ({ id, reason, text }))).toEqual([
+      { id: two, reason: 'turn', text: 'Two' },
+      { id: one, reason: 'turn', text: 'One' },
+    ])
+
+    await host.call('checkpoints.revert', two ?? '')
+    expect(await readFile(join(projectDir, 'index.html'), 'utf8')).toBe('<h1>One</h1>')
+  })
+
   test('a revert can itself be undone: it takes a Checkpoint first', async () => {
     await write(before)
     await editor({ turns: [[{ type: 'tool', tool: 'edit', file: 'index.html', content: '<h1>Big</h1>' }]] })

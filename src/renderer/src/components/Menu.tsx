@@ -8,7 +8,11 @@ export function useDropdown() {
   useEffect(() => {
     if (!open) return
     const close = (event: Event) => {
-      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node)) setOpen(false)
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node)) {
+        // Taken: Esc closes the menu and does nothing else (it doesn't stop a Turn).
+        event.preventDefault()
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', close)

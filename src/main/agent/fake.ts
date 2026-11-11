@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
+import { approvalRequest, editorPolicy, type ToolRequest } from '../permissions'
 import { createChannel } from './channel'
 import type { AgentProvider, AgentSession, StartSessionOptions } from './provider'
 
@@ -10,7 +11,9 @@ import type { AgentProvider, AgentSession, StartSessionOptions } from './provide
 // Turn, and `interrupt` ends the running Turn with turn-end "interrupted".
 // Install and Sign in play back their scripted outcome (done by default) after
 // `ms`; a done one updates what `detect` reports from then on. A Turn with an
-// error step ends with turn-end "failed".
+// error step ends with turn-end "failed". A `permission` step asks the Session's
+// policy about a tool request, as a real Agent does; only an "ask" becomes an
+// approval-request (and pauses the Turn).
 
 export type FakeStep =
   | Exclude<AgentEvent, ToolEvent>
@@ -19,6 +22,8 @@ export type FakeStep =
   /** With `removes`, a tool really deletes those files (relative to the Project) before the event is emitted, like `rm`. */
   | (ToolEvent & { removes?: string[] })
   | { type: 'wait'; ms: number }
+  /** A tool call that goes through the permission policy first; `id` becomes the approval-request's. */
+  | { type: 'permission'; id: string; request: ToolRequest }
 
 export interface FakeSetupStep {
   result: 'done' | 'failed'
@@ -54,16 +59,21 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
   const sessions: StartSessionOptions[] = []
 
   function startSession(options: StartSessionOptions): AgentSession {
-    const { projectDir, resumeId } = options
+    const { projectDir, resumeId, permissions = editorPolicy(projectDir) } = options
     sessions.push(options)
     const id = resumeId ?? `fake-session-${sessions.length}`
     const channel = createChannel<AgentEvent>()
     const pendingApprovals = new Map<string, () => void>()
     let queue = Promise.resolve()
     let interruptCurrent: (() => void) | undefined
+    /** Turns sent but not yet playing, and whether one was interrupted before it began. */
+    let waiting = 0
+    let interruptWaiting = false
 
     async function play(steps: FakeStep[]) {
-      let interrupted = false
+      waiting--
+      let interrupted = interruptWaiting
+      interruptWaiting = false
       let failed = false
       const stopped = new Promise<void>((resolve) => {
         interruptCurrent = () => {
@@ -79,6 +89,14 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
           let timer: NodeJS.Timeout | undefined
           await unlessInterrupted(new Promise((resolve) => (timer = setTimeout(resolve, step.ms))))
           clearTimeout(timer)
+          continue
+        }
+        if (step.type === 'permission') {
+          if ((await permissions(step.request)) === 'ask') {
+            const request = approvalRequest(step.id, step.request)
+            channel.push(request)
+            await unlessInterrupted(new Promise<void>((resolve) => pendingApprovals.set(request.id, resolve)))
+          }
           continue
         }
         if (step.type === 'tool') {
@@ -97,7 +115,10 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
         if (step.type === 'approval-request') {
           await unlessInterrupted(new Promise<void>((resolve) => pendingApprovals.set(step.id, resolve)))
         }
-        if (step.type === 'turn-end') return
+        if (step.type === 'turn-end') {
+          interruptCurrent = undefined
+          return
+        }
       }
       interruptCurrent = undefined
       channel.push({ type: 'turn-end', reason: interrupted ? 'interrupted' : failed ? 'failed' : 'done' })
@@ -109,10 +130,12 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
       send(turn) {
         sent.push(turn)
         const steps = turns.shift() ?? fallbackTurn
+        waiting++
         queue = queue.then(() => play(steps))
       },
       async interrupt() {
-        interruptCurrent?.()
+        if (interruptCurrent) interruptCurrent()
+        else if (waiting > 0) interruptWaiting = true
       },
       answerApproval(approvalId, decision) {
         approvals.push({ id: approvalId, decision })

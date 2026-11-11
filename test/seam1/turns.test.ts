@@ -113,7 +113,7 @@ describe('a Turn in the editor', () => {
     await ended
 
     expect(agent.approvals).toEqual([{ id: 'a1', decision: 'allow-once' }])
-    expect(seen.map(({ entry }) => entry.type)).toEqual(['user', 'approval-request', 'text', 'turn-end'])
+    expect(seen.map(({ entry }) => entry.type)).toEqual(['user', 'approval-request', 'approval-answer', 'text', 'turn-end'])
   })
 
   test("an Agent error ends the Turn as failed and says why", async () => {
@@ -128,14 +128,6 @@ describe('a Turn in the editor', () => {
       { type: 'error', message: 'Your Claude login has expired.', reason: 'signed-out' },
       { type: 'turn-end', reason: 'failed' },
     ])
-  })
-
-  test('sending while a Turn runs is refused (the Queue is ticket 10)', async () => {
-    await editor({ turns: [[{ type: 'wait', ms: 300 }]] })
-
-    await host.call('session.send', ask)
-
-    await expect(host.call('session.send', ask)).rejects.toThrow(/Turn is running/)
   })
 
   test('there is no Session without an open Document, and another Document starts its own', async () => {
