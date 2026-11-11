@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Box, DrawAnnotation, Point } from '@shared/agent'
 import type { Mode, ScrollPosition } from '@shared/document-bridge'
 import { boundsOf } from '@shared/draw'
-import { host } from '../host'
 import type { DocumentBridge } from './bridge'
+import { captureDocument } from './capture'
 import { useDraft, type Draft } from './draft'
 import { useViewport } from './viewport'
 
@@ -136,11 +136,8 @@ async function takeScreenshots(draft: Draft, id: string, strokes: Point[][], scr
 }
 
 async function screenshotOf(strokes: Point[][], scroll: ScrollPosition, width: number, height: number): Promise<string | undefined> {
-  const captured = await host.call('document.capture').catch(() => null)
-  if (!captured) return undefined
-  const image = new Image()
-  image.src = captured
-  await image.decode()
+  const image = await captureDocument()
+  if (!image) return undefined
   // `capturePage` gives device pixels (2× on Retina); the screenshot is in the page's CSS px.
   const canvas = Object.assign(window.document.createElement('canvas'), { width, height })
   const context = canvas.getContext('2d')

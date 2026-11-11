@@ -714,6 +714,43 @@ describe('a Turn with Annotations', () => {
       ].join('\n'),
     ])
   })
+  test("a Pick's screenshot of its element goes along as an image, numbered with the drawings'", async () => {
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* () {
+          yield success
+        },
+      ],
+    })
+    const png = (bytes: string) => `data:image/png;base64,${bytes}`
+    const session = provider.startSession({ projectDir, document: 'index.html' })
+    session.send({
+      text: '',
+      annotations: [
+        { kind: 'pick', number: 1, comment: 'Bigger', viewportWidth: 1280, selector: 'main > h1', tag: 'h1', html: '<h1>Hi</h1>', crop: png('SDE=') },
+        {
+          kind: 'draw',
+          number: 2,
+          comment: '',
+          viewportWidth: 1280,
+          strokes: [[{ x: 0, y: 0 }, { x: 10, y: 10 }]],
+          boundingBox: { x: 0, y: 0, width: 10, height: 10 },
+          targets: [],
+          crop: png('Q1JPUA=='),
+        },
+        { kind: 'pick', number: 3, comment: '', viewportWidth: 1280, selector: 'main > p', tag: 'p', html: '<p>Yo</p>' },
+      ],
+    })
+    await untilTurnEnd(session)
+
+    const content = runs[0]?.prompts[0]?.message.content as { type: string; text?: string; source?: { data: string } }[]
+    expect(content.map((part) => part.source?.data ?? part.type)).toEqual(['text', 'SDE=', 'Q1JPUA=='])
+    const text = content[0]?.text ?? ''
+    expect(text).toContain(['[1] Pick: Bigger', '  element: <h1> at `main > h1`', '  seen at a Viewport 1280px wide', '  image 1: the element as it looked', '  html: <h1>Hi</h1>'].join('\n'))
+    expect(text).toContain('[2] Drawing (no comment)\n  strokes at x 0, y 0, 10×10 px in the page (from its top left)\n  seen at a Viewport 1280px wide\n  image 2: the drawing')
+    expect(text).toContain('[3] Pick (no comment)\n  element: <p> at `main > p`\n  seen at a Viewport 1280px wide\n  html: <p>Yo</p>')
+  })
+
   test('a drawing is described with where its strokes are and what they caught, the Agent is told to judge its intent, and its screenshots go along as images', async () => {
     const { provider, runs } = pretendMac({
       turns: [

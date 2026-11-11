@@ -161,6 +161,7 @@ test('pick an element by click, comment, add, reopen from its chip and send: the
           html: '<h1 class="title">Søster</h1>',
           text: 'Søster',
           lines: { start: 5, end: 5 },
+          crop: expect.stringMatching(/^data:image\/png;base64,/),
         },
       ],
     },
@@ -169,7 +170,10 @@ test('pick an element by click, comment, add, reopen from its chip and send: the
   // Sent: the marker fades, the chips empty, and the chat keeps the Annotation.
   await expect(marker).toHaveCount(0)
   await expect(chips).toBeHidden()
-  await expect(chat.getByRole('listitem', { name: 'Annotation 1' })).toHaveText(/h1\s*main › h1\.title · \d+px\s*Make this blue/)
+  // Its thumbnail is a screenshot of the element.
+  const row = chat.getByRole('listitem', { name: 'Annotation 1' })
+  await expect(row).toHaveText(/main › h1\.title · \d+px\s*Make this blue/)
+  await expect(row.locator('img')).toHaveAttribute('src', /^data:image\/png/)
   await expect(chat.getByText('Also tidy up')).toBeVisible()
   await expect(chat.getByText('Done.')).toBeVisible()
 

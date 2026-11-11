@@ -57,7 +57,7 @@ export function AnnotationRows({ annotations }: { annotations: Annotation[] }) {
 
 function Thumbnail({ annotation }: { annotation: Annotation }) {
   const frame = 'h-9 w-[52px] flex-none rounded-[7px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.05)]'
-  if (annotation.kind === 'draw' && annotation.crop) return <img src={annotation.crop} alt="" className={`${frame} object-contain`} />
+  if (annotation.crop) return <img src={annotation.crop} alt="" className={`${frame} object-contain`} />
   const tag = annotation.kind === 'pick' ? annotation.tag : '✎'
   return <span className={`${frame} grid place-items-center font-mono text-[10px] text-ink-tx`}>{tag}</span>
 }

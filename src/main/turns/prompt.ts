@@ -12,10 +12,10 @@ export function buildPrompt(turn: TurnInput, document?: string): PromptPart[] {
     // Named every Turn, so the Agent knows which file "this page" is, even a new, empty one.
     return [{ type: 'text', text: document ? `${turn.text}\n\n(The Document open in Margen is ${document}.)` : turn.text }]
   }
-  // Each drawing's screenshot and crop are numbered in the order they're attached.
+  // Each Pick's crop and each drawing's screenshot and crop are numbered in the order they're attached.
   let images = 0
   const pictured = turn.annotations.map((annotation) => {
-    const parts = annotation.kind === 'draw' ? [annotation.screenshot, annotation.crop].flatMap((url) => image(url)) : []
+    const parts = (annotation.kind === 'draw' ? [annotation.screenshot, annotation.crop] : [annotation.crop]).flatMap((url) => image(url))
     return { annotation, images: parts, numbers: parts.map(() => ++images) }
   })
   const blocks = [
@@ -37,7 +37,8 @@ function describeAnnotation(annotation: Annotation, document: string | undefined
   const seen = `  seen at a Viewport ${annotation.viewportWidth}px wide`
   if (annotation.kind === 'pick') {
     const [element, ...details] = describeElement(annotation, document, '  ')
-    return [head, element, seen, ...details].join('\n')
+    const picture = images.length ? [`  image ${images[0]}: the element as it looked`] : []
+    return [head, element, seen, ...picture, ...details].join('\n')
   }
   const { x, y, width, height } = annotation.boundingBox
   return [

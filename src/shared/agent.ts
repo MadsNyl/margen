@@ -32,6 +32,8 @@ export interface ElementDescriptor {
 
 export interface PickAnnotation extends AnnotationBase, ElementDescriptor {
   kind: 'pick'
+  /** PNG data URL: the element's box as it looked when picked. Left out when the screenshot couldn't be taken. */
+  crop?: string
 }
 
 export interface Point {

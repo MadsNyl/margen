@@ -3,8 +3,9 @@ import type { Annotation, Box } from '@shared/agent'
 import { PICK_KEYS, type Mode, type PickKey, type ScrollPosition, type TrackedElement } from '@shared/document-bridge'
 import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
+import { captureDocument } from './capture'
 import { usePageScroll } from './DrawLayer'
-import { annotationLabel, labelOf, useDraft, type PendingAnnotation } from './draft'
+import { annotationLabel, labelOf, useDraft, type Draft, type PendingAnnotation } from './draft'
 import { useViewport } from './viewport'
 
 // The layer over the Document view: the Pick highlight, a marker for each
@@ -15,6 +16,8 @@ import { useViewport } from './viewport'
 
 const GLOW_MS = 1500
 const BOX_WIDTH = 340
+/** A Pick's screenshot is at most this many CSS px on its longer side. */
+const CROP_MAX = 640
 
 /** The elements an Annotation points at, as the page's script follows them. */
 function tracked({ id, annotation }: PendingAnnotation): TrackedElement[] {
@@ -50,10 +53,11 @@ export function PickLayer({
   const [hover, setHover] = useState<{ selector: string; rect: Box; byKey?: boolean } | null>(null)
   const [rects, setRects] = useState<Record<string, Box | null>>({})
   const [glow, setGlow] = useState<TrackedElement[]>([])
-  const latest = useRef({ add: draft.add, width: viewport.width })
+  const latest = useRef({ draft, width: viewport.width })
   useEffect(() => {
-    latest.current = { add: draft.add, width: viewport.width }
+    latest.current = { draft, width: viewport.width }
   })
+  const layer = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!bridge) return
@@ -62,7 +66,9 @@ export function PickLayer({
       else if (message.type === 'rects') setRects(message.rects)
       else if (message.type === 'pick') {
         setRects((now) => ({ ...now, [message.id]: message.rect }))
-        latest.current.add(message.id, { kind: 'pick', comment: '', viewportWidth: latest.current.width, ...message.element })
+        const { draft, width } = latest.current
+        draft.add(message.id, { kind: 'pick', comment: '', viewportWidth: width, ...message.element })
+        if (layer.current) draft.waitFor(takeCrop(draft, message.id, message.rect, layer.current))
       } else if (message.type === 'drawing') {
         setRects((now) => ({ ...now, ...Object.fromEntries(message.rects.map((rect, i) => [`${message.id}/${i}`, rect])) }))
       }
@@ -117,7 +123,7 @@ export function PickLayer({
   const open = draft.annotations.find((p) => p.id === draft.open)
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
+    <div ref={layer} className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
       {mode === 'pick' && hover && (
         <Outline
           rect={hover.rect}
@@ -142,6 +148,27 @@ export function PickLayer({
       {open && <CommentBox key={open.id} pending={open} anchor={anchorOf(open, rects, scroll)} />}
     </div>
   )
+}
+
+/** Adds a screenshot of the picked element's box (in the view's CSS px) to its Annotation, for its thumbnail and the Agent. */
+async function takeCrop(draft: Draft, id: string, rect: Box, view: HTMLElement) {
+  const width = view.offsetWidth
+  const height = view.offsetHeight
+  const image = await captureDocument()
+  // The part of the element that's in view.
+  const x = Math.max(0, rect.x)
+  const y = Math.max(0, rect.y)
+  const w = Math.min(width, rect.x + rect.width) - x
+  const h = Math.min(height, rect.y + rect.height) - y
+  if (!image || w < 1 || h < 1) return
+  const scale = Math.min(1, CROP_MAX / Math.max(w, h))
+  const canvas = Object.assign(window.document.createElement('canvas'), { width: Math.ceil(w * scale), height: Math.ceil(h * scale) })
+  const context = canvas.getContext('2d')
+  if (!context) return
+  // `capturePage` gives device pixels; the view's size says how many per CSS px.
+  const ratio = image.naturalWidth / width
+  context.drawImage(image, x * ratio, y * ratio, w * ratio, h * ratio, 0, 0, canvas.width, canvas.height)
+  draft.update(id, { crop: canvas.toDataURL('image/png') })
 }
 
 /** What the comment box shows an Annotation caught: its element, a drawing's targets, or that a drawing is on empty space. */
