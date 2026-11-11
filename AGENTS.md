@@ -30,7 +30,7 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
   - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter in `agent/claude/` (02, 07): `session.ts` runs the Agent SDK's `query()`, `messages.ts` maps its messages to AgentEvents. Everything it runs on the Mac (`claude`, the login shell and its env, the installer, Terminal, the SDK's `query`) goes through `ClaudeSystem` (`claude/system.ts`) so tests pass a pretend one; `claude/node-system.ts` is the real one
   - `turns/`: building prompts from text and Annotations; the Queue and holding it after an interrupt (`queue.ts`, 10)
   - `permissions/`: the one `PermissionPolicy` every tool call goes through (07); the Editor preset and Allow everything (09)
-  - `sessions/`: the open Document's Session and its entries (07); one Session per Document, resume, persistence (08)
+  - `sessions/`: the open Document's Session and its entries (07); one Session per Document, resume, persistence (08): `store.ts` in the data dir, `document.ts` switches a Document's Sessions
   - `checkpoints/`: the hidden git store outside the user's folder (11)
   - `settings/`: Settings (16)
   - `updates/`: auto-update state behind an `UpdateSource` (17); `createHost({ updates })` takes the source, absent in dev and tests

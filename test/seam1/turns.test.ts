@@ -74,7 +74,7 @@ describe('a Turn in the editor', () => {
     expect(seen.map(({ document, index }) => [document, index])).toEqual(seen.map((_, i) => ['index.html', i]))
     expect(await readFile(join(projectDir, 'index.html'), 'utf8')).toBe('<h1>Big</h1>')
     expect(agent.sent).toEqual([ask])
-    expect(await host.call('session.current')).toEqual({ document: 'index.html', entries: seen.map(({ entry }) => entry) })
+    expect(await host.call('session.current')).toMatchObject({ document: 'index.html', entries: seen.map(({ entry }) => entry) })
   })
 
   test("the Agent's edit to the Document reloads it", async () => {
@@ -138,7 +138,7 @@ describe('a Turn in the editor', () => {
     await ended
 
     await host.call('document.open', 'about.html')
-    expect(await host.call('session.current')).toEqual({ document: 'about.html', entries: [] })
+    expect(await host.call('session.current')).toMatchObject({ document: 'about.html', entries: [] })
 
     await host.call('document.close')
     expect(await host.call('session.current')).toBeNull()

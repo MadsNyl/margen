@@ -167,6 +167,19 @@ describe('the Queue', () => {
     expect(await host.call('session.queue')).toMatchObject({ messages: [{ turn: message('Two') }], held: true })
   })
 
+  test('the Queue belongs to the Session: New session drops it and says so', async () => {
+    await editor({ turns: [[{ type: 'wait', ms: 5000 }]] })
+    const { queues } = watch()
+
+    await host.call('session.send', message('One'))
+    await host.call('session.send', message('Two'))
+    await host.call('session.new')
+
+    expect(await host.call('session.queue')).toEqual({ document: 'index.html', messages: [], held: false })
+    expect(queues.at(-1)).toEqual({ document: 'index.html', messages: [], held: false })
+    expect(agent.sent.map((turn) => turn.text)).toEqual(['One'])
+  })
+
   test('the Queue belongs to the open Document: opening another drops it', async () => {
     await writeFile(join(projectDir, 'about.html'), '')
     await editor({ turns: [[{ type: 'wait', ms: 5000 }]] })
