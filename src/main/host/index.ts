@@ -12,6 +12,7 @@ import { locateAnnotations } from '../turns'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
+import { makeDocumentFile, mentionedDocument } from '../projects/new-document'
 import { makeProjectFolder } from '../projects/new-project'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
@@ -155,6 +156,18 @@ export function createHost({
       return sessions.resume(id).view()
     },
     'sessions.list': async () => sessions?.list() ?? [],
+    'project.send': async (text) => {
+      if (!current) throw new Error('No Project is open')
+      const { documents } = await listDocuments(current.path)
+      const path =
+        mentionedDocument(
+          text,
+          documents.map((doc) => doc.path),
+        ) ?? (await makeDocumentFile(current.path, text))
+      const opened = await openDocument(path)
+      session?.send({ text, annotations: [] })
+      return opened
+    },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
       await clearRecents(dataDir)
