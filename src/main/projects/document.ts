@@ -3,6 +3,7 @@ import { watch, type FSWatcher } from 'node:fs'
 import { open, stat } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { IGNORED_FOLDERS } from './documents'
+import { inProject } from './inside'
 
 // The open Document: the URL the Document view loads it from, which files that
 // URL may serve, and the debounced watch that tells the view to reload.
@@ -24,7 +25,7 @@ export function documentUrl(projectDir: string, path: string): string {
   return `${DOCUMENT_SCHEME}://${projectId(projectDir)}/${path.split('/').map(encodeURIComponent).join('/')}`
 }
 
-/** The file inside the Project folder a `margen-doc://` URL points at, or `null` if it points anywhere else. */
+/** The file inside the Project folder a `margen-doc://` URL points at, or `null` if it points anywhere else, also through a symlink. */
 export function resolveDocumentUrl(projectDir: string, url: string): string | null {
   let parsed: URL
   let path: string
@@ -37,7 +38,8 @@ export function resolveDocumentUrl(projectDir: string, url: string): string | nu
   if (parsed.protocol !== `${DOCUMENT_SCHEME}:` || parsed.host !== projectId(projectDir) || path.includes('\0')) return null
   const root = resolve(projectDir)
   const file = resolve(root, '.' + path)
-  return file.startsWith(root + sep) ? file : null
+  // Resolved through symlinks too, so a link in the Project can't serve a file outside it.
+  return file.startsWith(root + sep) && inProject(root, file) ? file : null
 }
 
 /** What the Document view gets for a margen-doc:// request: the file, and for HTML the content type to serve it with. */

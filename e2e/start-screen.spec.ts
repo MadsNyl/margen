@@ -34,3 +34,21 @@ test('the renderer has no Node access', async () => {
   }))
   expect(exposed).toEqual({ require: 'undefined', process: 'undefined', margen: 'object' })
 })
+
+test('links the app window opens go to the browser only when they are on the web', async () => {
+  launched = await launchApp()
+  const { app, window } = launched
+  await app.evaluate(({ shell }) => {
+    const opened: string[] = []
+    ;(globalThis as { opened?: string[] }).opened = opened
+    shell.openExternal = async (url) => void opened.push(url)
+  })
+
+  await window.evaluate(() => {
+    for (const url of ['file:///etc/passwd', 'smb://server/share', 'https://example.com/', 'http://example.org/']) window.open(url)
+  })
+
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as { opened?: string[] }).opened))
+    .toEqual(['https://example.com/', 'http://example.org/'])
+})

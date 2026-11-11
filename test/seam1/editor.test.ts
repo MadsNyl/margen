@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -74,6 +74,25 @@ describe('opening a Document', () => {
     expect(await resolve(`${origin}/..%2f..%2fetc%2fpasswd`)).toBeNull()
     expect(await resolve('margen-doc://someotherproject/index.html')).toBeNull()
     expect(await resolve('https://example.com/index.html')).toBeNull()
+  })
+
+  test('serves nothing a symlink in the Project points at outside it', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'margen-outside-'))
+    try {
+      await writeFile(join(outside, 'id_rsa'), 'secret')
+      await files({ 'index.html': '', 'style.css': '' })
+      await symlink(join(outside, 'id_rsa'), join(projectDir, 'key.txt'))
+      await symlink(outside, join(projectDir, 'elsewhere'))
+      await symlink(join(projectDir, 'style.css'), join(projectDir, 'linked.css'))
+      await start()
+      const origin = `margen-doc://${new URL((await host.call('document.open', 'index.html')).url).host}`
+
+      expect(await resolve(`${origin}/key.txt`)).toBeNull()
+      expect(await resolve(`${origin}/elsewhere/id_rsa`)).toBeNull()
+      expect(await resolve(`${origin}/linked.css`)).toBe(join(projectDir, 'linked.css'))
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
   })
 
   test('serves HTML as UTF-8 unless it names its own charset', async () => {

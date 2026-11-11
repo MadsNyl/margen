@@ -47,6 +47,9 @@ async function pickFolder(): Promise<string | undefined> {
   return result.canceled ? undefined : result.filePaths[0]
 }
 
+/** Only http(s) links are handed to the browser: `shell.openExternal` would also open files and other apps' schemes. */
+const isWebUrl = (url: string) => /^https?:/i.test(url)
+
 /** The Document view's session: serves margen-doc:// from the open Project and grants the page no permissions. */
 function serveDocuments(host: Host) {
   const documents = session.fromPartition(DOCUMENT_PARTITION)
@@ -66,7 +69,7 @@ function serveDocuments(host: Host) {
  */
 function guardDocumentView(host: Host, contents: WebContents) {
   const leave = (url: string) => {
-    if (/^https?:/i.test(url)) {
+    if (isWebUrl(url)) {
       void shell.openExternal(url)
       return
     }
@@ -139,9 +142,9 @@ function createWindow(host: Host): BrowserWindow {
     guardDocumentView(host, contents)
   })
   window.once('ready-to-show', () => window.show())
-  // Links leave the app for the user's browser; the app window never navigates away.
+  // Web links leave the app for the user's browser; the app window never navigates away.
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isWebUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
   window.webContents.on('will-navigate', (event) => event.preventDefault())
