@@ -47,8 +47,11 @@ export interface OpenDocument {
   url: string
 }
 
-/** One thing in a Session's conversation: what the user sent, or something the Agent did. */
-export type SessionEntry = { type: 'user'; turn: TurnInput } | AgentEvent
+/** One thing in a Session's conversation: what the user sent, how they answered an approval-request, or something the Agent did. */
+export type SessionEntry =
+  | { type: 'user'; turn: TurnInput }
+  | { type: 'approval-answer'; id: string; decision: ApprovalDecision }
+  | AgentEvent
 
 /** The open Document's Session, as the chat shows it. */
 export interface SessionView {
@@ -60,6 +63,12 @@ export interface SessionView {
   number: number
   entries: SessionEntry[]
 }
+
+/**
+ * How much the Agent may do without asking. `editor`: read the Project, write inside it
+ * and use the web; shell commands and paths outside the Project ask. `allow-everything`: never asks.
+ */
+export type PermissionPreset = 'editor' | 'allow-everything'
 
 /** A message waiting in the Queue to go out as its own Turn. */
 export interface QueuedMessage {
@@ -136,6 +145,10 @@ export interface HostCalls {
   /** Stops the running Turn (it ends with turn-end "interrupted") and holds the Queue. */
   'session.interrupt': () => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** The permission preset every tool request goes through. */
+  'permissions.preset': () => PermissionPreset
+  /** Switches the preset and keeps it; it applies from the next tool request, also in a running Turn. */
+  'permissions.setPreset': (preset: PermissionPreset) => PermissionPreset
   /** Puts the active Session away and starts an empty one. An empty Session stays as it is. */
   'session.new': () => SessionView
   /** Makes one of the open Document's past Sessions the active one; its Agent session continues. */
@@ -173,6 +186,7 @@ export interface HostEvents {
   'session.entry': { document: string; session: string; index: number; entry: SessionEntry }
   /** The open Document's active Session was replaced (New session, resume). */
   'session.changed': SessionView
+  'permissions.changed': PermissionPreset
   /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
   'session.queue': QueueView
 }

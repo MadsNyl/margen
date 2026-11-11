@@ -155,6 +155,36 @@ describe('Sessions per Document', () => {
     expect(entries.at(-1)).toEqual({ type: 'turn-end', reason: 'interrupted' })
   })
 
+  test('approval answers are stored with the Session and come back on restart and resume', async () => {
+    await launch({
+      turns: [
+        [
+          { type: 'permission', id: 'p1', request: { kind: 'shell', command: 'ls' } },
+          { type: 'permission', id: 'p2', request: { kind: 'shell', command: 'rm x' } },
+          { type: 'text', text: 'Listed.' },
+        ],
+      ],
+    })
+    const answers = { p1: 'allow-once', p2: 'deny' } as const
+    host.on('session.entry', ({ entry }) => {
+      if (entry.type === 'approval-request') void host.call('session.answerApproval', entry.id, answers[entry.id as 'p1' | 'p2'])
+    })
+    await send('List the files')
+    const first = await host.call('session.current')
+    const resolved = [
+      { type: 'approval-answer', id: 'p1', decision: 'allow-once' },
+      { type: 'approval-answer', id: 'p2', decision: 'deny' },
+    ]
+
+    await launch()
+    expect((await host.call('session.current'))?.entries).toEqual(expect.arrayContaining(resolved))
+    await host.call('session.new')
+    await send('Something else')
+    const resumed = await host.call('session.resume', first?.id ?? '')
+    expect(resumed.entries).toEqual(first?.entries)
+    expect(resumed.entries).toEqual(expect.arrayContaining(resolved))
+  })
+
   test('the Agent can change other files in the Project during a Document\'s Session', async () => {
     await launch({
       turns: [[{ type: 'tool', tool: 'write', file: 'styles.css', added: 1, removed: 0, content: 'h1 { color: red }' }]],

@@ -41,6 +41,14 @@ _Avoid_: batch (collecting Annotations is the Composer's job, not the Queue's)
 A snapshot of the Project taken automatically before each Turn, so the user can go back to how things were before that Turn. Checkpoints belong to the Project, not to a Session or a Document, because one Turn can change several files.
 _Avoid_: commit, save, version
 
+**Permission preset**
+How much the Agent may do without asking, chosen in Settings and shown in the Composer. The Editor preset (the default) lets it read the Project, write inside it and use the web; shell commands and any path outside the Project ask first. Allow everything never asks.
+_Avoid_: permission mode, sandbox
+
+**Approval request**
+A card in the chat asking whether the Agent may do one thing the Permission preset doesn't allow by itself. The user answers Allow once or Deny; afterwards it stays in the chat showing the answer.
+_Avoid_: prompt, permission dialog
+
 **Viewport**
 The width the Document is shown at: Desktop, Tablet, Mobile, or a custom width. Every Annotation records the Viewport it was made in.
 _Avoid_: screen size, breakpoint

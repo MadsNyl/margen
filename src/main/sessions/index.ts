@@ -15,8 +15,11 @@ export interface DocumentSession {
   agentSessionId(): string | undefined
   /** Starts a Turn, or queues it while one runs. */
   send(turn: TurnInput): void
-  unqueue(id: string): void
+  /** Answers a waiting approval-request, once; the answer becomes an entry. */
   answerApproval(id: string, decision: ApprovalDecision): void
+  /** Allows every approval-request still waiting (the preset became Allow everything). */
+  allowWaiting(): void
+  unqueue(id: string): void
   /** Stops the running Turn and holds the Queue. */
   interrupt(): Promise<void>
   /** Stops the Agent and sends no more entries. */
@@ -53,6 +56,8 @@ export function startDocumentSession({
   onQueue,
 }: DocumentSessionOptions): DocumentSession {
   const entries: SessionEntry[] = [...stored]
+  /** approval-requests of the running Turn not answered yet. */
+  const waiting = new Set<string>()
   let session: AgentSession | undefined
   let disposed = false
   const queue = createTurnQueue({
@@ -76,6 +81,8 @@ export function startDocumentSession({
   async function pump(from: AgentSession) {
     for await (const event of from.events) {
       if (disposed) return
+      if (event.type === 'approval-request') waiting.add(event.id)
+      if (event.type === 'turn-end') waiting.clear()
       add(event)
       if (event.type === 'turn-end') {
         // A failed Turn holds the Queue too: what's queued would likely fail the same way.
@@ -93,13 +100,22 @@ export function startDocumentSession({
     return session
   }
 
+  function answerApproval(id: string, decision: ApprovalDecision) {
+    if (!waiting.delete(id)) return
+    add({ type: 'approval-answer', id, decision })
+    session?.answerApproval(id, decision)
+  }
+
   return {
     view: () => ({ document, id, number, entries: [...entries] }),
     queue: queueView,
     agentSessionId: () => session?.id,
     send: (turn) => queue.send(turn),
     unqueue: (messageId) => queue.unqueue(messageId),
-    answerApproval: (id, decision) => session?.answerApproval(id, decision),
+    answerApproval,
+    allowWaiting() {
+      for (const id of [...waiting]) answerApproval(id, 'allow-once')
+    },
     async interrupt() {
       queue.hold()
       await session?.interrupt()

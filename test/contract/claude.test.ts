@@ -51,3 +51,28 @@ test.skipIf(!enabled)(
   },
   120_000,
 )
+
+test.skipIf(!enabled)(
+  'a read-only shell command asks before it runs, and a denied one does not run',
+  async () => {
+    await writeFile(join(projectDir, 'index.html'), '<!doctype html>\n<h1>Hello</h1>\n')
+    const provider = createClaudeCodeProvider(createNodeSystem(process.env))
+    const session = provider.startSession({ projectDir, model: process.env.MARGEN_CLAUDE_MODEL ?? 'haiku', effort: 'low' })
+    const seen: AgentEvent[] = []
+    session.send({
+      text: 'Run the shell command `ls` with the Bash tool, exactly once. If it is denied, reply with the single word: denied.',
+      annotations: [],
+    })
+    for await (const event of session.events) {
+      seen.push(event)
+      if (event.type === 'approval-request') session.answerApproval(event.id, 'deny')
+      if (event.type === 'turn-end') break
+    }
+    session.close()
+
+    expect(seen.at(-1)).toEqual({ type: 'turn-end', reason: 'done' })
+    expect(seen).toContainEqual(expect.objectContaining({ type: 'approval-request', kind: 'shell', detail: expect.stringMatching(/^ls\b/) }))
+    expect(seen).not.toContainEqual(expect.objectContaining({ type: 'tool', tool: 'shell', status: 'done' }))
+  },
+  120_000,
+)
