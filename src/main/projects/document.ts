@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
 import { open, stat } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { basename, resolve, sep } from 'node:path'
 import { IGNORED_FOLDERS } from './documents'
 import { inProject } from './inside'
 
@@ -68,6 +68,10 @@ export async function documentFile(file: string): Promise<DocumentFile> {
  * Calls `onChange` once the Project folder settles after the Document, or any
  * file it may load (CSS, scripts, images), changed. Other HTML files, hidden
  * files and ignored folders don't count. Returns a function that stops watching.
+ *
+ * A file event only counts when the file's size or mtime really changed:
+ * macOS can report writes made just before the watch began, report one write
+ * more than once, and report the folder itself.
  */
 export function watchDocument(projectDir: string, path: string, onChange: () => void): () => void {
   let timer: NodeJS.Timeout | undefined
@@ -77,13 +81,36 @@ export function watchDocument(projectDir: string, path: string, onChange: () => 
     return parts.join('/') === path || !/\.html$/i.test(filename)
   }
 
-  const file = resolve(projectDir, path)
-  const signature = () => stat(file).then((s) => `${s.size}:${s.mtimeMs}`, () => 'gone')
-  let seen: string | undefined
+  // `Date.now()` is whole milliseconds and mtimes aren't: a file written just before now can have an mtime
+  // a fraction of a ms after it, so the watch counts as begun at the end of this millisecond.
+  const startedAt = Date.now() + 1
+  /** Each file's size and mtime as last seen, by its path relative to the Project. */
+  const known = new Map<string, string>()
+  const look = (rel: string) =>
+    stat(resolve(projectDir, rel)).then(
+      (s) => ({ signature: `${s.size}:${s.mtimeMs}`, before: s.mtimeMs < startedAt }),
+      () => ({ signature: 'gone', before: false }),
+    )
+  /** Whether `rel` changed since it was last seen; one not seen yet changed if it did so after the watch began. */
+  const changed = async (rel: string) => {
+    const { signature, before } = await look(rel)
+    const last = known.get(rel)
+    known.set(rel, signature)
+    // macOS reports a change to the folder itself under the folder's own name, which isn't a file in it.
+    if (last === undefined && signature === 'gone' && rel === basename(projectDir)) return false
+    return last === undefined ? !before : last !== signature
+  }
+
   let stopped = false
-  // One reload per settled change, whichever noticed it first: the poll then treats the new state as seen.
+  const settle = () => {
+    clearTimeout(timer)
+    timer = setTimeout(fire, SETTLE_MS)
+  }
+  // One reload per settled change, whichever noticed it first: the Document's state is then seen by both.
   const fire = async () => {
-    seen = await signature()
+    const { signature } = await look(path)
+    known.set(path, signature)
+    seen = signature
     if (!stopped) onChange()
   }
 
@@ -91,23 +118,24 @@ export function watchDocument(projectDir: string, path: string, onChange: () => 
   try {
     watcher = watch(projectDir, { recursive: true }, (_type, filename) => {
       if (!filename || !counts(filename)) return
-      clearTimeout(timer)
-      timer = setTimeout(fire, SETTLE_MS)
+      const rel = filename.split(/[\\/]/).join('/')
+      void changed(rel).then((yes) => yes && !stopped && settle())
     })
     watcher.on('error', () => watcher?.close())
   } catch {
     watcher = undefined
   }
 
-  // Backs up the watcher for the Document itself: a changed size or mtime counts as a write.
+  // Backs up the watcher for the Document itself, whose events macOS can deliver late or drop.
+  let seen: string | undefined
   const check = async () => {
-    const now = await signature()
+    const { signature } = await look(path)
     if (stopped) return
-    if (seen !== undefined && now !== seen) {
-      clearTimeout(timer)
-      timer = setTimeout(fire, SETTLE_MS)
+    if (seen !== undefined && signature !== seen) {
+      known.set(path, signature)
+      settle()
     }
-    seen = now
+    seen = signature
   }
   void check()
   const poll = setInterval(() => void check(), POLL_MS)
