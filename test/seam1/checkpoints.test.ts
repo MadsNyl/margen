@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { exec } from 'dugite'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { HostEvents, SessionEntry } from '../../src/shared/host-api'
 import { createHost, type Host } from '../../src/main/host'
 import { createFakeAgentProvider, type FakeAgentScript } from '../../src/main/agent/fake'
@@ -148,15 +148,8 @@ describe('Checkpoints', () => {
     expect(await userGit('branch', '--list', '-v')).toBe(branches)
   })
 
-  test('ignored folders and .gitignored files are left out: not snapshotted, not restored, not deleted', async () => {
-    await write({
-      ...before,
-      '.gitignore': '*.log\ncache/\n',
-      'node_modules/lib/index.js': 'v1',
-      'dist/app.js': 'v1',
-      'debug.log': 'v1',
-      'cache/data.json': 'v1',
-    })
+  test("Margen's ignored folders are left out: not snapshotted, not restored, not deleted", async () => {
+    await write({ ...before, 'node_modules/lib/index.js': 'v1', 'dist/app.js': 'v1', 'src/.git/HEAD': 'v1' })
     await editor({
       turns: [
         [
@@ -164,8 +157,7 @@ describe('Checkpoints', () => {
           { type: 'tool', tool: 'write', file: 'node_modules/lib/index.js', content: 'v2' },
           { type: 'tool', tool: 'write', file: 'node_modules/new/index.js', content: 'new' },
           { type: 'tool', tool: 'write', file: 'dist/app.js', content: 'v2' },
-          { type: 'tool', tool: 'write', file: 'debug.log', content: 'v2' },
-          { type: 'tool', tool: 'write', file: 'cache/more.json', content: 'new' },
+          { type: 'tool', tool: 'write', file: 'blog/dist/app.js', content: 'new' },
         ],
       ],
     })
@@ -175,14 +167,72 @@ describe('Checkpoints', () => {
 
     expect(await tree()).toEqual({
       ...before,
-      '.gitignore': '*.log\ncache/\n',
       'node_modules/lib/index.js': 'v2',
       'node_modules/new/index.js': 'new',
       'dist/app.js': 'v2',
-      'debug.log': 'v2',
-      'cache/data.json': 'v1',
-      'cache/more.json': 'new',
+      'blog/dist/app.js': 'new',
+      'src/.git/HEAD': 'v1',
     })
+  })
+
+  test(".gitignored files are snapshotted and reverted like any other: the Project's .gitignore doesn't apply", async () => {
+    const ignored = { '.gitignore': '*.log\ncache/\n', 'debug.log': 'v1', 'cache/data.json': 'v1', 'cache/[1] *.json': 'v1' }
+    await write({ ...before, ...ignored, 'blog/.gitignore': '*\n', 'blog/post.html': 'v1' })
+    await editor({
+      turns: [
+        [
+          { type: 'tool', tool: 'write', file: 'debug.log', content: 'v2' },
+          { type: 'tool', tool: 'write', file: 'cache/more.json', content: 'new' },
+          { type: 'tool', tool: 'write', file: 'cache/[1] *.json', content: 'v2' },
+          { type: 'tool', tool: 'write', file: 'blog/post.html', content: 'v2' },
+          { type: 'tool', tool: 'write', file: 'blog/drafts/new.html', content: 'new' },
+        ],
+      ],
+    })
+
+    const entries = await turn('Log more')
+    await host.call('checkpoints.revert', checkpointOf(entries))
+
+    expect(await tree()).toEqual({ ...before, ...ignored, 'blog/.gitignore': '*\n', 'blog/post.html': 'v1' })
+    expect(await readdir(join(projectDir, 'blog'))).not.toContain('drafts')
+  })
+
+  test('a subfolder that is its own git repo is left as it is, even one with no commits yet', async () => {
+    await write({ ...before, 'vendor/lib.js': 'v1' })
+    await exec(['init', '-q'], join(projectDir, 'vendor'))
+    await editor({ turns: [[{ type: 'tool', tool: 'write', file: 'vendor/lib.js', content: 'v2' }]] })
+
+    const entries = await turn('Patch the vendor')
+    await host.call('checkpoints.revert', checkpointOf(entries))
+
+    expect(await readFile(join(projectDir, 'vendor/lib.js'), 'utf8')).toBe('v2')
+  })
+
+  test('a single file over 50 MB is left out and said so: kept as it is by a revert', async () => {
+    const big = Buffer.alloc(51 * 1024 * 1024, 1)
+    await write(before)
+    await writeFile(join(projectDir, 'video.mp4'), big)
+    await editor({
+      turns: [
+        [
+          { type: 'tool', tool: 'edit', file: 'index.html', content: '<h1>Big</h1>' },
+          { type: 'tool', tool: 'shell', name: 'Bash', detail: 'make render.mov' },
+        ],
+      ],
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const entries = await turn('Render')
+      await writeFile(join(projectDir, 'render.mov'), big)
+      await host.call('checkpoints.revert', checkpointOf(entries))
+
+      expect(await readFile(join(projectDir, 'index.html'), 'utf8')).toBe(before['index.html'])
+      expect((await stat(join(projectDir, 'video.mp4'))).size).toBe(big.length)
+      expect((await stat(join(projectDir, 'render.mov'))).size).toBe(big.length)
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/video\.mp4/))
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   test('a Checkpoint is taken before every Turn and listed newest first, across Documents and restarts', async () => {
