@@ -1,0 +1,3 @@
+# Build fresh, borrowing modules from T3 Code
+
+T3 Code (MIT) already solves the hard parts of driving local Agents: the Claude session, queue, interrupt and resume logic, the `codex app-server` client, and a preview element picker. But it's a very large multi-repo coding app (the Claude adapter alone is about 12k lines). Rather than fork it and fight its architecture, we build a small single-Document app and copy individual modules over where they fit, keeping T3's MIT copyright notice on the copied code. Avoid AGPL projects (opcode, CloudCLI, Claude Squad) as code sources, because this app is MIT.

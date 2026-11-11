@@ -1,0 +1,3 @@
+# Electron, not Tauri, for the desktop shell
+
+We picked Electron even though Tauri makes smaller, lighter apps. Two reasons. First, both Agent integrations (the Claude Agent SDK and the `codex app-server` client) are Node/TypeScript and run directly in Electron's main process. Second, Electron always renders the Document with Chromium. Tauri uses Safari's engine on Mac and Chromium (WebView2) on Windows, so the same Document could lay out differently on each OS, and so could the screenshots Draw and Sketch Annotations send to the Agent. T3 Code, Nimbalyst and Sculptor all chose Electron for the same kind of app. See `docs/research/desktop-agent-apps.md`.
