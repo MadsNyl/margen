@@ -12,3 +12,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] A name that already exists gets a unique slug instead of failing or overwriting
 - [ ] The empty Project page shows the "Nothing here yet" state
 - [ ] The new Project appears in recent Projects
+
+- From ticket 03: wire ⌘N next to the ⌘O handler in the app root.

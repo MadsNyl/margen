@@ -11,3 +11,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Seam 1 tests: description → new file created + Turn started on its Session; `@file.html` → existing Document's Session gets the message
 - [ ] `@` offers a picker of the Project's Documents
 - [ ] The bar and title match the prototype, including on an empty Project
+
+- From ticket 03: the chat bar and empty state live in the Project page component; its send button is always disabled for now.

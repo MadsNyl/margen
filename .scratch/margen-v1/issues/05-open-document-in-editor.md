@@ -18,3 +18,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 **Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
 - Use `<webview>` or an iframe served via a custom `margen-doc://` scheme, not `WebContentsView` (it paints above Margen's own overlays). Inject Margen's script into the served copy only.
 - A fully sandboxed iframe breaks the page's `localStorage`; see electron-webview-sandbox.md for the chosen trade-off.
+
+- From ticket 03: Document rows take an `onClick`; `DocumentInfo.path` is relative to the Project with `/` separators. The host keeps one current Project (one window).
