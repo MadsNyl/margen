@@ -82,9 +82,11 @@ export function createHost({
       document: path,
       permissions: presetPolicy(project.path, preset.get),
       onEntry: (id, entry, index) => events.emit('session.entry', { document: path, session: id, index, entry }),
+      onQueue: (queue) => events.emit('session.queue', queue),
       onChanged: (next) => {
         session = next
         events.emit('session.changed', next.view())
+        events.emit('session.queue', next.queue())
       },
     })
     session = sessions.current()
@@ -137,6 +139,9 @@ export function createHost({
       if (!session) throw new Error('No Document is open')
       session.send(turn)
     },
+    'session.queue': async () => session?.queue() ?? null,
+    'session.unqueue': async (id) => session?.unqueue(id),
+    'session.interrupt': async () => session?.interrupt(),
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
     'session.new': async () => {
       if (!sessions) throw new Error('No Document is open')

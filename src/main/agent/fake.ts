@@ -64,9 +64,14 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
     const pendingApprovals = new Map<string, () => void>()
     let queue = Promise.resolve()
     let interruptCurrent: (() => void) | undefined
+    /** Turns sent but not yet playing, and whether one was interrupted before it began. */
+    let waiting = 0
+    let interruptWaiting = false
 
     async function play(steps: FakeStep[]) {
-      let interrupted = false
+      waiting--
+      let interrupted = interruptWaiting
+      interruptWaiting = false
       let failed = false
       const stopped = new Promise<void>((resolve) => {
         interruptCurrent = () => {
@@ -107,7 +112,10 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
         if (step.type === 'approval-request') {
           await unlessInterrupted(new Promise<void>((resolve) => pendingApprovals.set(step.id, resolve)))
         }
-        if (step.type === 'turn-end') return
+        if (step.type === 'turn-end') {
+          interruptCurrent = undefined
+          return
+        }
       }
       interruptCurrent = undefined
       channel.push({ type: 'turn-end', reason: interrupted ? 'interrupted' : failed ? 'failed' : 'done' })
@@ -119,10 +127,12 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
       send(turn) {
         sent.push(turn)
         const steps = turns.shift() ?? fallbackTurn
+        waiting++
         queue = queue.then(() => play(steps))
       },
       async interrupt() {
-        interruptCurrent?.()
+        if (interruptCurrent) interruptCurrent()
+        else if (waiting > 0) interruptWaiting = true
       },
       answerApproval(approvalId, decision) {
         approvals.push({ id: approvalId, decision })
