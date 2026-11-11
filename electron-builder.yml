@@ -19,6 +19,8 @@ mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
   hardenedRuntime: true
+  # Fail rather than skip when the notarization credentials are missing.
+  notarize: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   # The zip is what electron-updater downloads on macOS; the dmg is for people.

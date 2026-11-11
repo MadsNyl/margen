@@ -69,6 +69,8 @@ For notarization, set **either** an App Store Connect API key (recommended):
 
 The workflow publishes with the built-in `GITHUB_TOKEN`; no token secret is needed.
 
+To check a downloaded release: `spctl -a -vvv -t install /Applications/Margen.app` should say `source=Notarized Developer ID`, and `xcrun stapler validate Margen-0.1.0-arm64.dmg` should pass.
+
 ### Auto-update
 
 A packaged Margen checks GitHub Releases 10 seconds after launch and every 4 hours (electron-updater, reading the `latest-mac.yml` and `.zip` the release publishes). A newer version downloads in the background and installs when you quit, or right away through the `update.install` host call. Dev runs and tests have no release feed, so their update status is `unavailable`. The only request this makes is to GitHub's releases feed; nothing about you or your files is sent.
