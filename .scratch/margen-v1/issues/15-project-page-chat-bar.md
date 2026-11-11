@@ -13,3 +13,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] The bar and title match the prototype, including on an empty Project
 
 - From ticket 03: the chat bar and empty state live in the Project page component; its send button is always disabled for now.
+
+- From ticket 04: after creating a new Project, move focus into the chat bar (the design does). Project names are folder slugs.
