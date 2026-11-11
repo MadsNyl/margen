@@ -8,6 +8,7 @@ import { AnnotationRows, Chips } from './annotations'
 import { useDraft } from './draft'
 import { CheckpointDivider } from './Checkpoints'
 import { HistoryDrawer } from './HistoryDrawer'
+import { useLeave } from './leave'
 import { ModelPicker } from './ModelPicker'
 import { QueuePanel } from './Queue'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
@@ -24,6 +25,7 @@ export function ChatPanel({ document }: { document: string }) {
   // Reverting waits while a Turn runs or the Queue is about to start one.
   const busy = running || (queued !== undefined && !queued.held)
   const scroller = useRef<HTMLDivElement>(null)
+  const leave = useLeave()
 
   // Esc stops the running Turn, unless something else (a menu, a popup) took it first.
   useEffect(() => {
@@ -49,7 +51,7 @@ export function ChatPanel({ document }: { document: string }) {
         </span>
         {session && <span className="truncate text-[12.5px] whitespace-nowrap text-tx3">· Session {session.number}</span>}
         <div className="ml-auto flex">
-          <HeaderButton label="New session" onClick={() => void host.call('session.new').catch(() => {})}>
+          <HeaderButton label="New session" onClick={() => leave(() => host.call('session.new').catch(() => {}))}>
             <path d="M10 4v12M4 10h12" />
           </HeaderButton>
           <HeaderButton label="Sessions & Checkpoints" onClick={() => setHistory(true)}>

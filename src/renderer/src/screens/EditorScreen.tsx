@@ -10,6 +10,7 @@ import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
 import { DraftProvider } from '../editor/draft'
 import { DrawLayer } from '../editor/DrawLayer'
+import { LeaveGuard, useLeave } from '../editor/leave'
 import { ModeShortcuts } from '../editor/ModeShortcuts'
 import { PickLayer } from '../editor/PickLayer'
 import { Toolbar } from '../editor/Toolbar'
@@ -37,27 +38,13 @@ export function EditorScreen({ project, document }: { project: Project; document
 
   return (
     <ViewportProvider value={viewport}>
+      <LeaveGuard>
       <DraftProvider document={document.path}>
       <ModeShortcuts bridge={bridge} mode={mode} onMode={setMode} />
       <div className="flex min-h-0 flex-1">
         <main className="relative mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
           <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
-            <nav className="flex min-w-0 items-center gap-1" aria-label="Breadcrumb">
-              <button
-                className="rounded-[7px] hover:bg-black/4"
-                title="Back to Start"
-                aria-label="Back to Start"
-                onClick={() => void host.call('projects.close')}
-              >
-                <Brand />
-              </button>
-              <Slash />
-              <button className="crumb text-tx2" title="Back to the Project" onClick={() => void host.call('document.close')}>
-                {project.name}
-              </button>
-              <Slash />
-              <DocumentSwitcher document={document} />
-            </nav>
+            <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
               <ViewportSelect choice={choice} viewport={viewport} onChoose={setChoice} />
               <button
@@ -111,6 +98,7 @@ export function EditorScreen({ project, document }: { project: Project; document
         <ChatPanel key={document.url} document={document.path} />
       </div>
       </DraftProvider>
+      </LeaveGuard>
     </ViewportProvider>
   )
 }
@@ -123,10 +111,34 @@ function Slash() {
   )
 }
 
+/** Back to Start, back to the Project, and the Document switcher. Each leaves the Session, so asks first while a Turn runs. */
+function Breadcrumb({ project, document }: { project: Project; document: OpenDocument }) {
+  const leave = useLeave()
+  return (
+    <nav className="flex min-w-0 items-center gap-1" aria-label="Breadcrumb">
+      <button
+        className="rounded-[7px] hover:bg-black/4"
+        title="Back to Start"
+        aria-label="Back to Start"
+        onClick={() => leave(() => host.call('projects.close'))}
+      >
+        <Brand />
+      </button>
+      <Slash />
+      <button className="crumb text-tx2" title="Back to the Project" onClick={() => leave(() => host.call('document.close'))}>
+        {project.name}
+      </button>
+      <Slash />
+      <DocumentSwitcher document={document} />
+    </nav>
+  )
+}
+
 /** The last breadcrumb: names the Document and switches to another one in the Project. */
 function DocumentSwitcher({ document }: { document: OpenDocument }) {
   const { open, setOpen, ref } = useDropdown()
   const list = useHostValue('documents.list', 'documents.changed')
+  const leave = useLeave()
 
   return (
     <div ref={ref} className="relative min-w-0">
@@ -148,7 +160,7 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
               current={doc.path === document.path}
               onClick={() => {
                 setOpen(false)
-                if (doc.path !== document.path) void host.call('document.open', doc.path).catch(() => {})
+                if (doc.path !== document.path) leave(() => host.call('document.open', doc.path).catch(() => {}))
               }}
             >
               <span className="truncate">{doc.name}</span>

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
@@ -41,6 +41,8 @@ export interface HostDeps {
 export interface Host extends HostApi {
   /** The file a `margen-doc://` request may serve: inside the current Project, else `null`. Used by the protocol handler. */
   resolveDocumentUrl(url: string): Promise<DocumentFile | null>
+  /** A link the Document view followed: emits `document.link` when it leads to a Document of the current Project. */
+  followLink(url: string): Promise<void>
   dispose(): void
 }
 
@@ -164,6 +166,7 @@ export function createHost({
       if (target !== session) throw new Error('The Document was closed')
       await target.send(locateAnnotations(turn, source))
     },
+    'session.running': async () => session?.running() ?? false,
     'session.queue': async () => session?.queue() ?? null,
     'session.unqueue': async (id) => session?.unqueue(id),
     'session.interrupt': async () => session?.interrupt(),
@@ -228,6 +231,14 @@ export function createHost({
     async resolveDocumentUrl(url) {
       const file = current && resolveDocumentUrl(current.path, url)
       return file ? documentFile(file) : null
+    },
+    async followLink(url) {
+      const project = current
+      const file = project && resolveDocumentUrl(project.path, url)
+      if (!project || !file) return
+      const path = relative(project.path, file).split(sep).join('/')
+      const { documents } = await listDocuments(project.path)
+      if (project === current && documents.some((doc) => doc.path === path)) events.emit('document.link', { path })
     },
     dispose() {
       close()

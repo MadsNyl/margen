@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell, type WebContents } from 'electron'
 import { DOCUMENT_PARTITION } from '@shared/document-bridge'
@@ -19,6 +19,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'documents.changed',
   'document.opened',
   'document.updated',
+  'document.link',
   'session.entry',
   'permissions.changed',
   'session.queue',
@@ -65,17 +66,12 @@ function serveDocuments(host: Host) {
 
 /**
  * The Document view: links to the web open in the browser, links to another
- * Document of the Project open it in the editor, and the view never leaves the Project.
+ * Document of the Project go to the editor to open, and the view never leaves the Project.
  */
 function guardDocumentView(host: Host, contents: WebContents) {
   const leave = (url: string) => {
-    if (isWebUrl(url)) {
-      void shell.openExternal(url)
-      return
-    }
-    void Promise.all([host.call('projects.current'), host.resolveDocumentUrl(url)]).then(([project, served]) => {
-      if (project && served) void host.call('document.open', relative(project.path, served.file).split(sep).join('/')).catch(() => {})
-    })
+    if (isWebUrl(url)) void shell.openExternal(url)
+    else void host.followLink(url)
   }
   contents.setWindowOpenHandler(({ url }) => {
     leave(url)

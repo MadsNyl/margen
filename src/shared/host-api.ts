@@ -158,6 +158,8 @@ export interface HostCalls {
    * while the Queue is held releases it: the new message goes last. Rejects when no Document is open.
    */
   'session.send': (turn: TurnInput) => void
+  /** A Turn is running in the open Document's Session, or its Queue is about to start one. The editor asks before switching away. */
+  'session.running': () => boolean
   /** The open Document's Queue, or `null` when no Document is open. */
   'session.queue': () => QueueView | null
   /** Takes a message out of the Queue before it sends. */
@@ -211,6 +213,8 @@ export interface HostEvents {
    * Debounced: several writes close together send one event. The view reloads on it.
    */
   'document.updated': { path: string }
+  /** A link in the Document view leads to another Document of the Project; the editor opens it (asking first while a Turn runs). */
+  'document.link': { path: string }
   /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
   'session.entry': { document: string; session: string; index: number; entry: SessionEntry }
   /** The open Document's active Session was replaced (New session, resume). */

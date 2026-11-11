@@ -95,6 +95,22 @@ describe('opening a Document', () => {
     }
   })
 
+  test("a link in the Document to another of the Project's Documents asks the editor to open it", async () => {
+    await files({ 'index.html': '', 'blog/post.html': '', 'notes.txt': '' })
+    await start()
+    const links: string[] = []
+    host.on('document.link', ({ path }) => links.push(path))
+    const origin = `margen-doc://${new URL((await host.call('document.open', 'index.html')).url).host}`
+
+    await host.followLink(`${origin}/blog/post.html`)
+    await host.followLink(`${origin}/notes.txt`)
+    await host.followLink(`${origin}/missing.html`)
+    await host.followLink('margen-doc://someotherproject/index.html')
+
+    expect(links).toEqual(['blog/post.html'])
+    expect((await host.call('document.current'))?.path).toBe('index.html')
+  })
+
   test('serves HTML as UTF-8 unless it names its own charset', async () => {
     await files({ 'plain.html': '<h1>Søster</h1>', 'latin.html': '<meta charset="iso-8859-1"><h1>x</h1>', 'style.css': '' })
     await start()

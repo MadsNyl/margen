@@ -3,6 +3,7 @@ import type { SessionSummary } from '@shared/host-api'
 import { plural } from '../format'
 import { host } from '../host'
 import { CheckpointList } from './Checkpoints'
+import { useLeave } from './leave'
 
 type Tab = 'sessions' | 'checkpoints'
 
@@ -10,6 +11,7 @@ type Tab = 'sessions' | 'checkpoints'
 export function HistoryDrawer({ open, running, onClose }: { open: boolean; running: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('sessions')
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const leave = useLeave()
 
   useEffect(() => {
     if (!open) return
@@ -22,7 +24,7 @@ export function HistoryDrawer({ open, running, onClose }: { open: boolean; runni
 
   const resume = (session: SessionSummary) => {
     onClose()
-    if (!session.active) void host.call('session.resume', session.id).catch(() => {})
+    if (!session.active) leave(() => host.call('session.resume', session.id).catch(() => {}))
   }
 
   return (

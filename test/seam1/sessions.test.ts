@@ -145,6 +145,18 @@ describe('Sessions per Document', () => {
     await expect(host.call('session.resume', 'nope')).rejects.toThrow(/No such Session/)
   })
 
+  test('says whether a Turn is running, so the editor can ask before switching away from it', async () => {
+    await launch({ turns: [[{ type: 'wait', ms: 100 }]] })
+    expect(await host.call('session.running')).toBe(false)
+
+    const done = send('Slow')
+    expect(await host.call('session.running')).toBe(true)
+    await done
+    expect(await host.call('session.running')).toBe(false)
+    await host.call('document.close')
+    expect(await host.call('session.running')).toBe(false)
+  })
+
   test('a Turn cut off by quitting shows as interrupted after the restart', async () => {
     await launch({ turns: [[{ type: 'text', text: 'Starting…' }, { type: 'wait', ms: 5000 }]] })
     await host.call('session.send', { text: 'Long job', annotations: [] })
