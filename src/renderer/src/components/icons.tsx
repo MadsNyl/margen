@@ -60,6 +60,12 @@ export const ArrowUpIcon = () => (
   </Icon>
 )
 
+export const ArrowRightIcon = () => (
+  <Icon>
+    <path d="M4 10h12M11 5l5 5-5 5" strokeWidth={2} />
+  </Icon>
+)
+
 export const OpenExternalIcon = () => (
   <Icon className="size-[15px]">
     <path d="M11 3h6v6M17 3l-8 8M14 12v5H3V6h5" />

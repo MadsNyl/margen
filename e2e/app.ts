@@ -16,6 +16,8 @@ export interface LaunchedApp {
   app: ElectronApplication
   window: Page
   dataDir: string
+  /** Stands in for ~/Documents/Margen, where new Projects are made. Inside `dataDir`. */
+  projectsDir: string
   close(): Promise<void>
 }
 
@@ -25,6 +27,7 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
   const agentScript = join(dataDir, 'fake-agent.json')
   await writeFile(agentScript, JSON.stringify(agent))
+  const projectsDir = join(dataDir, 'Documents', 'Margen')
 
   // Shells started from inside another Electron app can carry ELECTRON_RUN_AS_NODE,
   // which would start Electron as plain Node.
@@ -35,6 +38,7 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
       ...env,
       MARGEN_DATA_DIR: dataDir,
       MARGEN_FAKE_AGENT: agentScript,
+      MARGEN_PROJECTS_DIR: projectsDir,
       ...(pickFolder && { MARGEN_PICK_FOLDER: pickFolder }),
     } as Record<string, string>,
   })
@@ -43,6 +47,7 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
     app,
     window,
     dataDir,
+    projectsDir,
     async close() {
       await app.close()
       await rm(dataDir, { recursive: true, force: true })

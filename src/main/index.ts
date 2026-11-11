@@ -131,6 +131,8 @@ void app.whenReady().then(() => {
     updates,
     pickFolder,
     openExternal: (url) => shell.openExternal(url),
+    // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
+    projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
   })
   serveDocuments(host)
   bindHostToIpc(host, ipcMain, () => BrowserWindow.getAllWindows(), FORWARDED_EVENTS)

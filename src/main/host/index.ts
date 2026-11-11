@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
@@ -5,6 +6,7 @@ import type { AgentProvider } from '../agent/provider'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
+import { makeProjectFolder } from '../projects/new-project'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { createEmitter } from './emitter'
@@ -19,6 +21,8 @@ export interface HostDeps {
   pickFolder?: () => Promise<string | undefined>
   /** Opens a URL in the user's default browser (Electron's `shell.openExternal` in the app). */
   openExternal?: (url: string) => Promise<void>
+  /** Where new Projects are made: `~/Documents/Margen` unless tests pass their own. */
+  projectsDir?: string
 }
 
 export interface Host extends HostApi {
@@ -35,6 +39,7 @@ export function createHost({
   updates,
   pickFolder = async () => undefined,
   openExternal = async () => {},
+  projectsDir = join(homedir(), 'Documents', 'Margen'),
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
@@ -90,6 +95,7 @@ export function createHost({
       return folder ? open(folder) : null
     },
     'projects.open': open,
+    'projects.create': async (name) => open(await makeProjectFolder(projectsDir, name)),
     'projects.current': async () => current,
     'projects.close': async () => {
       close()
