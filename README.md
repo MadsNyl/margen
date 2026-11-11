@@ -29,7 +29,7 @@ pnpm typecheck
 pnpm lint
 ```
 
-Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`) and a fake Agent script (`MARGEN_FAKE_AGENT`).
+Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`), a fake Agent script (`MARGEN_FAKE_AGENT`) and, when asked, the folder the folder picker returns (`MARGEN_PICK_FOLDER`).
 
 If Electron starts as plain Node (`app` is undefined), your shell has `ELECTRON_RUN_AS_NODE=1`, which happens inside terminals of other Electron apps. Run `unset ELECTRON_RUN_AS_NODE` first. The e2e helper strips it for you.
 
@@ -91,7 +91,7 @@ src/main/        The main process: everything that touches the disk or the Agent
   auto-update.ts Adapter from electron-updater to the update source
   host/          createHost(): the host API, composed from the domain modules below
   agent/         The AgentProvider interface, the fake provider, and the Claude Code adapter (claude/)
-  projects/      Projects, recents, and later Document discovery and watching
+  projects/      Projects, recents, Document discovery and watching
   updates/       Auto-update state, behind an injectable release feed
 src/preload/     Exposes the host API as window.margen, and nothing else
 src/renderer/    The React UI (screens/, components/, host.ts)

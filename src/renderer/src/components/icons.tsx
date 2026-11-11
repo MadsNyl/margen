@@ -33,3 +33,29 @@ export const PlusIcon = () => (
     <path d="M10 4v12M4 10h12" />
   </Icon>
 )
+
+export const SmallFolderIcon = ({ className = 'size-4' }: { className?: string }) => (
+  <Icon className={className}>
+    <path d="M2.5 5.5h5l1.5 2h8.5v8.5h-15z" />
+  </Icon>
+)
+
+export const HtmlFileIcon = () => (
+  <Icon>
+    <path d="M5 2h7l4 4v12H5z" />
+    <path d="M12 2v4h4M8.5 10.5L7 12l1.5 1.5M11.5 10.5L13 12l-1.5 1.5" />
+  </Icon>
+)
+
+export const MicIcon = () => (
+  <Icon>
+    <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
+    <path d="M4.5 9.5a5.5 5.5 0 0011 0M10 15v2.5" />
+  </Icon>
+)
+
+export const ArrowUpIcon = () => (
+  <Icon>
+    <path d="M10 16V4M5 9l5-5 5 5" strokeWidth={2} />
+  </Icon>
+)

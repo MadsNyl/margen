@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { HostEventName } from '@shared/host-api'
 import { chooseAgentProvider } from './agent'
 import { createElectronUpdateSource } from './auto-update'
@@ -9,12 +9,21 @@ import { bindHostToIpc } from './ipc'
 // Electron bootstrap only: windows, security settings and wiring the host API
 // to IPC. Domain logic lives in framework-free modules behind `createHost`.
 
-const FORWARDED_EVENTS: HostEventName[] = ['recents.changed', 'update.changed']
+const FORWARDED_EVENTS: HostEventName[] = ['recents.changed', 'projects.changed', 'documents.changed', 'update.changed']
 
 const FIRST_UPDATE_CHECK_MS = 10_000
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 if (process.env.MARGEN_DATA_DIR) app.setPath('userData', process.env.MARGEN_DATA_DIR)
+
+/** The native folder picker. `MARGEN_PICK_FOLDER=<path>` stands in for it in Seam 2 tests. */
+async function pickFolder(): Promise<string | undefined> {
+  if (process.env.MARGEN_PICK_FOLDER) return process.env.MARGEN_PICK_FOLDER
+  const window = BrowserWindow.getFocusedWindow()
+  const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Open' }
+  const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+  return result.canceled ? undefined : result.filePaths[0]
+}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -50,7 +59,7 @@ function createWindow(): BrowserWindow {
 void app.whenReady().then(() => {
   // Only a packaged build has a release feed; dev runs and tests get no updates.
   const updates = app.isPackaged ? createElectronUpdateSource(process.env) : undefined
-  const host = createHost({ dataDir: app.getPath('userData'), agent: chooseAgentProvider(process.env), updates })
+  const host = createHost({ dataDir: app.getPath('userData'), agent: chooseAgentProvider(process.env), updates, pickFolder })
   bindHostToIpc(host, ipcMain, () => BrowserWindow.getAllWindows(), FORWARDED_EVENTS)
   if (updates) {
     const check = () => void host.call('update.check')

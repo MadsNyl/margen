@@ -4,12 +4,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms: `GLOSSARY.md`. Decisions: `docs/adr/`.
 
-- [ ] Document discovery is exposed through the host API and covered by Seam 1 tests on temp folders (nested HTML, ignored folders, .gitignore)
-- [ ] The Documents list pushes an update event when files change on disk (tested)
-- [ ] Recent Projects persist across restarts in Margen's own data directory, never inside the user's folder
-- [ ] The Project page matches the prototype: project switcher, grid of Documents with covers, "Back to Start"
-- [ ] A Seam 2 test opens a fixture folder and sees its HTML files listed
+- [x] Document discovery is exposed through the host API and covered by Seam 1 tests on temp folders (nested HTML, ignored folders, .gitignore)
+- [x] The Documents list pushes an update event when files change on disk (tested)
+- [x] Recent Projects persist across restarts in Margen's own data directory, never inside the user's folder
+- [x] The Project page matches the prototype: project switcher, grid of Documents with covers, "Back to Start"
+- [x] A Seam 2 test opens a fixture folder and sees its HTML files listed

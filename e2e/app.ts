@@ -1,13 +1,15 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 import type { FakeAgentScript } from '../src/main/agent/fake'
-import type { RecentProject } from '../src/shared/host-api'
+import type { StoredRecent } from '../src/main/projects/recents'
 
 export interface LaunchOptions {
-  recents?: RecentProject[]
+  recents?: StoredRecent[]
   agent?: FakeAgentScript
+  /** The folder the native folder picker returns. */
+  pickFolder?: string
 }
 
 export interface LaunchedApp {
@@ -18,7 +20,7 @@ export interface LaunchedApp {
 }
 
 /** Launches the built app with a fresh data directory and the fake AgentProvider. */
-export async function launchApp({ recents, agent = {} }: LaunchOptions = {}): Promise<LaunchedApp> {
+export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptions = {}): Promise<LaunchedApp> {
   const dataDir = await mkdtemp(join(tmpdir(), 'margen-e2e-'))
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
   const agentScript = join(dataDir, 'fake-agent.json')
@@ -29,7 +31,12 @@ export async function launchApp({ recents, agent = {} }: LaunchOptions = {}): Pr
   const { ELECTRON_RUN_AS_NODE: _runAsNode, ...env } = process.env
   const app = await electron.launch({
     args: [resolve(__dirname, '../out/main/index.js')],
-    env: { ...env, MARGEN_DATA_DIR: dataDir, MARGEN_FAKE_AGENT: agentScript } as Record<string, string>,
+    env: {
+      ...env,
+      MARGEN_DATA_DIR: dataDir,
+      MARGEN_FAKE_AGENT: agentScript,
+      ...(pickFolder && { MARGEN_PICK_FOLDER: pickFolder }),
+    } as Record<string, string>,
   })
   const window = await app.firstWindow()
   return {
@@ -41,4 +48,14 @@ export async function launchApp({ recents, agent = {} }: LaunchOptions = {}): Pr
       await rm(dataDir, { recursive: true, force: true })
     },
   }
+}
+
+/** Makes a temporary folder holding the given files, for use as a Project. */
+export async function makeFolder(files: Record<string, string>): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'margen-fixture-'))
+  for (const [path, content] of Object.entries(files)) {
+    await mkdir(dirname(join(dir, path)), { recursive: true })
+    await writeFile(join(dir, path), content)
+  }
+  return dir
 }
