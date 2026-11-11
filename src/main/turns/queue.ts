@@ -10,6 +10,8 @@ import type { QueuedMessage } from '@shared/host-api'
 export interface TurnQueue {
   messages(): QueuedMessage[]
   held(): boolean
+  /** A Turn is running, or is about to start (the next one goes out the moment it ends). */
+  running(): boolean
   /** Starts the Turn now if the Agent is free, else queues it. Sending releases a held Queue. */
   send(turn: TurnInput): void
   unqueue(id: string): void
@@ -40,6 +42,7 @@ export function createTurnQueue({ start, onChange }: { start(turn: TurnInput): v
   return {
     messages: () => [...messages],
     held: () => held,
+    running: () => running || (!held && messages.length > 0),
     send(turn) {
       if (!running && messages.length === 0) {
         if (held) {

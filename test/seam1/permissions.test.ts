@@ -193,7 +193,7 @@ describe('approvals', () => {
 
     expect(agent.approvals).toEqual([{ id: 'a1', decision: 'allow-once' }])
     expect(seen.map(({ entry }) => entry)).toEqual([
-      { type: 'user', turn: { text: 'Go', annotations: [] } },
+      { type: 'user', turn: { text: 'Go', annotations: [] }, checkpoint: expect.any(String) },
       { type: 'approval-request', id: 'a1', kind: 'shell', detail: 'curl -o hero.jpg https://example.com/bread.jpg' },
       { type: 'approval-answer', id: 'a1', decision: 'allow-once' },
       { type: 'text', text: 'Downloaded.' },

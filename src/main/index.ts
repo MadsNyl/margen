@@ -23,6 +23,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'permissions.changed',
   'session.queue',
   'session.changed',
+  'checkpoints.changed',
   'update.changed',
 ]
 

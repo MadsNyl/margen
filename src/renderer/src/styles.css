@@ -300,3 +300,21 @@
     opacity: 0.2;
   }
 }
+
+/* Checkpoints: the dashed divider before a Turn, and the line down the list. */
+.checkpoint::before,
+.checkpoint::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: repeating-linear-gradient(90deg, #dcdce0 0 4px, transparent 4px 8px);
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: #dcdce0;
+}

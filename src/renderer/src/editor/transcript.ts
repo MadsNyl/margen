@@ -18,7 +18,8 @@ export type ReplyPart =
   | { kind: 'error'; error: AgentError }
 
 export type ChatItem =
-  | { kind: 'user'; turn: TurnInput }
+  /** `checkpoint`: the one taken just before this Turn. */
+  | { kind: 'user'; turn: TurnInput; checkpoint?: string }
   | { kind: 'reply'; parts: ReplyPart[]; end?: Extract<AgentEvent, { type: 'turn-end' }>['reason'] }
 
 export function toChat(entries: SessionEntry[]): ChatItem[] {
@@ -27,7 +28,7 @@ export function toChat(entries: SessionEntry[]): ChatItem[] {
 
   for (const entry of entries) {
     if (entry.type === 'user') {
-      items.push({ kind: 'user', turn: entry.turn })
+      items.push({ kind: 'user', turn: entry.turn, ...(entry.checkpoint && { checkpoint: entry.checkpoint }) })
       reply = { kind: 'reply', parts: [] }
       items.push(reply)
       continue
