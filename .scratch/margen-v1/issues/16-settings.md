@@ -11,3 +11,5 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Agent details come from AgentProvider.detect through the host API
 - [ ] Changing the preset persists and takes effect on the next request (Seam 1 test)
 - [ ] Layout matches the prototype's Settings dialog
+
+- From ticket 17: show the update status from `update.status`/`update.changed` in About, with "Check for updates" (`update.check`) and "Restart to update" (`update.install`) when one is downloaded.
