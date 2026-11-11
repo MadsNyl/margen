@@ -29,7 +29,7 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
   - `projects/`: Projects, recents, Document discovery and watching (tickets 03, 04, 15); the open Document's margen-doc:// URL, what it may serve and its debounced reload watch (`document.ts`, 05)
   - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter in `agent/claude/` (02, 07): `session.ts` runs the Agent SDK's `query()`, `messages.ts` maps its messages to AgentEvents. Everything it runs on the Mac (`claude`, the login shell and its env, the installer, Terminal, the SDK's `query`) goes through `ClaudeSystem` (`claude/system.ts`) so tests pass a pretend one; `claude/node-system.ts` is the real one
   - `turns/`: building prompts from text and Annotations, the Queue, interrupts (07, 10)
-  - `permissions/`: the one `PermissionPolicy` every tool call goes through (07); the Editor preset and Allow everything (09)
+  - `permissions/`: the one `PermissionPolicy` every tool call goes through (07); the Editor preset and Allow everything, `presetPolicy`, and the chosen preset in the data dir (`preset.ts`, 09)
   - `sessions/`: the open Document's Session and its entries (07); one Session per Document, resume, persistence (08)
   - `checkpoints/`: the hidden git store outside the user's folder (11)
   - `settings/`: Settings (16)
@@ -45,4 +45,4 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
 - The Claude Code adapter (`test/seam1/claude-*.test.ts`): `createClaudeCodeProvider(system)` with a pretend `ClaudeSystem`; for Turns its `query` yields scripted SDK messages shaped like the real `claude`'s.
 - The contract test (`test/contract/`) runs one Turn against the real `claude`, only with `MARGEN_CLAUDE_CONTRACT=1`.
 - Seam 2 (`e2e/*.spec.ts`): `launchApp({ recents, agent })` from `e2e/app.ts` launches the built app with a fresh data directory and a fake Agent script. Keep it to a handful of flows that need real layout.
-- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect`, the outcome of `install` and `signIn`, and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.
+- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect`, the outcome of `install` and `signIn`, and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, `permission` steps that ask the Session's real policy (only an "ask" shows a card), and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.

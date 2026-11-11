@@ -4,12 +4,15 @@ import { dirname, join, resolve } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 import type { FakeAgentScript } from '../src/main/agent/fake'
 import type { StoredRecent } from '../src/main/projects/recents'
+import type { PermissionPreset } from '../src/shared/host-api'
 
 export interface LaunchOptions {
   recents?: StoredRecent[]
   agent?: FakeAgentScript
   /** The folder the native folder picker returns. */
   pickFolder?: string
+  /** The permission preset chosen before launch; the Editor preset when left out. */
+  preset?: PermissionPreset
 }
 
 export interface LaunchedApp {
@@ -22,9 +25,10 @@ export interface LaunchedApp {
 }
 
 /** Launches the built app with a fresh data directory and the fake AgentProvider. */
-export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptions = {}): Promise<LaunchedApp> {
+export async function launchApp({ recents, agent = {}, pickFolder, preset }: LaunchOptions = {}): Promise<LaunchedApp> {
   const dataDir = await mkdtemp(join(tmpdir(), 'margen-e2e-'))
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
+  if (preset) await writeFile(join(dataDir, 'permissions.json'), JSON.stringify({ preset }))
   const agentScript = join(dataDir, 'fake-agent.json')
   await writeFile(agentScript, JSON.stringify(agent))
   const projectsDir = join(dataDir, 'Documents', 'Margen')
