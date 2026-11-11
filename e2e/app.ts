@@ -55,6 +55,14 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
   }
 }
 
+/** Evaluates `expression` inside the Document view. Playwright doesn't attach to `<webview>` guests, so this goes through the main process. */
+export function inDocument(app: ElectronApplication, expression: string): Promise<unknown> {
+  return app.evaluate(({ webContents }, expr) => {
+    const guest = webContents.getAllWebContents().filter((w) => w.getType() === 'webview' && !w.isDestroyed())
+    return guest.at(-1)?.executeJavaScript(expr)
+  }, expression)
+}
+
 /** Makes a temporary folder holding the given files, for use as a Project. */
 export async function makeFolder(files: Record<string, string>): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'margen-fixture-'))

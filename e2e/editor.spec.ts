@@ -1,7 +1,7 @@
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { expect, test, type ElectronApplication } from '@playwright/test'
-import { launchApp, makeFolder, type LaunchedApp } from './app'
+import { expect, test } from '@playwright/test'
+import { inDocument, launchApp, makeFolder, type LaunchedApp } from './app'
 
 let launched: LaunchedApp | undefined
 let folder: string | undefined
@@ -33,14 +33,6 @@ const page = (title: string) => `<!doctype html>
   </body>
 </html>
 `
-
-/** Evaluates `expression` inside the Document view. Playwright doesn't attach to `<webview>` guests, so this goes through the main process. */
-function inDocument(app: ElectronApplication, expression: string): Promise<unknown> {
-  return app.evaluate(({ webContents }, expr) => {
-    const guest = webContents.getAllWebContents().filter((w) => w.getType() === 'webview' && !w.isDestroyed())
-    return guest.at(-1)?.executeJavaScript(expr)
-  }, expression)
-}
 
 async function openEditor(files: Record<string, string>, document: RegExp) {
   folder = await makeFolder(files)

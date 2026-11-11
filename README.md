@@ -27,9 +27,13 @@ pnpm test       # Seam 1: the host API against temp folders, with a fake Agent (
 pnpm e2e        # Seam 2: builds, then drives the real app window (Playwright + Electron)
 pnpm typecheck
 pnpm lint
+
+# The contract test: one tiny Turn against your own installed, signed-in claude.
+# It uses a little of your plan, so it's skipped unless you ask for it.
+MARGEN_CLAUDE_CONTRACT=1 pnpm vitest run test/contract   # MARGEN_CLAUDE_MODEL=haiku by default
 ```
 
-Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`), a fake Agent script (`MARGEN_FAKE_AGENT`), a temporary stand-in for `~/Documents/Margen` where New project makes its folders (`MARGEN_PROJECTS_DIR`) and, when asked, the folder the folder picker returns (`MARGEN_PICK_FOLDER`).
+Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal; its `query` plays back scripted Agent SDK messages. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`), a fake Agent script (`MARGEN_FAKE_AGENT`), a temporary stand-in for `~/Documents/Margen` where New project makes its folders (`MARGEN_PROJECTS_DIR`) and, when asked, the folder the folder picker returns (`MARGEN_PICK_FOLDER`).
 
 If Electron starts as plain Node (`app` is undefined), your shell has `ELECTRON_RUN_AS_NODE=1`, which happens inside terminals of other Electron apps. Run `unset ELECTRON_RUN_AS_NODE` first. The e2e helper strips it for you.
 
@@ -92,13 +96,20 @@ src/main/        The main process: everything that touches the disk or the Agent
   host/          createHost(): the host API, composed from the domain modules below
   agent/         The AgentProvider interface, the fake provider, and the Claude Code adapter (claude/)
   projects/      Projects, recents, Document discovery and watching
+  sessions/      The open Document's Session: its entries and the Agent session behind it
+  permissions/   The permission policy: which tool calls run without asking
   updates/       Auto-update state, behind an injectable release feed
 src/preload/     index.ts exposes the host API as window.margen, and nothing else;
                  document.ts is Margen's script inside the Document view (the <webview>'s preload)
 src/renderer/    The React UI (screens/, components/, editor/, host.ts)
 test/seam1/      Host API tests (Vitest)
+test/contract/   The opt-in test against the real claude
 e2e/             Real app window tests (Playwright)
 ```
+
+### Turns
+
+Sending in the Composer calls `session.send`. The open Document's Session (`src/main/sessions/`) starts the Agent session on its first Turn and passes each AgentEvent on as a `session.entry` event, numbered so the chat can catch up through `session.current`. The Claude Code adapter (`src/main/agent/claude/session.ts`) keeps one `query()` of the Agent SDK running per Session, always pointed at the user's own `claude` (`pathToClaudeCodeExecutable`, never the SDK's bundled binary), in the Project folder, with the login shell's environment, the user's Claude settings files left out (`settingSources: []`) and summarised thinking. `messages.ts` maps the SDK's messages to AgentEvents and skips any it doesn't know. Tool calls go through one permission policy (`src/main/permissions/`); "ask" becomes an approval-request in the chat.
 
 ### The Document view
 

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { OpenDocument, Project } from '@shared/host-api'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
-import { ClaudeMark, OpenExternalIcon } from '../components/icons'
+import { OpenExternalIcon } from '../components/icons'
+import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import { host, useHostValue } from '../host'
 
@@ -81,7 +82,7 @@ export function EditorScreen({ project, document }: { project: Project; document
           </div>
         </div>
       </main>
-      <ChatPanel />
+      <ChatPanel key={document.url} document={document.path} />
     </div>
   )
 }
@@ -129,22 +130,5 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
         </Menu>
       )}
     </div>
-  )
-}
-
-/** The chat panel. Ticket 07 fills it with the conversation and the Composer. */
-function ChatPanel() {
-  return (
-    <aside aria-label="Chat" className="relative mx-2 mb-2 flex w-[370px] min-h-0 flex-none flex-col">
-      <div className="flex h-11 flex-none items-center gap-2 pr-1 pl-2">
-        <span className="inline-flex items-center gap-2 text-[13.5px] font-medium">
-          <ClaudeMark />
-          Claude Code
-        </span>
-      </div>
-      <div className="flex flex-1 items-center justify-center px-8 text-center text-[13px] leading-relaxed text-tx3">
-        Describe a change, or Pick and Draw on the page.
-      </div>
-    </aside>
   )
 }

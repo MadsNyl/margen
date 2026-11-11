@@ -253,3 +253,39 @@
     background: rgba(0, 0, 0, 0.04);
   }
 }
+
+/* The chat: "Thinking" shimmer, its spinner, and the blinking … on a running tool card. */
+.shimmer {
+  background: linear-gradient(90deg, #a1a1aa 0%, #111 50%, #a1a1aa 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #e4e4e7;
+  border-top-color: var(--color-primary);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tool-running::after {
+  content: '…';
+  animation: blink 1s infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
