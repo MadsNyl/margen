@@ -4,8 +4,8 @@ import type { AgentProvider, AgentSession } from '../agent/provider'
 import type { PermissionPolicy } from '../permissions'
 
 // The open Document's Session: its entries, and the Agent session behind it,
-// started on the first Turn. Kept in memory for now; ticket 08 stores Sessions
-// per Document (with `agentSessionId` to resume) and lists past ones.
+// started on the first Turn. `documentSessions` (./document.ts) stores them per
+// Document and switches between them.
 
 export interface DocumentSession {
   view(): SessionView
@@ -23,6 +23,11 @@ export interface DocumentSessionOptions {
   projectDir: string
   /** The Document, relative to the Project folder. */
   document: string
+  /** Margen's id for the Session, and its number among the Document's Sessions. */
+  id: string
+  number: number
+  /** What the Session already holds, when it's a stored one. */
+  entries?: SessionEntry[]
   permissions: PermissionPolicy
   /** Resumes this Agent session instead of starting a new one. */
   resumeId?: string
@@ -33,11 +38,14 @@ export function startDocumentSession({
   agent,
   projectDir,
   document,
+  id,
+  number,
+  entries: stored = [],
   permissions,
   resumeId,
   onEntry,
 }: DocumentSessionOptions): DocumentSession {
-  const entries: SessionEntry[] = []
+  const entries: SessionEntry[] = [...stored]
   let session: AgentSession | undefined
   let running = false
   let disposed = false
@@ -65,7 +73,7 @@ export function startDocumentSession({
   }
 
   return {
-    view: () => ({ document, entries: [...entries] }),
+    view: () => ({ document, id, number, entries: [...entries] }),
     agentSessionId: () => session?.id,
     send(turn) {
       if (running) throw new Error('A Turn is running')
