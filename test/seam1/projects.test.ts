@@ -98,6 +98,26 @@ describe('opening a folder as a Project', () => {
 
     expect(await listed()).toEqual(['index.html', 'keep.draft.html', 'pages/private.html'])
   })
+
+  test('honours .gitignore files in subfolders too, each for its own folder', async () => {
+    await files({
+      '.gitignore': '*.draft.html\n',
+      'index.html': '',
+      'blog/.gitignore': '/private.html\nold/\n!wip.draft.html\n',
+      'blog/post.html': '',
+      'blog/private.html': '',
+      'blog/wip.draft.html': '',
+      'blog/other.draft.html': '',
+      'blog/old/2019.html': '',
+      'blog/deep/private.html': '',
+      'shop/private.html': '',
+      'shop/old/sale.html': '',
+    })
+    start()
+    await host.call('projects.open', projectDir)
+
+    expect(await listed()).toEqual(['index.html', 'blog/post.html', 'blog/wip.draft.html', 'blog/deep/private.html', 'shop/private.html', 'shop/old/sale.html'])
+  })
 })
 
 describe('watching the open Project', () => {
