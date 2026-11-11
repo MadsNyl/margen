@@ -5,21 +5,18 @@ import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import { openCheckpoints, type CheckpointStore } from '../checkpoints'
-import { presetPolicy } from '../permissions'
 import { createPresetStore, isPreset } from '../permissions/preset'
-import type { DocumentSession } from '../sessions'
-import { documentSessions, type DocumentSessions } from '../sessions/document'
-import { openSessionStore } from '../sessions/store'
 import { locateAnnotations } from '../turns'
 import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
-import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
+import { documentFile, resolveDocumentUrl, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
 import { makeDocumentFile, mentionedDocument } from '../projects/new-document'
 import { makeProjectFolder } from '../projects/new-project'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { createEmitter } from './emitter'
+import { openEditorDocument, type EditorDocument } from './open-document'
 
 export interface HostDeps {
   /** Margen's own data directory (Electron's userData in the app, a temp folder in tests). */
@@ -63,11 +60,9 @@ export function createHost({
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
   let current: Project | null = null
   let stopWatching = () => {}
-  let document: OpenDocument | null = null
-  let stopWatchingDocument = () => {}
-  let session: DocumentSession | null = null
-  let sessions: DocumentSessions | null = null
   let checkpoints: CheckpointStore | null = null
+  /** The Document open in the editor. */
+  let opened: EditorDocument | null = null
   const preset = createPresetStore(dataDir)
   const modelChoice = createModelChoiceStore(dataDir)
 
@@ -89,44 +84,35 @@ export function createHost({
     const info = project && (await listDocuments(project.path)).documents.find((doc) => doc.path === path)
     if (!project || !info) throw new Error(`Not a Document of the open Project: ${path}`)
     closeDocument()
-    document = { path, name: info.name, url: documentUrl(project.path, path) }
-    stopWatchingDocument = watchDocument(project.path, path, () => events.emit('document.updated', { path }))
-    sessions = documentSessions({
-      store: openSessionStore(dataDir, project.path),
+    opened = openEditorDocument({
+      dataDir,
       agent,
-      projectDir: project.path,
-      document: path,
-      permissions: presetPolicy(project.path, preset.get),
-      beforeTurn: async (turn) => {
-        const store = checkpoints
-        if (!store) return undefined
-        const number = session?.view().number
-        const checkpoint = await store.take({ reason: 'turn', document: path, ...(number && { session: number }), text: turn.text })
-        if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
-        return checkpoint.id
-      },
-      onEntry: (id, entry, index) => events.emit('session.entry', { document: path, session: id, index, entry }),
-      onQueue: (queue) => events.emit('session.queue', queue),
-      onChanged: (next) => {
-        session = next
-        events.emit('session.changed', next.view())
-        events.emit('session.queue', next.queue())
-      },
+      project,
+      path,
+      name: info.name,
+      checkpoints: () => checkpoints,
+      preset: preset.get,
+      emit: events.emit,
     })
-    session = sessions.current()
-    events.emit('document.opened', document)
-    return document
+    events.emit('document.opened', opened.info)
+    return opened.info
   }
 
   function closeDocument() {
-    stopWatchingDocument()
-    stopWatchingDocument = () => {}
-    sessions?.dispose()
-    sessions = null
-    session = null
-    if (!document) return
-    document = null
+    if (!opened) return
+    opened.close()
+    opened = null
     events.emit('document.opened', null)
+  }
+
+  function requireProject(): { project: Project; checkpoints: CheckpointStore } {
+    if (!current || !checkpoints) throw new Error('No Project is open')
+    return { project: current, checkpoints }
+  }
+
+  function requireDocument(): EditorDocument {
+    if (!opened) throw new Error('No Document is open')
+    return opened
   }
 
   function close() {
@@ -155,53 +141,46 @@ export function createHost({
     },
     'documents.list': async () => (current ? listDocuments(current.path) : { documents: [], hidden: [] }),
     'document.open': openDocument,
-    'document.current': async () => document,
+    'document.current': async () => opened?.info ?? null,
     'document.close': async () => closeDocument(),
     'document.openInBrowser': async () => {
-      if (current && document) await openExternal(pathToFileURL(join(current.path, document.path)).href)
+      if (opened) await openExternal(pathToFileURL(opened.file).href)
     },
-    'document.capture': async () => (document ? captureDocument() : null),
-    'session.current': async () => session?.view() ?? null,
+    'document.capture': async () => (opened ? captureDocument() : null),
+    'session.current': async () => opened?.session().view() ?? null,
     'session.send': async (turn) => {
-      const target = session
-      if (!target || !current || !document) throw new Error('No Document is open')
-      const source = turn.annotations.length ? await readFile(join(current.path, document.path), 'utf8').catch(() => undefined) : undefined
-      if (target !== session) throw new Error('The Document was closed')
+      const { file, session } = requireDocument()
+      const target = session()
+      const source = turn.annotations.length ? await readFile(file, 'utf8').catch(() => undefined) : undefined
+      if (target !== opened?.session()) throw new Error('The Document was closed')
       await target.send(locateAnnotations(turn, source))
     },
-    'session.running': async () => session?.running() ?? false,
-    'session.queue': async () => session?.queue() ?? null,
-    'session.unqueue': async (id) => session?.unqueue(id),
-    'session.interrupt': async () => session?.interrupt(),
-    'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
-    'session.new': async () => {
-      if (!sessions) throw new Error('No Document is open')
-      return sessions.startNew().view()
-    },
-    'session.resume': async (id) => {
-      if (!sessions) throw new Error('No Document is open')
-      return sessions.resume(id).view()
-    },
-    'sessions.list': async () => sessions?.list() ?? [],
+    'session.running': async () => opened?.session().running() ?? false,
+    'session.queue': async () => opened?.session().queue() ?? null,
+    'session.unqueue': async (id) => opened?.session().unqueue(id),
+    'session.interrupt': async () => opened?.session().interrupt(),
+    'session.answerApproval': async (id, decision) => opened?.session().answerApproval(id, decision),
+    'session.new': async () => requireDocument().sessions.startNew().view(),
+    'session.resume': async (id) => requireDocument().sessions.resume(id).view(),
+    'sessions.list': async () => opened?.sessions.list() ?? [],
     'checkpoints.list': async () => (checkpoints ? checkpoints.list() : []),
     'checkpoints.revert': async (id) => {
-      const store = checkpoints
-      if (!store) throw new Error('No Project is open')
-      if (session?.running()) throw new Error('A Turn is running')
+      const store = requireProject().checkpoints
+      if (opened?.session().running()) throw new Error('A Turn is running')
       await store.revert(id)
       if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
     },
     'project.send': async (text) => {
-      if (!current) throw new Error('No Project is open')
-      const { documents } = await listDocuments(current.path)
+      const { project } = requireProject()
+      const { documents } = await listDocuments(project.path)
       const path =
         mentionedDocument(
           text,
           documents.map((doc) => doc.path),
-        ) ?? (await makeDocumentFile(current.path, text))
-      const opened = await openDocument(path)
-      await session?.send({ text, annotations: [] })
-      return opened
+        ) ?? (await makeDocumentFile(project.path, text))
+      const info = await openDocument(path)
+      await opened?.session().send({ text, annotations: [] })
+      return info
     },
     'model.choice': () => modelChoice.get(),
     'model.setChoice': async (choice) => {
@@ -216,7 +195,7 @@ export function createHost({
       if (!isPreset(next)) throw new Error(`Not a permission preset: ${String(next)}`)
       await preset.set(next)
       events.emit('permissions.changed', next)
-      if (next === 'allow-everything') session?.allowWaiting()
+      if (next === 'allow-everything') opened?.session().allowWaiting()
       return next
     },
     'recents.list': () => listRecents(dataDir),
