@@ -75,3 +75,18 @@ test('with Claude Code installed and signed in, launch skips straight to the Sta
   await expect(window.getByRole('heading', startHeading)).toBeVisible()
   await expect(window.getByRole('group', { name: 'Claude Code' })).toHaveCount(0)
 })
+
+test('a Sign in that is waiting for Terminal can be cancelled', async () => {
+  launched = await launchApp({
+    agent: { detect: { installed: true, version: '2.1.287', signedIn: false }, signIn: { result: 'done', ms: 60_000 } },
+  })
+  const signIn = launched.window.getByRole('group', { name: 'Sign in to Claude' })
+
+  await signIn.getByRole('button', { name: 'Sign in' }).click()
+  await expect(signIn).toHaveAttribute('data-state', 'working')
+  await signIn.getByRole('button', { name: 'Cancel' }).click()
+
+  await expect(signIn).toHaveAttribute('data-state', 'missing')
+  await expect(signIn.getByRole('button', { name: 'Sign in' })).toBeEnabled()
+  await expect(launched.window.getByRole('button', { name: 'Continue' })).toBeDisabled()
+})

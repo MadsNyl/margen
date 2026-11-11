@@ -26,7 +26,8 @@ export function OnboardingScreen(props: { initial: AgentStatus; onContinue: () =
       return
     }
     setStatus(result.status)
-    setRun(result.ok ? { working: false } : { working: false, error: result.message })
+    // Cancelled is back to how the step was before.
+    setRun(result.ok || result.cancelled ? { working: false } : { working: false, error: result.message })
   }
 
   const installState = stepState(status.installed, install)
@@ -78,6 +79,7 @@ export function OnboardingScreen(props: { initial: AgentStatus; onContinue: () =
               actionPrimary={status.installed}
               actionDisabled={!status.installed}
               onAction={() => void runStep('agent.signIn', setSignIn)}
+              onCancel={() => void host.call('agent.cancelSignIn')}
             >
               {signInState === 'missing' && (
                 <>
@@ -130,6 +132,8 @@ function Step(props: {
   actionPrimary?: boolean
   actionDisabled?: boolean
   onAction: () => void
+  /** While working, a Cancel in place of the action. */
+  onCancel?: () => void
   children: ReactNode
 }) {
   const titleId = useId()
@@ -149,7 +153,11 @@ function Step(props: {
         </h4>
         <small className="block text-[12.5px] leading-[1.45] break-words text-tx2">{props.children}</small>
       </div>
-      {props.state !== 'done' && (
+      {props.state === 'working' && props.onCancel ? (
+        <button className="btn" onClick={props.onCancel}>
+          Cancel
+        </button>
+      ) : props.state !== 'done' ? (
         <button
           className={`btn ${props.actionPrimary ? 'btn-primary' : ''} ${props.state === 'working' ? 'invisible' : ''}`}
           disabled={props.actionDisabled}
@@ -157,7 +165,7 @@ function Step(props: {
         >
           {props.action}
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

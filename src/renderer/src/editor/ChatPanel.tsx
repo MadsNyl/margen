@@ -243,7 +243,7 @@ function ErrorCard({ error }: { error: AgentError }) {
   const start = () => {
     setSignIn({ state: 'waiting' })
     void host.call('agent.signIn').then(
-      (result) => setSignIn(result.ok ? { state: 'done' } : { state: 'failed', message: result.message }),
+      (result) => setSignIn(result.ok ? { state: 'done' } : result.cancelled ? { state: 'idle' } : { state: 'failed', message: result.message }),
       (failure: unknown) => setSignIn({ state: 'failed', message: failure instanceof Error ? failure.message : String(failure) }),
     )
   }
@@ -251,7 +251,12 @@ function ErrorCard({ error }: { error: AgentError }) {
   if (error.reason === 'signed-out') {
     action =
       signIn.state === 'waiting' ? (
-        <p className="mt-1.5 text-tx2">Finish signing in in Terminal. This updates when you're done.</p>
+        <>
+          <p className="mt-1.5 text-tx2">Finish signing in in Terminal. This updates when you're done.</p>
+          <button className="btn mt-2 h-7 px-3 text-[12px]" onClick={() => void host.call('agent.cancelSignIn')}>
+            Cancel
+          </button>
+        </>
       ) : signIn.state === 'done' ? (
         <p className="mt-1.5 text-[#185a36]">Signed in. Send your message again.</p>
       ) : (

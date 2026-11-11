@@ -160,6 +160,22 @@ describe('signing in to Claude', () => {
     expect(await host.call('agent.signIn')).toMatchObject({ ok: false, status: { installed: true, signedIn: false } })
   })
 
+  test('Sign in can be cancelled while it waits for the login in Terminal', async () => {
+    const { system, ran } = pretendMac({
+      claude: { path: '/Users/me/.local/bin/claude', version: '2.1.322', auth: signedOut },
+      login: 'abandoned',
+    })
+    system.sleep = () => new Promise(() => {})
+    host = createHost({ dataDir, agent: createClaudeCodeProvider(system) })
+
+    const signingIn = host.call('agent.signIn')
+    await expect.poll(() => ran.includes("Terminal: '/Users/me/.local/bin/claude' auth login")).toBe(true)
+    await host.call('agent.cancelSignIn')
+
+    expect(await signingIn).toEqual({ ok: false, cancelled: true, status: expect.objectContaining({ signedIn: false }), message: 'Sign in cancelled.' })
+    await host.call('agent.cancelSignIn')
+  })
+
   test('Sign in needs Claude Code installed first', async () => {
     const { system, ran } = pretendMac({})
     host = createHost({ dataDir, agent: createClaudeCodeProvider(system) })

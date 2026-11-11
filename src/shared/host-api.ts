@@ -131,6 +131,8 @@ export interface HostCalls {
   'agent.install': () => AgentSetupResult
   /** Opens the Agent's own login in Terminal. Resolves once the Agent reports signed in, or gives up. */
   'agent.signIn': () => AgentSetupResult
+  /** Stops waiting for a Sign in; it resolves as cancelled. */
+  'agent.cancelSignIn': () => void
   /** Shows the folder picker and opens the chosen folder. `null` if the user cancels. */
   'projects.choose': () => Project | null
   /** Opens a folder as the current Project. Rejects if it isn't there. */

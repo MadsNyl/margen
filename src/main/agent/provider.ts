@@ -22,6 +22,8 @@ export interface AgentProvider {
   install(): Promise<AgentSetupResult>
   /** Opens the Agent's own login in Terminal, then waits until it reports signed in. */
   signIn(): Promise<AgentSetupResult>
+  /** Stops a Sign in that's waiting: it ends with `cancelled`. The login in Terminal is the user's to close. */
+  cancelSignIn(): void
   startSession(opts: StartSessionOptions): AgentSession
 }
 

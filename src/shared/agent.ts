@@ -10,8 +10,8 @@ export interface AgentStatus {
   plan?: string
 }
 
-/** How an onboarding step (Install, Sign in) ended, with the status detected afterwards. */
-export type AgentSetupResult = { ok: true; status: AgentStatus } | { ok: false; status: AgentStatus; message: string }
+/** How an onboarding step (Install, Sign in) ended, with the status detected afterwards. `cancelled`: the user stopped it. */
+export type AgentSetupResult = { ok: true; status: AgentStatus } | { ok: false; status: AgentStatus; message: string; cancelled?: true }
 
 interface AnnotationBase {
   number: number

@@ -139,6 +139,7 @@ export function createHost({
     'agent.detect': () => agent.detect(),
     'agent.install': () => agent.install(),
     'agent.signIn': () => agent.signIn(),
+    'agent.cancelSignIn': async () => agent.cancelSignIn(),
     'projects.choose': async () => {
       const folder = await pickFolder()
       return folder ? open(folder) : null

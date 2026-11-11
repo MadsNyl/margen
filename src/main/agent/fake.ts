@@ -11,10 +11,10 @@ import type { AgentProvider, AgentSession, StartSessionOptions } from './provide
 // An approval-request pauses the Turn until it's answered, `wait` makes a slow
 // Turn, and `interrupt` ends the running Turn with turn-end "interrupted".
 // Install and Sign in play back their scripted outcome (done by default) after
-// `ms`; a done one updates what `detect` reports from then on. A Turn with an
-// error step ends with turn-end "failed". A `permission` step asks the Session's
-// policy about a tool request, as a real Agent does; only an "ask" becomes an
-// approval-request (and pauses the Turn).
+// `ms`; a done one updates what `detect` reports from then on. A Sign in can be
+// cancelled meanwhile. A Turn with an error step ends with turn-end "failed". A
+// `permission` step asks the Session's policy about a tool request, as a real
+// Agent does; only an "ask" becomes an approval-request (and pauses the Turn).
 
 export type FakeStep =
   | Exclude<AgentEvent, ToolEvent>
@@ -153,8 +153,12 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
     }
   }
 
-  async function setup(step: FakeSetupStep | undefined, change: Partial<AgentStatus>): Promise<AgentSetupResult> {
+  /** Ends the Sign in that's playing back, if one is. */
+  let cancelSignIn = () => {}
+
+  async function setup(step: FakeSetupStep | undefined, change: Partial<AgentStatus>, cancelled = () => false): Promise<AgentSetupResult> {
     if (step?.ms) await new Promise((resolve) => setTimeout(resolve, step.ms))
+    if (cancelled()) return { ok: false, cancelled: true, status, message: 'Sign in cancelled.' }
     if (step?.result === 'failed') return { ok: false, status, message: step.message ?? 'Failed' }
     status = { ...status, ...change }
     return { ok: true, status }
@@ -166,8 +170,20 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
     sessions,
     detect: async () => status,
     install: () => setup(script.install, { installed: true, version: script.install?.version ?? status.version ?? 'fake' }),
-    signIn: () =>
-      setup(script.signIn, { signedIn: true, ...(script.signIn?.plan !== undefined && { plan: script.signIn.plan }) }),
+    signIn() {
+      let cancelled = false
+      const change = { signedIn: true, ...(script.signIn?.plan !== undefined && { plan: script.signIn.plan }) }
+      return Promise.race([
+        setup(script.signIn, change, () => cancelled),
+        new Promise<AgentSetupResult>((resolve) => {
+          cancelSignIn = () => {
+            cancelled = true
+            resolve({ ok: false, cancelled: true, status, message: 'Sign in cancelled.' })
+          }
+        }),
+      ]).finally(() => (cancelSignIn = () => {}))
+    },
+    cancelSignIn: () => cancelSignIn(),
     startSession,
   }
 }
