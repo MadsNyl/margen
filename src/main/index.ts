@@ -20,6 +20,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'document.updated',
   'session.entry',
   'permissions.changed',
+  'session.changed',
   'update.changed',
 ]
 

@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
-import type { PermissionPreset, SessionEntry } from '@shared/host-api'
+import type { PermissionPreset, SessionView } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
 import { host, useHostValue } from '../host'
+import { HistoryDrawer } from './HistoryDrawer'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
 
 /** The chat panel: the open Document's Session and the Composer. */
 export function ChatPanel({ document }: { document: string }) {
-  const entries = useSession(document)
-  const items = useMemo(() => toChat(entries), [entries])
+  const session = useSession(document)
+  const entries = session?.entries
+  const items = useMemo(() => toChat(entries ?? []), [entries])
+  const [history, setHistory] = useState(false)
   const running = isRunning(items)
   const scroller = useRef<HTMLDivElement>(null)
 
@@ -24,6 +27,16 @@ export function ChatPanel({ document }: { document: string }) {
           <ClaudeMark />
           Claude Code
         </span>
+        {session && <span className="truncate text-[12.5px] whitespace-nowrap text-tx3">· Session {session.number}</span>}
+        <div className="ml-auto flex">
+          <HeaderButton label="New session" onClick={() => void host.call('session.new').catch(() => {})}>
+            <path d="M10 4v12M4 10h12" />
+          </HeaderButton>
+          <HeaderButton label="Sessions & Checkpoints" onClick={() => setHistory(true)}>
+            <circle cx="10" cy="10" r="7" />
+            <path d="M10 6v4l2.5 2" />
+          </HeaderButton>
+        </div>
       </div>
       <div ref={scroller} role="log" aria-label="Conversation" className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-2 pt-2.5 pb-[18px]">
         {items.length === 0 ? (
@@ -33,28 +46,56 @@ export function ChatPanel({ document }: { document: string }) {
         )}
       </div>
       <Composer running={running} onSend={(turn) => void host.call('session.send', turn).catch(() => {})} />
+      <HistoryDrawer open={history} onClose={() => setHistory(false)} />
     </aside>
   )
 }
 
-/** The open Document's Session entries: what's there now, then each new one as it arrives. */
-function useSession(document: string): SessionEntry[] {
-  const [entries, setEntries] = useState<SessionEntry[]>([])
+function HeaderButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="grid size-8 place-items-center rounded-lg text-tx2 hover:bg-black/4 hover:text-tx"
+    >
+      <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {children}
+      </svg>
+    </button>
+  )
+}
+
+/**
+ * The open Document's active Session: what's there now, then each new entry as it
+ * arrives. New session and resume replace it.
+ */
+function useSession(document: string): SessionView | undefined {
+  const [session, setSession] = useState<SessionView>()
   useEffect(() => {
     let live = true
-    const off = host.on('session.entry', (payload) => {
+    const offEntry = host.on('session.entry', (payload) => {
       if (payload.document !== document) return
-      setEntries((prev) => (payload.index === prev.length ? [...prev, payload.entry] : prev))
+      setSession((prev) =>
+        prev?.id === payload.session && payload.index === prev.entries.length
+          ? { ...prev, entries: [...prev.entries, payload.entry] }
+          : prev,
+      )
+    })
+    const offChanged = host.on('session.changed', (view) => {
+      if (view.document === document) setSession(view)
     })
     void host.call('session.current').then((view) => {
-      if (live && view?.document === document) setEntries((prev) => (view.entries.length > prev.length ? view.entries : prev))
+      if (!live || view?.document !== document) return
+      setSession((prev) => (prev && (prev.id !== view.id || prev.entries.length >= view.entries.length) ? prev : view))
     })
     return () => {
       live = false
-      off()
+      offEntry()
+      offChanged()
     }
   }, [document])
-  return entries
+  return session
 }
 
 function Item({ item, running }: { item: ChatItem; running: boolean }) {
