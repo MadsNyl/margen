@@ -3,9 +3,9 @@ import type { Checkpoint } from '@shared/host-api'
 import { host, useHostValue } from '../host'
 
 // Checkpoints in the editor: the divider with "Revert to here" before each
-// Turn in the chat, and the Project's list across every Session. The list is
-// self-contained so the history drawer (ticket 08) can show it as its
-// Checkpoints tab. A revert is undoable: the host takes a Checkpoint first.
+// Turn in the chat, and the Project's list across every Session, which the
+// history drawer shows as its Checkpoints tab. A revert is undoable: the host
+// takes a Checkpoint first.
 
 /** The current Project's Checkpoints, newest first. */
 export function useCheckpoints(): Checkpoint[] {
@@ -67,30 +67,14 @@ export function CheckpointList({ disabled }: { disabled: boolean }) {
             </button>
           </b>
           <small className="mt-[3px] block truncate text-[12px] text-tx3" title={checkpoint.text}>
-            {checkpoint.reason === 'revert' ? 'Before a revert' : `Before a turn · ${checkpoint.document}`} · {time(checkpoint.takenAt)}
+            {checkpoint.reason === 'revert'
+              ? 'Before a revert'
+              : ['Before a turn', checkpoint.document, checkpoint.session && `Session ${checkpoint.session}`].filter(Boolean).join(' · ')}{' '}
+            · {time(checkpoint.takenAt)}
           </small>
         </div>
       ))}
       {checkpoints.length === 0 && <p className="px-3 py-3 text-[12px] leading-normal text-tx3">A Checkpoint is taken before every Turn.</p>}
-    </div>
-  )
-}
-
-/**
- * The Checkpoints list over the chat. A stand-in until ticket 08's history
- * drawer, which shows `CheckpointList` as its Checkpoints tab instead.
- */
-export function CheckpointDrawer({ disabled, onClose }: { disabled: boolean; onClose: () => void }) {
-  return (
-    <div role="dialog" aria-label="Checkpoints" className="absolute inset-0 z-30 flex flex-col bg-shell">
-      <div className="flex items-center gap-1 px-1 pt-2 pb-2.5">
-        <span className="rounded-full bg-white px-3 py-1.5 text-[12.5px] font-medium shadow-[0_1px_3px_rgba(0,0,0,.08)]">Checkpoints</span>
-        <button aria-label="Close" className="icon-btn ml-auto" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-      <p className="px-3 pb-2 text-[12px] leading-normal text-tx3">Checkpoints belong to the Project, so every Session shares them.</p>
-      <CheckpointList disabled={disabled} />
     </div>
   )
 }

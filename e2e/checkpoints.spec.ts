@@ -46,7 +46,12 @@ test('Revert to here restores the Project to before the Turn, and the Document r
   expect(await readdir(folder)).toEqual(['index.html'])
 
   // The list shows it too, with the Checkpoint the revert took first.
-  await chat.getByRole('button', { name: 'Checkpoints' }).click()
+  await chat.getByRole('button', { name: 'Sessions & Checkpoints' }).click()
+  await chat.getByRole('tab', { name: 'Checkpoints' }).click()
   const list = chat.getByRole('list', { name: 'Checkpoints' })
-  await expect(list.getByRole('listitem')).toHaveText([/^Now/, /^Checkpoint 2\s*Revert\s*Before a revert/, /^Checkpoint 1\s*Revert\s*Before a turn · index\.html/])
+  await expect(list.getByRole('listitem')).toHaveText([
+    /^Now/,
+    /^Checkpoint 2\s*Revert\s*Before a revert/,
+    /^Checkpoint 1\s*Revert\s*Before a turn · index\.html · Session 1/,
+  ])
 })

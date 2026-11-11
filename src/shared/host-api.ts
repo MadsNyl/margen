@@ -62,8 +62,9 @@ export interface Checkpoint {
   takenAt: string
   /** `turn`: just before a Turn. `revert`: just before a revert, so the revert can be undone. */
   reason: 'turn' | 'revert'
-  /** For `turn`: the Document whose Session the Turn was in, and what the user wrote. */
+  /** For `turn`: the Document and the number of the Session the Turn was in, and what the user wrote. */
   document?: string
+  session?: number
   text?: string
 }
 
@@ -71,7 +72,24 @@ export interface Checkpoint {
 export interface SessionView {
   /** The Document it belongs to, as in `OpenDocument.path`. */
   document: string
+  /** Margen's own id for the Session (not the Agent's). */
+  id: string
+  /** Counts up per Document: "Session 2". */
+  number: number
   entries: SessionEntry[]
+}
+
+/** One of a Document's Sessions, as the history drawer lists it. */
+export interface SessionSummary {
+  id: string
+  number: number
+  /** When its first Turn was sent. */
+  startedAt: string
+  turns: number
+  /** The text of its first message. */
+  firstMessage: string
+  /** It's the Document's active Session, the one in the chat. */
+  active: boolean
 }
 
 /** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
@@ -113,6 +131,12 @@ export interface HostCalls {
   /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
   'session.send': (turn: TurnInput) => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** Puts the active Session away and starts an empty one. An empty Session stays as it is. */
+  'session.new': () => SessionView
+  /** Makes one of the open Document's past Sessions the active one; its Agent session continues. */
+  'session.resume': (id: string) => SessionView
+  /** The open Document's Sessions that have had a Turn, newest first. */
+  'sessions.list': () => SessionSummary[]
   /** The current Project's Checkpoints from every Session, newest first. */
   'checkpoints.list': () => Checkpoint[]
   /**
@@ -143,7 +167,9 @@ export interface HostEvents {
    */
   'document.updated': { path: string }
   /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
-  'session.entry': { document: string; index: number; entry: SessionEntry }
+  'session.entry': { document: string; session: string; index: number; entry: SessionEntry }
+  /** The open Document's active Session was replaced (New session, resume). */
+  'session.changed': SessionView
   /** The current Project's Checkpoints, newest first, whenever one is taken. */
   'checkpoints.changed': Checkpoint[]
 }

@@ -15,12 +15,12 @@ import { IGNORED_FOLDERS } from '../projects/documents'
 // A subfolder that is its own git repo is stored as a gitlink, so its files
 // aren't snapshotted or restored.
 //
-// The list (number, reason, Document, text) is kept in checkpoints.json next
+// The list (number, reason, Document, Session, text) is kept in checkpoints.json next
 // to the store rather than parsed from commit messages.
 
 export interface CheckpointStore {
   /** Snapshots the Project as it is now. */
-  take(meta: Pick<Checkpoint, 'reason' | 'document' | 'text'>): Promise<Checkpoint>
+  take(meta: Pick<Checkpoint, 'reason' | 'document' | 'session' | 'text'>): Promise<Checkpoint>
   /** Newest first. */
   list(): Promise<Checkpoint[]>
   /** Takes a `revert` Checkpoint, then restores every file to `id`, deleting files made since. Rejects for an unknown id. */
@@ -83,7 +83,7 @@ export function openCheckpoints(dataDir: string, projectDir: string): Checkpoint
     }
   }
 
-  async function take(meta: Pick<Checkpoint, 'reason' | 'document' | 'text'>): Promise<Checkpoint> {
+  async function take(meta: Pick<Checkpoint, 'reason' | 'document' | 'session' | 'text'>): Promise<Checkpoint> {
     const paths = await (ready ??= setup())
     const checkpoints = await readIndex(paths.index)
     const number = checkpoints.length + 1

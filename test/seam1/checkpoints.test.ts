@@ -197,10 +197,10 @@ describe('Checkpoints', () => {
     const third = checkpointOf(await turn('On about'))
 
     const list = await host.call('checkpoints.list')
-    expect(list.map(({ id, number, reason, document, text }) => ({ id, number, reason, document, text }))).toEqual([
-      { id: third, number: 3, reason: 'turn', document: 'about.html', text: 'On about' },
-      { id: second, number: 2, reason: 'turn', document: 'index.html', text: 'Second' },
-      { id: first, number: 1, reason: 'turn', document: 'index.html', text: 'First' },
+    expect(list.map(({ id, number, reason, document, session, text }) => ({ id, number, reason, document, session, text }))).toEqual([
+      { id: third, number: 3, reason: 'turn', document: 'about.html', session: 1, text: 'On about' },
+      { id: second, number: 2, reason: 'turn', document: 'index.html', session: 1, text: 'Second' },
+      { id: first, number: 1, reason: 'turn', document: 'index.html', session: 1, text: 'First' },
     ])
     expect(changed.at(-1)).toEqual(list)
 

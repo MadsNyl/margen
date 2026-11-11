@@ -5,7 +5,9 @@ import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenD
 import type { AgentProvider } from '../agent/provider'
 import { openCheckpoints, type CheckpointStore } from '../checkpoints'
 import { projectPolicy } from '../permissions'
-import { startDocumentSession, type DocumentSession } from '../sessions'
+import type { DocumentSession } from '../sessions'
+import { documentSessions, type DocumentSessions } from '../sessions/document'
+import { openSessionStore } from '../sessions/store'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
@@ -51,6 +53,7 @@ export function createHost({
   let document: OpenDocument | null = null
   let stopWatchingDocument = () => {}
   let session: DocumentSession | null = null
+  let sessions: DocumentSessions | null = null
   let checkpoints: CheckpointStore | null = null
 
   async function open(folder: string): Promise<Project> {
@@ -73,7 +76,8 @@ export function createHost({
     closeDocument()
     document = { path, name: info.name, url: documentUrl(project.path, path) }
     stopWatchingDocument = watchDocument(project.path, path, () => events.emit('document.updated', { path }))
-    session = startDocumentSession({
+    sessions = documentSessions({
+      store: openSessionStore(dataDir, project.path),
       agent,
       projectDir: project.path,
       document: path,
@@ -81,12 +85,18 @@ export function createHost({
       beforeTurn: async (turn) => {
         const store = checkpoints
         if (!store) return undefined
-        const checkpoint = await store.take({ reason: 'turn', document: path, text: turn.text })
+        const number = session?.view().number
+        const checkpoint = await store.take({ reason: 'turn', document: path, ...(number && { session: number }), text: turn.text })
         if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
         return checkpoint.id
       },
-      onEntry: (entry, index) => events.emit('session.entry', { document: path, index, entry }),
+      onEntry: (id, entry, index) => events.emit('session.entry', { document: path, session: id, index, entry }),
+      onChanged: (next) => {
+        session = next
+        events.emit('session.changed', next.view())
+      },
     })
+    session = sessions.current()
     events.emit('document.opened', document)
     return document
   }
@@ -94,7 +104,8 @@ export function createHost({
   function closeDocument() {
     stopWatchingDocument()
     stopWatchingDocument = () => {}
-    session?.dispose()
+    sessions?.dispose()
+    sessions = null
     session = null
     if (!document) return
     document = null
@@ -137,6 +148,15 @@ export function createHost({
       await session.send(turn)
     },
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
+    'session.new': async () => {
+      if (!sessions) throw new Error('No Document is open')
+      return sessions.startNew().view()
+    },
+    'session.resume': async (id) => {
+      if (!sessions) throw new Error('No Document is open')
+      return sessions.resume(id).view()
+    },
+    'sessions.list': async () => sessions?.list() ?? [],
     'checkpoints.list': async () => (checkpoints ? checkpoints.list() : []),
     'checkpoints.revert': async (id) => {
       const store = checkpoints
