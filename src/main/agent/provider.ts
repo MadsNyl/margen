@@ -6,6 +6,8 @@ import type { PermissionPolicy } from '../permissions'
 
 export interface StartSessionOptions {
   projectDir: string
+  /** The open Document, relative to the Project; the prompt names it. */
+  document?: string
   model?: string
   effort?: string
   resumeId?: string

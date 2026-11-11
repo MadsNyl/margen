@@ -58,7 +58,7 @@ export function startDocumentSession({
 
   function agentSession(): AgentSession {
     if (!session) {
-      session = agent.startSession({ projectDir, permissions, ...(resumeId && { resumeId }) })
+      session = agent.startSession({ projectDir, document, permissions, ...(resumeId && { resumeId }) })
       void pump(session)
     }
     return session

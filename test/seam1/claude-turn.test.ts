@@ -438,3 +438,62 @@ describe('interrupting and failing', () => {
     expect(runs[1]?.options).toMatchObject({ resume: session.id })
   })
 })
+
+describe('a Turn with Annotations', () => {
+  test('the prompt lists each Pick Annotation by number with its comment, element, source lines and Viewport width', async () => {
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* () {
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir, document: 'index.html' })
+    session.send({
+      text: 'Make these match',
+      annotations: [
+        {
+          kind: 'pick',
+          number: 1,
+          comment: 'Make this blue',
+          viewportWidth: 390,
+          selector: 'main > h1.title',
+          tag: 'h1',
+          html: '<h1 class="title">Søster</h1>',
+          text: 'Søster',
+          lines: { start: 3, end: 3 },
+        },
+        {
+          kind: 'pick',
+          number: 2,
+          comment: '',
+          viewportWidth: 1280,
+          selector: 'main > p:nth-of-type(2)',
+          tag: 'p',
+          html: '<p>Open <b>daily</b></p>',
+          lines: { start: 5, end: 7 },
+        },
+      ],
+    })
+    await untilTurnEnd(session)
+
+    expect(runs[0]?.prompts.map((prompt) => prompt.message.content)).toEqual([
+      [
+        'Make these match',
+        '',
+        'I pointed at these in index.html (shown in Margen). The numbers are mine:',
+        '',
+        '[1] Pick: Make this blue',
+        '  element: <h1> at `main > h1.title`, line 3 of index.html',
+        '  seen at a Viewport 390px wide',
+        '  html: <h1 class="title">Søster</h1>',
+        '  text: Søster',
+        '',
+        '[2] Pick (no comment)',
+        '  element: <p> at `main > p:nth-of-type(2)`, lines 5–7 of index.html',
+        '  seen at a Viewport 1280px wide',
+        '  html: <p>Open <b>daily</b></p>',
+      ].join('\n'),
+    ])
+  })
+})

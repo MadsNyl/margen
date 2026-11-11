@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { CanUseTool, Options, PermissionResult, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentEvent, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
 import { projectPolicy, type ToolRequest } from '../../permissions'
+import { buildPrompt, type PromptPart } from '../../turns/prompt'
 import { createChannel } from '../channel'
 import type { AgentSession, StartSessionOptions } from '../provider'
 import { createMessageMapper } from './messages'
@@ -20,7 +21,7 @@ type Effort = NonNullable<Options['effort']>
 export function startClaudeSession(
   system: ClaudeSystem,
   detect: () => Promise<AgentStatus>,
-  { projectDir, model, effort, resumeId, permissions = projectPolicy(projectDir) }: StartSessionOptions,
+  { projectDir, document, model, effort, resumeId, permissions = projectPolicy(projectDir) }: StartSessionOptions,
 ): AgentSession {
   const id = resumeId ?? randomUUID()
   const events = createChannel<AgentEvent>()
@@ -125,8 +126,7 @@ export function startClaudeSession(
       if (closed) return
       start(status.path, await system.loginEnv())
     }
-    // Ticket 12 builds the prompt from the Annotations too (src/main/turns/).
-    run?.input.push({ type: 'user', parent_tool_use_id: null, message: { role: 'user', content: input.text } })
+    run?.input.push({ type: 'user', parent_tool_use_id: null, message: { role: 'user', content: content(buildPrompt(input, document)) } })
   }
 
   function denyAll() {
@@ -158,6 +158,17 @@ export function startClaudeSession(
       events.close()
     },
   }
+}
+
+/** The prompt as the SDK's message content: plain text when there are no images. */
+function content(prompt: PromptPart[]): SDKUserMessage['message']['content'] {
+  const [first] = prompt
+  if (prompt.length === 1 && first?.type === 'text') return first.text
+  return prompt.map((part) =>
+    part.type === 'text'
+      ? { type: 'text', text: part.text }
+      : { type: 'image', source: { type: 'base64', media_type: part.mediaType, data: part.data } },
+  )
 }
 
 /** A Claude Code tool call, as the permission policy sees it. */

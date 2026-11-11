@@ -153,3 +153,57 @@ describe('a Turn in the editor', () => {
     await expect(host.call('session.send', ask)).rejects.toThrow(/No Document is open/)
   })
 })
+
+describe('a Turn with Pick Annotations', () => {
+  const source = [
+    '<!doctype html>',
+    '<html>',
+    '  <body>',
+    '    <main>',
+    '      <h1 class="title">Søster</h1>',
+    '      <p>Bread</p>',
+    '      <p>',
+    '        Open <b>daily</b>',
+    '      </p>',
+    '    </main>',
+    '  </body>',
+    '</html>',
+  ].join('\n')
+  const pick = (number: number, selector: string, tag: string, html: string) => ({
+    kind: 'pick' as const,
+    number,
+    comment: `Comment ${number}`,
+    viewportWidth: 390,
+    selector,
+    tag,
+    html,
+  })
+
+  test('reach the Agent with the line range of each picked element in the source file, when it can be found', async () => {
+    await editor({ turns: [[{ type: 'text', text: 'Done.' }]] }, { 'index.html': source })
+    const { seen, nextTurnEnd } = entries()
+    const ended = nextTurnEnd()
+
+    await host.call('session.send', {
+      text: 'Tidy these',
+      annotations: [
+        pick(1, 'main > h1.title', 'h1', '<h1 class="title">Søster</h1>'),
+        pick(2, 'main > p:nth-of-type(2)', 'p', '<p>\n        Open <b>daily</b>\n      </p>'),
+        pick(3, '#added-by-a-script', 'div', '<div id="added-by-a-script"></div>'),
+      ],
+    })
+    await ended
+
+    const sent = {
+      text: 'Tidy these',
+      annotations: [
+        { ...pick(1, 'main > h1.title', 'h1', '<h1 class="title">Søster</h1>'), lines: { start: 5, end: 5 } },
+        { ...pick(2, 'main > p:nth-of-type(2)', 'p', '<p>\n        Open <b>daily</b>\n      </p>'), lines: { start: 7, end: 9 } },
+        pick(3, '#added-by-a-script', 'div', '<div id="added-by-a-script"></div>'),
+      ],
+    }
+    expect(agent.sent).toEqual([sent])
+    expect(seen[0]?.entry).toEqual({ type: 'user', turn: sent })
+    expect(agent.sessions[0]).toMatchObject({ document: 'index.html' })
+  })
+})

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -5,6 +6,7 @@ import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenD
 import type { AgentProvider } from '../agent/provider'
 import { projectPolicy } from '../permissions'
 import { startDocumentSession, type DocumentSession } from '../sessions'
+import { locateAnnotations } from '../turns'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
@@ -122,8 +124,11 @@ export function createHost({
     },
     'session.current': async () => session?.view() ?? null,
     'session.send': async (turn) => {
-      if (!session) throw new Error('No Document is open')
-      session.send(turn)
+      const target = session
+      if (!target || !current || !document) throw new Error('No Document is open')
+      const source = turn.annotations.length ? await readFile(join(current.path, document.path), 'utf8').catch(() => undefined) : undefined
+      if (target !== session) throw new Error('The Document was closed')
+      target.send(locateAnnotations(turn, source))
     },
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
     'recents.list': () => listRecents(dataDir),
