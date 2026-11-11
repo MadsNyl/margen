@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Annotation, TurnInput } from '@shared/agent'
 import { host } from '../host'
+import type { ModelChoice } from './ModelPicker'
 
 // The Composer's draft: the message text and the Annotations collected for it.
 // The chat panel's input, the chips, the markers on the Document and the comment
@@ -22,6 +23,9 @@ export interface Draft {
   /** The Annotations of the last Turn sent, for the glow after the Document reloads. */
   lastSent: PendingAnnotation[]
   setText(text: string): void
+  /** The model and effort the next Turn uses. */
+  choice: ModelChoice
+  setChoice(choice: ModelChoice): void
   /** Adds an Annotation, numbered next, and opens its comment box. */
   add(id: string, annotation: Omit<Annotation, 'number'>): void
   setComment(id: string, comment: string): void
@@ -50,6 +54,7 @@ export function DraftProvider({ document, children }: { document: string; childr
   const [open, setOpen] = useState<string | null>(null)
   const [fading, setFading] = useState<PendingAnnotation[]>([])
   const [lastSent, setLastSent] = useState<PendingAnnotation[]>([])
+  const [choice, setChoice] = useState<ModelChoice>({})
   const [forDocument, setForDocument] = useState(document)
   if (forDocument !== document) {
     setForDocument(document)
@@ -58,14 +63,15 @@ export function DraftProvider({ document, children }: { document: string; childr
     setOpen(null)
     setFading([])
     setLastSent([])
+    setChoice({})
   }
   const next = useRef(1)
   useEffect(() => {
     next.current = 1
   }, [document])
-  const state = useRef({ text, annotations })
+  const state = useRef({ text, annotations, choice })
   useLayoutEffect(() => {
-    state.current = { text, annotations }
+    state.current = { text, annotations, choice }
   })
 
   const add = useCallback((id: string, annotation: Omit<Annotation, 'number'>) => {
@@ -84,9 +90,14 @@ export function DraftProvider({ document, children }: { document: string; childr
   }, [])
 
   const send = useCallback(() => {
-    const { text, annotations } = state.current
+    const { text, annotations, choice } = state.current
     if (!text.trim() && annotations.length === 0) return
-    const turn: TurnInput = { text: text.trim(), annotations: annotations.map((p) => p.annotation) }
+    const turn: TurnInput = {
+      text: text.trim(),
+      annotations: annotations.map((p) => p.annotation),
+      ...(choice.model && { model: choice.model }),
+      ...(choice.effort && { effort: choice.effort }),
+    }
     setText('')
     setAnnotations([])
     setOpen(null)
@@ -109,6 +120,8 @@ export function DraftProvider({ document, children }: { document: string; childr
       fading,
       lastSent,
       setText,
+      choice,
+      setChoice,
       add,
       setComment,
       setOpen,
@@ -116,7 +129,7 @@ export function DraftProvider({ document, children }: { document: string; childr
       hasContent: text.trim() !== '' || annotations.length > 0,
       send,
     }),
-    [text, annotations, open, fading, lastSent, add, setComment, remove, send],
+    [text, annotations, open, fading, lastSent, choice, add, setComment, remove, send],
   )
   return <DraftContext.Provider value={draft}>{children}</DraftContext.Provider>
 }
