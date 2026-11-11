@@ -1,0 +1,139 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/* Margen design tokens, from design/index.html. Light mode only. */
+@theme {
+  --color-shell: #fafafa;
+  --color-card: #ffffff;
+  --color-muted: #f4f4f5;
+  --color-muted2: #ececef;
+  --color-line: rgba(0, 0, 0, 0.07);
+  --color-border: #ebebed;
+  --color-tx: #111111;
+  --color-tx2: #5b5b66;
+  --color-tx3: #9b9ba5;
+  --color-primary: #171717;
+  --color-primary-h: #404040;
+  --color-ink: #2f7bff;
+  --color-ink-soft: rgba(47, 123, 255, 0.1);
+  --color-ink-tx: #1a56c4;
+  --color-violet: #7c6cff;
+  --color-violet-soft: #e6e3ff;
+  --color-violet-tx: #4b3fd1;
+  --color-yellow: #ffe9a8;
+  --color-yellow-strong: #ffb800;
+  --color-mint: #d9f2e3;
+  --color-mint-strong: #1e9e5a;
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'Fraunces Variable', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    background: var(--color-shell);
+    color: var(--color-tx);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11';
+    user-select: none;
+  }
+  button {
+    cursor: pointer;
+  }
+  kbd {
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    color: var(--color-tx3);
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    padding: 0 4px;
+    line-height: 16px;
+    display: inline-block;
+    background: #fff;
+  }
+}
+
+@utility app-drag {
+  -webkit-app-region: drag;
+}
+
+@utility wordmark {
+  font-family: var(--font-brand);
+  font-variation-settings:
+    'SOFT' 100,
+    'WONK' 1;
+  font-weight: 300;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+@utility icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--color-tx2);
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--color-tx);
+  }
+}
+
+/* Margin's grainy pastel banner */
+.grain-banner {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 44rem;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  background: #fff;
+  mask-image: linear-gradient(to bottom, #000 20%, rgba(0, 0, 0, 0.6) 50%, transparent);
+}
+.grain-banner::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  z-index: -2;
+  filter: blur(40px);
+  opacity: 0.45;
+  background:
+    radial-gradient(35% 45% at 10% 10%, #b9d3ff 0%, transparent 70%),
+    radial-gradient(35% 45% at 35% 0%, #ffe0a3 0%, transparent 70%),
+    radial-gradient(35% 45% at 60% 12%, #a8c6ff 0%, transparent 70%),
+    radial-gradient(35% 45% at 85% 0%, #ffc4cc 0%, transparent 70%),
+    radial-gradient(30% 40% at 100% 20%, #c4b8ff 0%, transparent 70%);
+  animation: drift 18s ease-in-out infinite alternate;
+}
+.grain-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes drift {
+  to {
+    transform: translate(6%, -4%) rotate(8deg) scale(1.08);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grain-banner::before {
+    animation: none;
+  }
+}

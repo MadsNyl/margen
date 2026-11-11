@@ -4,14 +4,14 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms: `GLOSSARY.md`. Decisions: `docs/adr/`.
 
-- [ ] `npm`/`pnpm` scripts: dev, build, test (Seam 1), e2e (Seam 2), typecheck, lint
-- [ ] The app launches with `dev` and shows the Start screen shell styled after `design/index.html`
-- [ ] A typed host API module is the only bridge between renderer and main (context isolation on, no Node in the renderer)
-- [ ] The AgentProvider interface matches the spec's shape; a fake provider can be scripted from tests
-- [ ] One Seam 1 test calls the host API directly against a temporary folder and passes
-- [ ] One Seam 2 Playwright test launches the built Electron app and asserts the Start screen, and passes
-- [ ] README explains how to run the app and the tests
+- [x] `npm`/`pnpm` scripts: dev, build, test (Seam 1), e2e (Seam 2), typecheck, lint
+- [x] The app launches with `dev` and shows the Start screen shell styled after `design/index.html`
+- [x] A typed host API module is the only bridge between renderer and main (context isolation on, no Node in the renderer)
+- [x] The AgentProvider interface matches the spec's shape; a fake provider can be scripted from tests
+- [x] One Seam 1 test calls the host API directly against a temporary folder and passes
+- [x] One Seam 2 Playwright test launches the built Electron app and asserts the Start screen, and passes
+- [x] README explains how to run the app and the tests

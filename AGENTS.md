@@ -15,3 +15,30 @@ The five default triage roles, each label string equal to its name (`needs-triag
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Code
+
+Stack: pnpm, TypeScript (strict), electron-vite, React 19, Tailwind CSS v4, Vitest (Seam 1), Playwright `_electron` (Seam 2). Fonts are bundled from `@fontsource-variable/*`, never a CDN. Light mode only; the design tokens from `design/index.html` live in `src/renderer/src/styles.css` (`@theme`).
+
+Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and `pnpm e2e`.
+
+### Where things go
+
+- **The host API** is the only bridge between renderer and main. To add a call or event: add it to `HostCalls` / `HostEvents` in `src/shared/host-api.ts`, implement it in `createHost` (`src/main/host/index.ts`), and for events add the name to `FORWARDED_EVENTS` in `src/main/index.ts`. The preload and `src/main/ipc.ts` need no changes. The renderer uses `host` and `useHostValue` from `src/renderer/src/host.ts`.
+- **Domain logic** lives in framework-free modules under `src/main/<area>/`, composed by `createHost`. No `electron` imports there; take paths and providers as arguments. `src/main/index.ts` and `src/main/ipc.ts` are the only Electron-aware main files.
+  - `projects/`: Projects, recents, Document discovery and watching (tickets 03, 04, 15)
+  - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter goes in `agent/claude/` (02, 07)
+  - `turns/`: building prompts from text and Annotations, the Queue, interrupts (07, 10)
+  - `permissions/`: the Editor preset and Allow everything (09)
+  - `sessions/`: one Session per Document, resume, persistence (08)
+  - `checkpoints/`: the hidden git store outside the user's folder (11)
+  - `settings/`: Settings (16)
+- **Shared data types** (AgentEvent, TurnInput, Annotation, anything sent over the host API) go in `src/shared/`.
+- **The renderer**: one file per screen in `src/renderer/src/screens/`, shared pieces in `components/`. The editor (05+) gets its own `src/renderer/src/editor/` folder. The script injected into the rendered Document (Pick, Draw, scroll restore) should be its own preload entry in `electron.vite.config.ts`, kept apart from the app preload.
+- **Margen's own data** goes in the data directory passed to `createHost` (Electron's `userData`, or `MARGEN_DATA_DIR`), never in the user's Project folder.
+
+### Tests
+
+- Seam 1 (`test/seam1/*.test.ts`): `createHost({ dataDir, agent })` with a temp folder and `createFakeAgentProvider(script)`. Assert host API results, emitted events and files on disk.
+- Seam 2 (`e2e/*.spec.ts`): `launchApp({ recents, agent })` from `e2e/app.ts` launches the built app with a fresh data directory and a fake Agent script. Keep it to a handful of flows that need real layout.
+- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect` and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.
