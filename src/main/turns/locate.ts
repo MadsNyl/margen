@@ -28,7 +28,7 @@ export function sourceIndex(source: string): (selector: string) => Lines | undef
     for (const child of node.childNodes) {
       if (!('tagName' in child)) continue
       elements.push(child)
-      walk(child.tagName === 'template' ? child.content : child)
+      walk('content' in child ? child.content : child)
     }
   }
   walk(parse(source, { sourceCodeLocationInfo: true }))

@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import type { TurnInput } from '../src/shared/agent'
 import type { FakeAgentScript } from '../src/main/agent/fake'
 import type { StoredRecent } from '../src/main/projects/recents'
 
@@ -18,6 +19,8 @@ export interface LaunchedApp {
   dataDir: string
   /** Stands in for ~/Documents/Margen, where new Projects are made. Inside `dataDir`. */
   projectsDir: string
+  /** Every TurnInput that reached the fake Agent, in order. */
+  sentTurns(): Promise<TurnInput[]>
   close(): Promise<void>
 }
 
@@ -26,7 +29,8 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
   const dataDir = await mkdtemp(join(tmpdir(), 'margen-e2e-'))
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
   const agentScript = join(dataDir, 'fake-agent.json')
-  await writeFile(agentScript, JSON.stringify(agent))
+  const sentFile = join(dataDir, 'fake-agent-sent.json')
+  await writeFile(agentScript, JSON.stringify({ sentFile, ...agent }))
   const projectsDir = join(dataDir, 'Documents', 'Margen')
 
   // Shells started from inside another Electron app can carry ELECTRON_RUN_AS_NODE,
@@ -48,6 +52,7 @@ export async function launchApp({ recents, agent = {}, pickFolder }: LaunchOptio
     window,
     dataDir,
     projectsDir,
+    sentTurns: () => readFile(sentFile, 'utf8').then((json) => JSON.parse(json) as TurnInput[], () => []),
     async close() {
       await app.close()
       await rm(dataDir, { recursive: true, force: true })

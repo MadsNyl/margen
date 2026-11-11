@@ -4,6 +4,13 @@
 // It goes to the editor with `ipcRenderer.sendToHost`; the editor answers with
 // `webview.send`. Both use one channel. Pick, Draw and screenshots (12–14) add
 // message types here.
+//
+// Geometry is in the page's CSS pixels, relative to its viewport, which is the
+// Document view's frame. The editor follows elements by an `id`: the script
+// holds the element itself while the page lives and finds it again by its
+// selector after a reload.
+
+import type { Box, ElementDescriptor } from './agent'
 
 export const DOCUMENT_BRIDGE_CHANNEL = 'margen:document'
 
@@ -16,27 +23,88 @@ export interface ScrollPosition {
   y: number
 }
 
+/** The active tool on the floating toolbar. In Pick and Draw the page's own clicks are blocked. */
+export type Mode = 'browse' | 'pick' | 'draw'
+
+/** Shortcut keys the page's script passes on while the page has focus (and the user isn't typing in it). */
+export const MODE_KEYS = ['v', 'p', 'd', 'Escape'] as const
+export type ModeKey = (typeof MODE_KEYS)[number]
+
+/** An element the editor follows (a marker, a glow), and how to find it again after a reload. */
+export interface TrackedElement {
+  id: string
+  selector: string
+}
+
 /** From the page's script to the editor. */
 export type FromDocument =
   /** The page's DOM is ready and the script is listening. */
   | { type: 'ready'; url: string }
   /** The user scrolled the page (throttled). */
   | { type: 'scroll'; scroll: ScrollPosition }
+  /** In Pick: the element the highlight is on, or `null` when it's on nothing. */
+  | { type: 'hover'; target: { selector: string; rect: Box } | null }
+  /** In Pick: the user picked an element. The script follows it as `id` until the next `track` leaves it out. */
+  | { type: 'pick'; id: string; element: ElementDescriptor; rect: Box }
+  /** Where the followed elements are now, sent when any of them moves. `null`: not on the page. */
+  | { type: 'rects'; rects: Record<string, Box | null> }
+  /** A shortcut key, pressed while the page had focus. */
+  | { type: 'key'; key: ModeKey }
 
 /** From the editor to the page's script. */
 export type ToDocument =
   /** Scroll back to where the page was before a reload, and hold it while late layout (fonts, images) settles. */
-  { type: 'restore-scroll'; scroll: ScrollPosition }
+  | { type: 'restore-scroll'; scroll: ScrollPosition }
+  | { type: 'mode'; mode: Mode }
+  /** The elements to follow (replacing the last list); their rects come back as `rects`. */
+  | { type: 'track'; elements: TrackedElement[] }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isScroll = (value: unknown): value is ScrollPosition =>
   typeof value === 'object' && value !== null && isNumber((value as ScrollPosition).x) && isNumber((value as ScrollPosition).y)
 
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+const isString = (value: unknown, max = 10_000): value is string => typeof value === 'string' && value.length <= max
+
+function box(value: unknown): Box | null {
+  if (!isObject(value)) return null
+  const { x, y, width, height } = value
+  return isNumber(x) && isNumber(y) && isNumber(width) && isNumber(height) ? { x, y, width, height } : null
+}
+
+function descriptor(value: unknown): ElementDescriptor | null {
+  if (!isObject(value)) return null
+  const { selector, tag, html, text } = value
+  if (!isString(selector, 2000) || !isString(tag, 100) || !isString(html, 2000)) return null
+  if (text !== undefined && !isString(text, 2000)) return null
+  return { selector, tag, html, ...(text !== undefined && { text }) }
+}
+
 /** Checks a message that claims to come from the page. Never trust what arrives from the guest unchecked. */
 export function parseFromDocument(value: unknown): FromDocument | null {
-  if (typeof value !== 'object' || value === null) return null
-  const message = value as { type?: unknown; url?: unknown; scroll?: unknown }
+  if (!isObject(value)) return null
+  const message = value
   if (message.type === 'ready' && typeof message.url === 'string') return { type: 'ready', url: message.url }
   if (message.type === 'scroll' && isScroll(message.scroll)) return { type: 'scroll', scroll: { x: message.scroll.x, y: message.scroll.y } }
+  if (message.type === 'hover') {
+    if (message.target === null) return { type: 'hover', target: null }
+    const target = message.target
+    const rect = isObject(target) ? box(target.rect) : null
+    return rect && isObject(target) && isString(target.selector, 2000) ? { type: 'hover', target: { selector: target.selector, rect } } : null
+  }
+  if (message.type === 'pick') {
+    const element = descriptor(message.element)
+    const rect = box(message.rect)
+    return element && rect && isString(message.id, 100) ? { type: 'pick', id: message.id, element, rect } : null
+  }
+  if (message.type === 'rects' && isObject(message.rects)) {
+    const rects: Record<string, Box | null> = {}
+    for (const [id, rect] of Object.entries(message.rects)) {
+      if (rect !== null && !box(rect)) return null
+      rects[id] = rect === null ? null : box(rect)
+    }
+    return { type: 'rects', rects }
+  }
+  if (message.type === 'key' && MODE_KEYS.includes(message.key as ModeKey)) return { type: 'key', key: message.key as ModeKey }
   return null
 }

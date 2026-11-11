@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
+import type { ApprovalDecision, ToolEvent } from '@shared/agent'
 import type { SessionEntry } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
 import { host } from '../host'
+import { AnnotationRows, Chips } from './annotations'
+import { useDraft } from './draft'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
 
 /** The chat panel: the open Document's Session and the Composer. */
@@ -32,7 +34,7 @@ export function ChatPanel({ document }: { document: string }) {
           items.map((item, i) => <Item key={i} item={item} running={running && i === items.length - 1} />)
         )}
       </div>
-      <Composer running={running} onSend={(turn) => void host.call('session.send', turn).catch(() => {})} />
+      <Composer running={running} />
     </aside>
   )
 }
@@ -61,6 +63,7 @@ function Item({ item, running }: { item: ChatItem; running: boolean }) {
   if (item.kind === 'user') {
     return (
       <div className="max-w-[90%] self-end rounded-[18px_18px_6px_18px] border border-line bg-white px-3.5 py-2.5 text-[13.5px] leading-[1.55] whitespace-pre-wrap shadow-[0_1px_3px_rgba(0,0,0,.03)] select-text">
+        <AnnotationRows annotations={item.turn.annotations} />
         {item.turn.text}
       </div>
     )
@@ -223,11 +226,14 @@ function ErrorCard({ error }: { error: AgentError }) {
 
 const MAX_INPUT_HEIGHT = 160
 
-/** The draft message. ↵ sends, ⇧↵ makes a new line. The Queue (ticket 10) lets it send during a Turn. */
-function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnInput) => void }) {
-  const [text, setText] = useState('')
+/**
+ * The draft message, with its Annotations as chips. ↵ sends, ⇧↵ makes a new line.
+ * The draft is shared with the comment boxes on the Document (`draft.tsx`). The Queue (ticket 10) lets it send during a Turn.
+ */
+function Composer({ running }: { running: boolean }) {
+  const { text, setText, hasContent, send: sendDraft } = useDraft()
   const input = useRef<HTMLTextAreaElement>(null)
-  const canSend = text.trim() !== '' && !running
+  const canSend = hasContent && !running
 
   useLayoutEffect(() => {
     const el = input.current
@@ -237,13 +243,12 @@ function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnIn
   }, [text])
 
   const send = () => {
-    if (!canSend) return
-    onSend({ text: text.trim(), annotations: [] })
-    setText('')
+    if (canSend) sendDraft()
   }
 
   return (
     <div className="mx-1 mb-2 rounded-[22px] bg-white shadow-[0_8px_28px_-10px_rgba(0,0,0,.18),0_0_0_1px_rgba(0,0,0,.07)]">
+      <Chips />
       <textarea
         ref={input}
         rows={1}

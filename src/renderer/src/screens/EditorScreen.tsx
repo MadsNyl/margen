@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Mode } from '@shared/document-bridge'
 import type { OpenDocument, Project } from '@shared/host-api'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
@@ -6,6 +7,11 @@ import { Menu, MenuItem, useDropdown } from '../components/Menu'
 import { OpenExternalIcon } from '../components/icons'
 import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
+import type { DocumentBridge } from '../editor/bridge'
+import { DraftProvider } from '../editor/draft'
+import { ModeShortcuts } from '../editor/ModeShortcuts'
+import { PickLayer } from '../editor/PickLayer'
+import { Toolbar } from '../editor/Toolbar'
 import { ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport } from '../editor/viewport'
 import { host, useHostValue } from '../host'
 
@@ -13,8 +19,10 @@ const NOTICE_MS = 2200
 
 /** The editor: the Document on the left, the chat on the right. */
 export function EditorScreen({ project, document }: { project: Project; document: OpenDocument }) {
-  const [ready, setReady] = useState(false)
+  const [bridge, setBridge] = useState<DocumentBridge | null>(null)
+  const [mode, setMode] = useState<Mode>('browse')
   const [reloaded, setReloaded] = useState(0)
+  const [reloads, setReloads] = useState(0)
   const [choice, setChoice] = useState<ViewportChoice>('desktop')
   const frame = useRef<HTMLDivElement>(null)
   const viewport = useMeasuredViewport(choice, frame)
@@ -27,6 +35,8 @@ export function EditorScreen({ project, document }: { project: Project; document
 
   return (
     <ViewportProvider value={viewport}>
+      <DraftProvider document={document.path}>
+      <ModeShortcuts bridge={bridge} mode={mode} onMode={setMode} />
       <div className="flex min-h-0 flex-1">
         <main className="relative mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
           <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
@@ -69,30 +79,36 @@ export function EditorScreen({ project, document }: { project: Project; document
                 Reloaded · scroll kept
               </div>
             )}
-            {/* Room at the bottom for the floating toolbar (ticket 12), which sits over the stage. */}
+            <Toolbar mode={mode} onMode={setMode} />
+            {/* Room at the bottom for the floating toolbar, which sits over the stage. */}
             {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
             <div className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
               <div
                 ref={frame}
                 role="region"
                 aria-label="Document view"
-                data-ready={ready}
+                data-ready={bridge !== null}
                 style={{ width: frameWidth(choice) }}
                 className="relative mx-auto h-full overflow-hidden transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)] rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)]"
               >
                 <DocumentView
                   key={document.url}
                   document={document}
-                  onReady={(bridge) => setReady(bridge !== null)}
-                  onReloaded={() => setReloaded((n) => n + 1)}
+                  onReady={setBridge}
+                  onReloaded={() => {
+                    setReloaded((n) => n + 1)
+                    setReloads((n) => n + 1)
+                  }}
                 />
-                {/* Pick and Draw overlays (tickets 12–14) go here, above the Document. */}
+                {/* Draw's canvas (ticket 14) goes here too, above the Document. */}
+                <PickLayer bridge={bridge} mode={mode} reloads={reloads} />
               </div>
             </div>
           </div>
         </main>
         <ChatPanel key={document.url} document={document.path} />
       </div>
+      </DraftProvider>
     </ViewportProvider>
   )
 }

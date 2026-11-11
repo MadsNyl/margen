@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
@@ -31,6 +32,8 @@ export interface FakeAgentScript {
   install?: FakeSetupStep & { version?: string }
   signIn?: FakeSetupStep & { plan?: string }
   turns?: FakeStep[][]
+  /** Where to write every TurnInput sent so far, as JSON, so Seam 2 can see what reached the Agent. */
+  sentFile?: string
 }
 
 export interface FakeAgentProvider extends AgentProvider {
@@ -105,6 +108,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
       events: channel.iterable,
       send(turn) {
         sent.push(turn)
+        if (script.sentFile) writeFileSync(script.sentFile, JSON.stringify(sent))
         const steps = turns.shift() ?? fallbackTurn
         queue = queue.then(() => play(steps))
       },
