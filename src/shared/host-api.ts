@@ -11,6 +11,16 @@ export interface RecentProject {
   openedAt: string
 }
 
+/** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
+export type UpdateStatus =
+  | { state: 'unavailable' }
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'up-to-date' }
+  | { state: 'downloading'; version: string }
+  | { state: 'ready'; version: string }
+  | { state: 'failed'; message: string }
+
 export interface HostCalls {
   'agent.detect': () => AgentStatus
   /** Runs the Agent's official installer. Resolves when it has finished. */
@@ -19,10 +29,16 @@ export interface HostCalls {
   'agent.signIn': () => AgentSetupResult
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
+  'update.status': () => UpdateStatus
+  /** Checks GitHub Releases and downloads a newer version if there is one. */
+  'update.check': () => UpdateStatus
+  /** Restarts into the downloaded version. */
+  'update.install': () => void
 }
 
 export interface HostEvents {
   'recents.changed': RecentProject[]
+  'update.changed': UpdateStatus
 }
 
 export type HostCallName = keyof HostCalls

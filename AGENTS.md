@@ -25,7 +25,7 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
 ### Where things go
 
 - **The host API** is the only bridge between renderer and main. To add a call or event: add it to `HostCalls` / `HostEvents` in `src/shared/host-api.ts`, implement it in `createHost` (`src/main/host/index.ts`), and for events add the name to `FORWARDED_EVENTS` in `src/main/index.ts`. The preload and `src/main/ipc.ts` need no changes. The renderer uses `host` and `useHostValue` from `src/renderer/src/host.ts`.
-- **Domain logic** lives in framework-free modules under `src/main/<area>/`, composed by `createHost`. No `electron` imports there; take paths and providers as arguments. `src/main/index.ts` and `src/main/ipc.ts` are the only Electron-aware main files.
+- **Domain logic** lives in framework-free modules under `src/main/<area>/`, composed by `createHost`. No `electron` imports there; take paths and providers as arguments. `src/main/index.ts`, `src/main/ipc.ts` and `src/main/auto-update.ts` (the electron-updater adapter) are the only Electron-aware main files.
   - `projects/`: Projects, recents, Document discovery and watching (tickets 03, 04, 15)
   - `agent/`: the AgentProvider interface (`provider.ts`), the fake (`fake.ts`), provider choice (`index.ts`); the Claude Code adapter in `agent/claude/` (02, 07). Everything it runs on the Mac (`claude`, the login shell, the installer, Terminal) goes through `ClaudeSystem` (`claude/system.ts`) so tests pass a pretend one; `claude/node-system.ts` is the real one
   - `turns/`: building prompts from text and Annotations, the Queue, interrupts (07, 10)
@@ -33,8 +33,10 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
   - `sessions/`: one Session per Document, resume, persistence (08)
   - `checkpoints/`: the hidden git store outside the user's folder (11)
   - `settings/`: Settings (16)
+  - `updates/`: auto-update state behind an `UpdateSource` (17); `createHost({ updates })` takes the source, absent in dev and tests
 - **Shared data types** (AgentEvent, TurnInput, Annotation, anything sent over the host API) go in `src/shared/`.
 - **The renderer**: one file per screen in `src/renderer/src/screens/`, shared pieces in `components/`. The editor (05+) gets its own `src/renderer/src/editor/` folder. The script injected into the rendered Document (Pick, Draw, scroll restore) should be its own preload entry in `electron.vite.config.ts`, kept apart from the app preload.
+- **Releases**: `electron-builder.yml` packages, `.github/workflows/release.yml` signs, notarizes and publishes on a `v*` tag. `pnpm dist:local` makes an unsigned dmg. Keep Mac-only code out of the core so Windows can follow.
 - **Margen's own data** goes in the data directory passed to `createHost` (Electron's `userData`, or `MARGEN_DATA_DIR`), never in the user's Project folder.
 
 ### Tests
