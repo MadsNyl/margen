@@ -9,3 +9,4 @@ Collected for the final review/fix pass.
 - Model/effort choice resets per Document; Settings could remember it (from 10).
 - Checkpoints: no size guard for very large Projects; nested git repos are skipped (from 11).
 - Only the root `.gitignore` is read when finding Documents; symlinked folders aren't followed (from 03).
+- Flaky (1 in ~15 runs): editor.test "a change to the page's stylesheet or images reloads it too, another Document does not" sometimes sees an extra update (from the 09 merger). Likely the 500 ms poll of the Document file in `watchDocument`.
