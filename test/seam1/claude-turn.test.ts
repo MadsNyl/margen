@@ -438,3 +438,59 @@ describe('interrupting and failing', () => {
     expect(runs[1]?.options).toMatchObject({ resume: session.id })
   })
 })
+
+describe('model and effort', () => {
+  const done = async function* () {
+    yield success
+  }
+
+  test("a Turn's model and effort reach claude; without them claude uses its own default", async () => {
+    const { provider, runs } = pretendMac({ turns: [done] })
+    const session = provider.startSession({ projectDir })
+    session.send({ ...ask, model: 'opus', effort: 'high' })
+    await untilTurnEnd(session)
+
+    expect(runs[0]?.options).toMatchObject({ model: 'opus', effort: 'high' })
+
+    const { provider: other, runs: otherRuns } = pretendMac({ turns: [done] })
+    const plain = other.startSession({ projectDir })
+    plain.send(ask)
+    await untilTurnEnd(plain)
+    expect(otherRuns[0]?.options).not.toHaveProperty('model')
+    expect(otherRuns[0]?.options).not.toHaveProperty('effort')
+  })
+
+  test('changing the model or effort between Turns restarts claude on the same session; keeping them does not', async () => {
+    const { provider, runs } = pretendMac({ turns: [done, done, done, done] })
+    const session = provider.startSession({ projectDir })
+
+    for (const turn of [
+      { ...ask, model: 'sonnet' },
+      { ...ask, model: 'sonnet' },
+      { ...ask, model: 'haiku', effort: 'low' as const },
+      ask,
+    ]) {
+      session.send(turn)
+      expect(await untilTurnEnd(session)).toEqual([{ type: 'turn-end', reason: 'done' }])
+    }
+
+    expect(runs.map((run) => [run.options.model, run.options.effort, run.prompts.length])).toEqual([
+      ['sonnet', undefined, 2],
+      ['haiku', 'low', 1],
+      [undefined, undefined, 1],
+    ])
+    expect(runs.map((run) => run.closed)).toEqual([true, true, false])
+    expect(runs[1]?.options).toMatchObject({ resume: session.id })
+    expect(runs[2]?.options).toMatchObject({ resume: session.id })
+  })
+
+  test('a Turn interrupted before claude has started ends as interrupted without running', async () => {
+    const { provider, runs } = pretendMac({ turns: [done] })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+    void session.interrupt()
+
+    expect(await untilTurnEnd(session)).toEqual([{ type: 'turn-end', reason: 'interrupted' }])
+    expect(runs.flatMap((run) => run.prompts)).toEqual([])
+  })
+})
