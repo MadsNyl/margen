@@ -12,18 +12,25 @@ export function buildPrompt(turn: TurnInput, document?: string): PromptPart[] {
     // Named every Turn, so the Agent knows which file "this page" is, even a new, empty one.
     return [{ type: 'text', text: document ? `${turn.text}\n\n(The Document open in Margen is ${document}.)` : turn.text }]
   }
+  // Each drawing's screenshot and crop are numbered in the order they're attached.
+  let images = 0
+  const pictured = turn.annotations.map((annotation) => {
+    const parts = annotation.kind === 'draw' ? [annotation.screenshot, annotation.crop].flatMap((url) => image(url)) : []
+    return { annotation, images: parts, numbers: parts.map(() => ++images) }
+  })
   const blocks = [
     ...(turn.text ? [turn.text] : []),
     `I pointed at these${document ? ` in ${document}` : ''} (shown in Margen). The numbers are mine:`,
-    ...turn.annotations.map((annotation) => describeAnnotation(annotation, document)),
+    ...(turn.annotations.some((annotation) => annotation.kind === 'draw') ? [DRAWINGS] : []),
+    ...pictured.map(({ annotation, numbers }) => describeAnnotation(annotation, document, numbers)),
   ]
-  const images = turn.annotations.flatMap((annotation) =>
-    annotation.kind === 'draw' ? [annotation.screenshot, annotation.crop].flatMap((url) => image(url)) : [],
-  )
-  return [{ type: 'text', text: blocks.join('\n\n') }, ...images]
+  return [{ type: 'text', text: blocks.join('\n\n') }, ...pictured.flatMap((p) => p.images)]
 }
 
-function describeAnnotation(annotation: Annotation, document?: string): string {
+const DRAWINGS =
+  'A drawing may point at something (what its strokes enclose) or show something to add (a shape, a sketch, words, where it should go). Judge which from its comment and its strokes.'
+
+function describeAnnotation(annotation: Annotation, document: string | undefined, images: number[]): string {
   const kind = annotation.kind === 'pick' ? 'Pick' : 'Drawing'
   const comment = annotation.comment.trim()
   const head = `[${annotation.number}] ${kind}${comment ? `: ${comment}` : ' (no comment)'}`
@@ -32,13 +39,16 @@ function describeAnnotation(annotation: Annotation, document?: string): string {
     const [element, ...details] = describeElement(annotation, document, '  ')
     return [head, element, seen, ...details].join('\n')
   }
-  // Ticket 14 shapes how a drawing is described.
   const { x, y, width, height } = annotation.boundingBox
   return [
     head,
-    `  strokes around x ${Math.round(x)}, y ${Math.round(y)}, ${Math.round(width)}×${Math.round(height)} px in the page`,
+    `  strokes at x ${Math.round(x)}, y ${Math.round(y)}, ${Math.round(width)}×${Math.round(height)} px in the page (from its top left)`,
     seen,
-    ...annotation.targets.flatMap((target) => describeElement(target, document, '    ')),
+    ...(images.length === 2 ? [`  images ${images[0]} and ${images[1]}: the Viewport with the strokes drawn in, and the strokes alone`] : []),
+    ...(images.length === 1 ? [`  image ${images[0]}: the drawing`] : []),
+    ...(annotation.targets.length > 0
+      ? ['  the strokes enclose:', ...annotation.targets.flatMap((target) => describeElement(target, document, '    '))]
+      : ['  nothing underneath the strokes']),
   ].join('\n')
 }
 

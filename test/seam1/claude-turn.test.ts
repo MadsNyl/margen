@@ -232,6 +232,28 @@ describe('a Turn with Claude Code', () => {
     ])
   })
 
+  test("claude reading the attached screenshots from its own temp folder shows no tool card", async () => {
+    const { provider } = pretendMac({
+      turns: [
+        async function* () {
+          const attached = join(tmpdir(), 'claude-images', 'image-1.png')
+          yield toolUse('img', 'Read', { file_path: attached })
+          yield toolResult('img', { type: 'image', file: { filePath: attached } })
+          yield toolUse('r', 'Read', { file_path: join(realProjectDir, 'index.html') })
+          yield toolResult('r', { type: 'text', file: { content: '<h1>Hi</h1>' } })
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir })
+    session.send(ask)
+
+    expect((await untilTurnEnd(session)).filter((event) => event.type === 'tool')).toEqual([
+      { type: 'tool', id: 'r', status: 'running', tool: 'read', file: 'index.html' },
+      { type: 'tool', id: 'r', status: 'done', tool: 'read', file: 'index.html' },
+    ])
+  })
+
   test("runs the user's own claude in the Project, isolated from their Claude settings, with summarised thinking", async () => {
     const { provider, runs } = pretendMac({
       turns: [
@@ -690,6 +712,79 @@ describe('a Turn with Annotations', () => {
         '  seen at a Viewport 1280px wide',
         '  html: <p>Open <b>daily</b></p>',
       ].join('\n'),
+    ])
+  })
+  test('a drawing is described with where its strokes are and what they caught, the Agent is told to judge its intent, and its screenshots go along as images', async () => {
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* () {
+          yield success
+        },
+      ],
+    })
+    const png = (bytes: string) => `data:image/png;base64,${bytes}`
+    const session = provider.startSession({ projectDir, document: 'index.html' })
+    session.send({
+      text: '',
+      annotations: [
+        {
+          kind: 'draw',
+          number: 1,
+          comment: 'Tighten these',
+          viewportWidth: 1280,
+          strokes: [[{ x: 90, y: 90 }, { x: 710.4, y: 90 }, { x: 710, y: 410 }]],
+          boundingBox: { x: 90, y: 90, width: 620.4, height: 320 },
+          targets: [
+            { selector: 'main > div.grid', tag: 'div', html: '<div class="grid">…', lines: { start: 9, end: 20 } },
+          ],
+          screenshot: png('U0NSRUVO'),
+          crop: png('Q1JPUA=='),
+        },
+        {
+          kind: 'draw',
+          number: 2,
+          comment: 'Add a NEW stamp here',
+          viewportWidth: 390,
+          strokes: [[{ x: 300, y: 1200 }, { x: 340, y: 1240 }]],
+          boundingBox: { x: 300, y: 1200, width: 40, height: 40 },
+          targets: [],
+          screenshot: png('U0NSRUVOMg=='),
+          crop: png('Q1JPUDI='),
+        },
+      ],
+    })
+    await untilTurnEnd(session)
+
+    const image = (data: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data } })
+    expect(runs[0]?.prompts.map((prompt) => prompt.message.content)).toEqual([
+      [
+        {
+          type: 'text',
+          text: [
+            'I pointed at these in index.html (shown in Margen). The numbers are mine:',
+            '',
+            'A drawing may point at something (what its strokes enclose) or show something to add (a shape, a sketch, words, where it should go). Judge which from its comment and its strokes.',
+            '',
+            '[1] Drawing: Tighten these',
+            '  strokes at x 90, y 90, 620×320 px in the page (from its top left)',
+            '  seen at a Viewport 1280px wide',
+            '  images 1 and 2: the Viewport with the strokes drawn in, and the strokes alone',
+            '  the strokes enclose:',
+            '    element: <div> at `main > div.grid`, lines 9–20 of index.html',
+            '    html: <div class="grid">…',
+            '',
+            '[2] Drawing: Add a NEW stamp here',
+            '  strokes at x 300, y 1200, 40×40 px in the page (from its top left)',
+            '  seen at a Viewport 390px wide',
+            '  images 3 and 4: the Viewport with the strokes drawn in, and the strokes alone',
+            '  nothing underneath the strokes',
+          ].join('\n'),
+        },
+        image('U0NSRUVO'),
+        image('Q1JPUA=='),
+        image('U0NSRUVOMg=='),
+        image('Q1JPUDI='),
+      ],
     ])
   })
 })

@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os'
 import type { AgentEvent, ToolEvent } from '@shared/agent'
 import { inProject } from '../../projects/inside'
 
@@ -12,6 +13,10 @@ const SIGNED_OUT = 'Your Claude Code login has expired. Sign in again to continu
 
 /** Assistant errors that mean the user's own login needs redoing (user story 7). */
 const LOGIN_ERRORS = new Set(['authentication_failed', 'oauth_org_not_allowed'])
+
+const IMAGE = /\.(png|jpe?g|gif|webp)$/i
+/** Temp folders, with and without macOS's `/private` in front. */
+const TEMP_DIRS = [tmpdir(), '/tmp/', '/var/folders/'].flatMap((dir) => [dir, `/private${dir}`])
 
 export type TurnOutcome = 'done' | 'interrupted' | 'failed'
 
@@ -56,6 +61,13 @@ export function createMessageMapper(projectDir: string): MessageMapper {
     }
   }
 
+  /** `claude` may Read the Turn's attached screenshots back from its own temp folder: not the user's files, so no tool card. */
+  function readsAttachedImage(name: string | undefined, input: Json | undefined): boolean {
+    const path = str(input?.file_path)
+    if (name !== 'Read' || !path || inProject(projectDir, path) !== null || !IMAGE.test(path)) return false
+    return TEMP_DIRS.some((dir) => path.startsWith(dir))
+  }
+
   function assistant(message: Json): AgentEvent[] {
     const body = obj(message.message)
     const id = str(body?.id)
@@ -70,7 +82,7 @@ export function createMessageMapper(projectDir: string): MessageMapper {
     for (const block of blocks(body?.content)) {
       if (block.type === 'thinking' && !wasStreamed && str(block.thinking)) events.push({ type: 'thinking', text: str(block.thinking) })
       if (block.type === 'text' && !wasStreamed && str(block.text)) events.push({ type: 'text', text: str(block.text) ?? '' })
-      if (block.type === 'tool_use' && str(block.id) && str(block.name)) {
+      if (block.type === 'tool_use' && str(block.id) && str(block.name) && !readsAttachedImage(str(block.name), obj(block.input))) {
         const started = tool(str(block.id) ?? '', str(block.name) ?? '', obj(block.input) ?? {})
         tools.set(started.id ?? '', started)
         events.push({ ...started, status: 'running' })
