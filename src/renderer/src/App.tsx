@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AgentStatus } from '@shared/agent'
 import { host, useHostValue } from './host'
+import { EditorScreen } from './screens/EditorScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { ProjectPage } from './screens/ProjectPage'
 import { StartScreen } from './screens/StartScreen'
@@ -11,6 +12,7 @@ type Screen = { name: 'loading' } | { name: 'onboarding'; status: AgentStatus } 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'loading' })
   const project = useHostValue('projects.current', 'projects.changed')
+  const document = useHostValue('document.current', 'document.opened')
   const ready = screen.name === 'start'
 
   // Onboarding only shows while Claude Code is missing or signed out.
@@ -41,7 +43,15 @@ export function App() {
       {screen.name === 'onboarding' && (
         <OnboardingScreen initial={screen.status} onContinue={() => setScreen({ name: 'start' })} />
       )}
-      {ready && project !== undefined && (project ? <ProjectPage key={project.path} project={project} /> : <StartScreen />)}
+      {ready &&
+        project !== undefined &&
+        (!project ? (
+          <StartScreen />
+        ) : document ? (
+          <EditorScreen project={project} document={document} />
+        ) : (
+          <ProjectPage key={project.path} project={project} />
+        ))}
     </div>
   )
 }

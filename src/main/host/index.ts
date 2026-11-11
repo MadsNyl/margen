@@ -1,7 +1,9 @@
-import { basename, resolve } from 'node:path'
-import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, Project } from '@shared/host-api'
+import { basename, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import { createUpdater, type UpdateSource } from '../updates'
+import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
@@ -15,24 +17,36 @@ export interface HostDeps {
   updates?: UpdateSource
   /** The native folder picker; resolves `undefined` when cancelled. Tests and e2e pass their own. */
   pickFolder?: () => Promise<string | undefined>
+  /** Opens a URL in the user's default browser (Electron's `shell.openExternal` in the app). */
+  openExternal?: (url: string) => Promise<void>
 }
 
 export interface Host extends HostApi {
+  /** The file a `margen-doc://` request may serve: inside the current Project, else `null`. Used by the protocol handler. */
+  resolveDocumentUrl(url: string): Promise<DocumentFile | null>
   dispose(): void
 }
 
 type Handlers = { [K in HostCallName]: (...args: Parameters<HostCalls[K]>) => Promise<Awaited<ReturnType<HostCalls[K]>>> }
 
-export function createHost({ dataDir, agent, updates, pickFolder = async () => undefined }: HostDeps): Host {
+export function createHost({
+  dataDir,
+  agent,
+  updates,
+  pickFolder = async () => undefined,
+  openExternal = async () => {},
+}: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
   let current: Project | null = null
   let stopWatching = () => {}
+  let document: OpenDocument | null = null
+  let stopWatchingDocument = () => {}
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
     if (!(await isFolder(path))) throw new Error(`Folder not found: ${path}`)
-    stopWatching()
+    close()
     current = { path, name: basename(path) }
     stopWatching = watchDocuments(path, await listDocuments(path), (list) => events.emit('documents.changed', list))
     events.emit('projects.changed', current)
@@ -41,7 +55,27 @@ export function createHost({ dataDir, agent, updates, pickFolder = async () => u
     return current
   }
 
+  async function openDocument(path: string): Promise<OpenDocument> {
+    const project = current
+    const info = project && (await listDocuments(project.path)).documents.find((doc) => doc.path === path)
+    if (!project || !info) throw new Error(`Not a Document of the open Project: ${path}`)
+    closeDocument()
+    document = { path, name: info.name, url: documentUrl(project.path, path) }
+    stopWatchingDocument = watchDocument(project.path, path, () => events.emit('document.updated', { path }))
+    events.emit('document.opened', document)
+    return document
+  }
+
+  function closeDocument() {
+    stopWatchingDocument()
+    stopWatchingDocument = () => {}
+    if (!document) return
+    document = null
+    events.emit('document.opened', null)
+  }
+
   function close() {
+    closeDocument()
     stopWatching()
     stopWatching = () => {}
     current = null
@@ -62,6 +96,12 @@ export function createHost({ dataDir, agent, updates, pickFolder = async () => u
       events.emit('projects.changed', null)
     },
     'documents.list': async () => (current ? listDocuments(current.path) : { documents: [], hidden: [] }),
+    'document.open': openDocument,
+    'document.current': async () => document,
+    'document.close': async () => closeDocument(),
+    'document.openInBrowser': async () => {
+      if (current && document) await openExternal(pathToFileURL(join(current.path, document.path)).href)
+    },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
       await clearRecents(dataDir)
@@ -80,6 +120,10 @@ export function createHost({ dataDir, agent, updates, pickFolder = async () => u
     },
     on<K extends HostEventName>(event: K, listener: (payload: HostEvents[K]) => void) {
       return events.on(event, listener)
+    },
+    async resolveDocumentUrl(url) {
+      const file = current && resolveDocumentUrl(current.path, url)
+      return file ? documentFile(file) : null
     },
     dispose() {
       close()

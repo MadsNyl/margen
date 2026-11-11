@@ -59,3 +59,23 @@ export const ArrowUpIcon = () => (
     <path d="M10 16V4M5 9l5-5 5 5" strokeWidth={2} />
   </Icon>
 )
+
+export const OpenExternalIcon = () => (
+  <Icon className="size-[15px]">
+    <path d="M11 3h6v6M17 3l-8 8M14 12v5H3V6h5" />
+  </Icon>
+)
+
+/** Claude's spark, white on its terracotta tile, as in the chat panel's header. */
+export const ClaudeMark = () => (
+  <span className="grid size-5 flex-none place-items-center rounded-md bg-[#d97757]" aria-hidden>
+    <svg viewBox="0 0 20 20" width="11" height="11">
+      <path
+        d="M10 2v16M2 10h16M4.3 4.3l11.4 11.4M15.7 4.3L4.3 15.7"
+        stroke="#fff"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+)

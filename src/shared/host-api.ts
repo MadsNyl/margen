@@ -35,6 +35,18 @@ export interface DocumentList {
   hidden: string[]
 }
 
+/** The Document open in the editor. */
+export interface OpenDocument {
+  /** Relative to the Project folder, with `/` separators, as in `DocumentInfo`. */
+  path: string
+  name: string
+  /**
+   * Where the Document view loads it: `margen-doc://<project id>/<path>`. The id is
+   * stable per Project folder, so the page keeps one origin (and its localStorage).
+   */
+  url: string
+}
+
 /** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
 export type UpdateStatus =
   | { state: 'unavailable' }
@@ -60,6 +72,13 @@ export interface HostCalls {
   'projects.close': () => void
   /** The Documents of the current Project. */
   'documents.list': () => DocumentList
+  /** Opens a Document of the current Project in the editor. Rejects for anything else. */
+  'document.open': (path: string) => OpenDocument
+  'document.current': () => OpenDocument | null
+  /** Back to the Project page: no Document is open. */
+  'document.close': () => void
+  /** Opens the open Document's file in the default browser. */
+  'document.openInBrowser': () => void
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
@@ -75,6 +94,13 @@ export interface HostEvents {
   'update.changed': UpdateStatus
   /** The current Project's Documents, whenever files change on disk. */
   'documents.changed': DocumentList
+  /** The Document open in the editor, or `null` when none is. */
+  'document.opened': OpenDocument | null
+  /**
+   * The open Document, or a file it may load (CSS, images, scripts), changed on disk.
+   * Debounced: several writes close together send one event. The view reloads on it.
+   */
+  'document.updated': { path: string }
 }
 
 export type HostCallName = keyof HostCalls

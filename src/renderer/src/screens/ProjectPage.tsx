@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import type { DocumentList, Project } from '@shared/host-api'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
+import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
 import { ArrowUpIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { editedAgo, joinList, plural } from '../format'
 import { host, useHostValue } from '../host'
@@ -57,7 +58,6 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
         title={plural(documents.length, 'HTML file')}
         note={hidden.length ? `${joinList(hidden)} ${hidden.length === 1 ? 'is' : 'are'} hidden` : project.path}
       />
-      {/* Opening a Document in the editor arrives with ticket 05. */}
       <ul aria-label="Documents" className="m-0 grid list-none grid-cols-3 gap-x-6 gap-y-2 p-0">
         {documents.map((doc) => (
           <li key={doc.path} className="min-w-0">
@@ -67,6 +67,7 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
               name={doc.name}
               dir={doc.dir}
               meta={editedAgo(doc.modifiedAt)}
+              onClick={() => void host.call('document.open', doc.path).catch(() => {})}
             />
           </li>
         ))}
@@ -86,23 +87,9 @@ function FilesHeader({ title, note }: { title: string; note: string }) {
 
 /** The pill above the title: names the Project and switches to another. */
 function ProjectSwitcher({ project }: { project: Project }) {
-  const [open, setOpen] = useState(false)
+  const { open, setOpen, ref } = useDropdown()
   const recents = useHostValue('recents.list', 'recents.changed')
   const others = recents?.filter((r) => r.path !== project.path && !r.missing) ?? []
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (event: Event) => {
-      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', close)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', close)
-    }
-  }, [open])
 
   const choose = (action: () => Promise<unknown>) => () => {
     setOpen(false)
@@ -126,11 +113,8 @@ function ProjectSwitcher({ project }: { project: Project }) {
         <span className="text-[10px] text-tx3">▼</span>
       </button>
       {open && (
-        <div
-          role="menu"
-          className="absolute top-10 left-1/2 z-20 w-64 -translate-x-1/2 rounded-xl border border-line bg-white p-1 shadow-[0_12px_32px_-10px_rgba(0,0,0,.2)]"
-        >
-          {others.length > 0 && <h6 className="m-0 px-2.5 pt-1.5 pb-1 text-[11px] font-medium text-tx3">Recent</h6>}
+        <Menu className="top-10 left-1/2 w-64 -translate-x-1/2">
+          {others.length > 0 && <MenuHeading>Recent</MenuHeading>}
           {others.map((recent) => (
             <MenuItem key={recent.path} onClick={choose(() => host.call('projects.open', recent.path))}>
               <span className="truncate">{recent.name}</span>
@@ -141,17 +125,9 @@ function ProjectSwitcher({ project }: { project: Project }) {
             Open a folder… <kbd className="ml-auto">⌘O</kbd>
           </MenuItem>
           <MenuItem onClick={choose(() => host.call('projects.close'))}>Start screen</MenuItem>
-        </div>
+        </Menu>
       )}
     </div>
-  )
-}
-
-function MenuItem({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return (
-    <button role="menuitem" className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[13px] hover:bg-muted" onClick={onClick}>
-      {children}
-    </button>
   )
 }
 

@@ -93,10 +93,15 @@ src/main/        The main process: everything that touches the disk or the Agent
   agent/         The AgentProvider interface, the fake provider, and the Claude Code adapter (claude/)
   projects/      Projects, recents, Document discovery and watching
   updates/       Auto-update state, behind an injectable release feed
-src/preload/     Exposes the host API as window.margen, and nothing else
-src/renderer/    The React UI (screens/, components/, host.ts)
+src/preload/     index.ts exposes the host API as window.margen, and nothing else;
+                 document.ts is Margen's script inside the Document view (the <webview>'s preload)
+src/renderer/    The React UI (screens/, components/, editor/, host.ts)
 test/seam1/      Host API tests (Vitest)
 e2e/             Real app window tests (Playwright)
 ```
+
+### The Document view
+
+The editor renders the Document in a `<webview>` on its own session (`persist:margen-doc`), which serves the open Project's files from `margen-doc://<project id>/<path>`: one stable origin per Project, so the page's localStorage works. `src/main/index.ts` forces every webview to that partition, `sandbox`, no Node and Margen's own preload (`src/preload/document.ts`), which runs in an isolated world: it reads the page's DOM, but the page can't see it and nothing is written into the page or the file. The editor and that script talk over the typed Document bridge in `src/shared/document-bridge.ts`. The built app's CSP (in `electron.vite.config.ts`) is relaxed by exactly `frame-src margen-doc:` for it.
 
 The domain modules under `src/main/` are plain TypeScript with no Electron imports, so tests can use them directly.

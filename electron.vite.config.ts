@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
 
 // Applied to the built app only: the dev server's React refresh needs an inline script.
+// `frame-src margen-doc:` is the one deliberate relaxation: the Document view (a
+// `<webview>`) loads the Document from the margen-doc:// protocol.
 const csp: Plugin = {
   name: 'margen-csp',
   apply: 'build',
@@ -14,7 +16,7 @@ const csp: Plugin = {
       attrs: {
         'http-equiv': 'Content-Security-Policy',
         content:
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src margen-doc:",
       },
       injectTo: 'head',
     },
@@ -29,6 +31,12 @@ export default defineConfig({
   },
   preload: {
     resolve: { alias: shared },
+    build: {
+      rollupOptions: {
+        // index: the app's preload (window.margen). document: Margen's script inside the Document view.
+        input: { index: resolve(__dirname, 'src/preload/index.ts'), document: resolve(__dirname, 'src/preload/document.ts') },
+      },
+    },
   },
   renderer: {
     resolve: { alias: shared },

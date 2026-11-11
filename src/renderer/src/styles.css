@@ -222,3 +222,34 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 13.5px;
 }
+
+/* The editor's stage: the dotted surface the Document frame sits on. */
+@utility stage-dots {
+  background-color: #f4f4f5;
+  background-image: radial-gradient(circle at 1px 1px, #dedee3 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+}
+.notice-in {
+  animation: notice-in 0.3s ease-out;
+}
+
+@utility crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  white-space: nowrap;
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
