@@ -1,11 +1,5 @@
-import type { Effort } from '@shared/agent'
+import type { Effort, ModelChoice } from '@shared/agent'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
-
-/** The model and effort the next Turns use. Left out, Claude Code's own default. */
-export interface ModelChoice {
-  model?: string
-  effort?: Effort
-}
 
 const MODELS = [
   { label: 'Default model', value: undefined },

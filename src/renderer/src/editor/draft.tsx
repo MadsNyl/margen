@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Annotation, TurnInput } from '@shared/agent'
+import type { Annotation, ModelChoice, TurnInput } from '@shared/agent'
 import { host, useHostValue } from '../host'
-import type { ModelChoice } from './ModelPicker'
 import { useSession } from './session'
 
 // The Composer's draft: the message text and the Annotations collected for it.
@@ -24,7 +23,7 @@ export interface Draft {
   /** The Annotations of the last Turn sent, for the glow after the Document reloads. */
   lastSent: PendingAnnotation[]
   setText(text: string): void
-  /** The model and effort the next Turn uses. */
+  /** The model and effort the next Turn uses: the last chosen, in any Document. */
   choice: ModelChoice
   setChoice(choice: ModelChoice): void
   /** Adds an Annotation, numbered next in the Session, and opens its comment box. */
@@ -59,7 +58,6 @@ export function DraftProvider({ document, children }: { document: string; childr
   const [open, setOpen] = useState<string | null>(null)
   const [fading, setFading] = useState<PendingAnnotation[]>([])
   const [lastSent, setLastSent] = useState<PendingAnnotation[]>([])
-  const [choice, setChoice] = useState<ModelChoice>({})
   const [forDocument, setForDocument] = useState(document)
   if (forDocument !== document) {
     setForDocument(document)
@@ -68,8 +66,9 @@ export function DraftProvider({ document, children }: { document: string; childr
     setOpen(null)
     setFading([])
     setLastSent([])
-    setChoice({})
   }
+  const choice = useHostValue('model.choice', 'model.changed') ?? NO_CHOICE
+  const setChoice = useCallback((next: ModelChoice) => void host.call('model.setChoice', next).catch(() => {}), [])
   // Annotations are numbered per Session, after the highest it has used: sent, queued, or sent and not back from the host yet.
   const session = useSession(document)
   const queue = useHostValue('session.queue', 'session.queue')
@@ -165,10 +164,12 @@ export function DraftProvider({ document, children }: { document: string; childr
       hasContent: text.trim() !== '' || annotations.length > 0,
       send,
     }),
-    [text, annotations, open, fading, lastSent, choice, add, update, waitFor, setComment, remove, send],
+    [text, annotations, open, fading, lastSent, choice, setChoice, add, update, waitFor, setComment, remove, send],
   )
   return <DraftContext.Provider value={draft}>{children}</DraftContext.Provider>
 }
+
+const NO_CHOICE: ModelChoice = {}
 
 const numbers = (turn: TurnInput) => turn.annotations.map((annotation) => annotation.number)
 

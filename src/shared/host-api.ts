@@ -3,7 +3,7 @@
 // via `createHost`. Add new calls to `HostCalls` and new events to
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
-import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, TurnInput } from './agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ModelChoice, TurnInput } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
 export interface Project {
@@ -169,6 +169,10 @@ export interface HostCalls {
   /** Stops the running Turn (it ends with turn-end "interrupted") and holds the Queue. */
   'session.interrupt': () => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** The model and effort chosen last in the Composer, app-wide; `{}` for the Agent's defaults. */
+  'model.choice': () => ModelChoice
+  /** Keeps the Composer's model and effort for every Document and the next launch. */
+  'model.setChoice': (choice: ModelChoice) => ModelChoice
   /** The permission preset every tool request goes through. */
   'permissions.preset': () => PermissionPreset
   /** Switches the preset and keeps it; it applies from the next tool request, also in a running Turn. */
@@ -224,6 +228,7 @@ export interface HostEvents {
   /** The current Project's Checkpoints, newest first, whenever one is taken. */
   'checkpoints.changed': Checkpoint[]
   'permissions.changed': PermissionPreset
+  'model.changed': ModelChoice
   /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
   'session.queue': QueueView
 }

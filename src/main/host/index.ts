@@ -11,6 +11,7 @@ import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
 import { openSessionStore } from '../sessions/store'
 import { locateAnnotations } from '../turns'
+import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
@@ -68,6 +69,7 @@ export function createHost({
   let sessions: DocumentSessions | null = null
   let checkpoints: CheckpointStore | null = null
   const preset = createPresetStore(dataDir)
+  const modelChoice = createModelChoiceStore(dataDir)
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -200,6 +202,14 @@ export function createHost({
       const opened = await openDocument(path)
       await session?.send({ text, annotations: [] })
       return opened
+    },
+    'model.choice': () => modelChoice.get(),
+    'model.setChoice': async (choice) => {
+      if (!isModelChoice(choice)) throw new Error(`Not a model choice: ${JSON.stringify(choice)}`)
+      const kept = { ...(choice.model && { model: choice.model }), ...(choice.effort && { effort: choice.effort }) }
+      await modelChoice.set(kept)
+      events.emit('model.changed', kept)
+      return kept
     },
     'permissions.preset': () => preset.get(),
     'permissions.setPreset': async (next) => {

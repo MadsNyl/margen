@@ -65,6 +65,12 @@ export type Annotation = PickAnnotation | DrawAnnotation
 /** How hard the Agent thinks. Left out, the Agent uses its own default. */
 export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
+/** The model and effort the next Turns use, as the Composer's menu chose them. Left out, the Agent's own default. */
+export interface ModelChoice {
+  model?: string
+  effort?: Effort
+}
+
 export interface TurnInput {
   text: string
   annotations: Annotation[]

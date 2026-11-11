@@ -22,6 +22,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'document.link',
   'session.entry',
   'permissions.changed',
+  'model.changed',
   'session.queue',
   'session.changed',
   'checkpoints.changed',

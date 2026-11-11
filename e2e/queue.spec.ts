@@ -12,7 +12,7 @@ test.afterEach(async () => {
 })
 
 async function openEditor(agent: FakeAgentScript) {
-  folder = await makeFolder({ 'index.html': '<!doctype html><h1>Small</h1>' })
+  folder = await makeFolder({ 'index.html': '<!doctype html><h1>Small</h1>', 'about.html': '<!doctype html><h1>About</h1>' })
   launched = await launchApp({ pickFolder: folder, agent })
   const { window } = launched
   await window.getByRole('button', { name: /Open a folder/ }).click()
@@ -103,8 +103,8 @@ test('Esc leaves Pick or Draw and leaves the Turn running; with nothing else to 
   await expect(stop).toBeHidden()
 })
 
-test('the model and effort menu sets them for the next Turns', async () => {
-  const { chat } = await openEditor({})
+test('the model and effort menu sets them for the next Turns, in every Document', async () => {
+  const { window, chat, composer, sentTurns } = await openEditor({})
   const picker = chat.getByRole('button', { name: 'Model and effort' })
   await expect(picker).toHaveText('Default model')
 
@@ -114,4 +114,13 @@ test('the model and effort menu sets them for the next Turns', async () => {
   await picker.click()
   await chat.getByRole('menuitem', { name: 'High' }).click()
   await expect(picker).toHaveText('Opus · High')
+
+  // Another Document keeps the choice, and its Turns use it.
+  await window.getByRole('button', { name: 'Switch document' }).click()
+  await window.getByRole('menuitem', { name: 'about.html' }).click()
+  await expect(window.getByRole('button', { name: 'Switch document' })).toHaveText(/about\.html/)
+  await expect(picker).toHaveText('Opus · High')
+  await composer.fill('Hello')
+  await composer.press('Enter')
+  await expect.poll(sentTurns).toEqual([{ text: 'Hello', annotations: [], model: 'opus', effort: 'high' }])
 })
