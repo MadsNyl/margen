@@ -39,6 +39,38 @@ describe('the fake AgentProvider', () => {
     expect(await host.call('agent.detect')).toEqual({ installed: true, version: '2.1.0', signedIn: false })
   })
 
+  test('a scripted Install and Sign in change what detection reports', async () => {
+    const host = createHost({
+      dataDir: dir,
+      agent: createFakeAgentProvider({
+        detect: { installed: false, signedIn: false },
+        install: { result: 'done', version: '2.1.322' },
+        signIn: { result: 'done', plan: 'pro' },
+      }),
+    })
+    expect(await host.call('agent.install')).toEqual({ ok: true, status: { installed: true, version: '2.1.322', signedIn: false } })
+    expect(await host.call('agent.signIn')).toEqual({
+      ok: true,
+      status: { installed: true, version: '2.1.322', signedIn: true, plan: 'pro' },
+    })
+    expect(await host.call('agent.detect')).toEqual({ installed: true, version: '2.1.322', signedIn: true, plan: 'pro' })
+  })
+
+  test('a scripted failing Install reports its message and changes nothing', async () => {
+    const host = createHost({
+      dataDir: dir,
+      agent: createFakeAgentProvider({
+        detect: { installed: false, signedIn: false },
+        install: { result: 'failed', message: 'No network' },
+      }),
+    })
+    expect(await host.call('agent.install')).toEqual({
+      ok: false,
+      status: { installed: false, signedIn: false },
+      message: 'No network',
+    })
+  })
+
   test('plays back a scripted Turn, really writing its edits into the Project', async () => {
     const agent = createFakeAgentProvider({
       turns: [

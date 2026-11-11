@@ -20,6 +20,8 @@ export function createHost({ dataDir, agent }: HostDeps): Host {
 
   const handlers: Handlers = {
     'agent.detect': () => agent.detect(),
+    'agent.install': () => agent.install(),
+    'agent.signIn': () => agent.signIn(),
     'recents.list': () => readRecents(dataDir),
     'recents.clear': async () => {
       await writeRecents(dataDir, [])
