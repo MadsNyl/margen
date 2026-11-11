@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { Annotation, Box } from '@shared/agent'
-import type { Mode, ScrollPosition, TrackedElement } from '@shared/document-bridge'
+import { PICK_KEYS, type Mode, type PickKey, type ScrollPosition, type TrackedElement } from '@shared/document-bridge'
 import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
 import { usePageScroll } from './DrawLayer'
@@ -29,11 +29,25 @@ function anchorOf({ id, annotation }: PendingAnnotation, rects: Record<string, B
   return { x: x - scroll.x, y: y - scroll.y, width, height }
 }
 
-export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | null; mode: Mode; reloads: number }) {
+const typing = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest('[role=menu], [role=listbox], [role=dialog]') !== null)
+
+export function PickLayer({
+  bridge,
+  mode,
+  reloads,
+  onKeyGuide,
+}: {
+  bridge: DocumentBridge | null
+  mode: Mode
+  reloads: number
+  /** Whether the highlight is moving by the arrow keys, for the key guide. */
+  onKeyGuide?: (on: boolean) => void
+}) {
   const draft = useDraft()
   const viewport = useViewport()
   const scroll = usePageScroll(bridge)
-  const [hover, setHover] = useState<{ selector: string; rect: Box } | null>(null)
+  const [hover, setHover] = useState<{ selector: string; rect: Box; byKey?: boolean } | null>(null)
   const [rects, setRects] = useState<Record<string, Box | null>>({})
   const [glow, setGlow] = useState<TrackedElement[]>([])
   const latest = useRef({ add: draft.add, width: viewport.width })
@@ -44,7 +58,7 @@ export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | 
   useEffect(() => {
     if (!bridge) return
     return bridge.on((message) => {
-      if (message.type === 'hover') setHover(message.target)
+      if (message.type === 'hover') setHover(message.target && { ...message.target, byKey: message.byKey })
       else if (message.type === 'rects') setRects(message.rects)
       else if (message.type === 'pick') {
         setRects((now) => ({ ...now, [message.id]: message.rect }))
@@ -57,6 +71,29 @@ export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | 
 
   useEffect(() => {
     bridge?.send({ type: 'mode', mode })
+  }, [bridge, mode])
+
+  const byKey = mode === 'pick' && !!hover?.byKey
+  useEffect(() => {
+    onKeyGuide?.(byKey)
+  }, [onKeyGuide, byKey])
+
+  // Arrow-key Pick while the editor has focus (with the page focused, its script sees the keys itself).
+  // ↵ only picks something that's highlighted, so it doesn't take ↵ from the editor for nothing.
+  const highlighted = useRef(false)
+  useEffect(() => {
+    highlighted.current = hover !== null
+  })
+  useEffect(() => {
+    if (!bridge || mode !== 'pick') return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
+      if (!PICK_KEYS.includes(event.key as PickKey) || (event.key === 'Enter' && !highlighted.current)) return
+      event.preventDefault()
+      bridge.send({ type: 'key', key: event.key as PickKey })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [bridge, mode])
 
   const elements = [...draft.annotations, ...draft.fading].flatMap(tracked).concat(glow)
@@ -82,7 +119,11 @@ export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | 
   return (
     <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
       {mode === 'pick' && hover && (
-        <Outline rect={hover.rect} className="border-[1.5px] border-ink bg-ink-soft transition-all duration-75">
+        <Outline
+          rect={hover.rect}
+          kbd={hover.byKey}
+          className={`border-[1.5px] border-ink bg-ink-soft transition-all duration-75 ${hover.byKey ? 'shadow-[0_0_0_4px_rgba(47,123,255,.18)]' : ''}`}
+        >
           <span
             data-highlight
             className="absolute -top-[22px] -left-[1.5px] rounded-[5px_5px_5px_0] bg-ink px-[7px] py-[3px] font-mono text-[10px] whitespace-nowrap text-white"
@@ -110,10 +151,10 @@ function caught(annotation: Annotation): string[] {
   return annotation.targets.map((target) => labelOf(target.selector))
 }
 
-function Outline({ rect, className, glow, children }: { rect: Box; className: string; glow?: boolean; children?: ReactNode }) {
+function Outline({ rect, className, glow, kbd, children }: { rect: Box; className: string; glow?: boolean; kbd?: boolean; children?: ReactNode }) {
   const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
   return (
-    <div data-glow={glow || undefined} className={`absolute rounded-[4px] ${className}`} style={style}>
+    <div data-glow={glow || undefined} data-kbd={kbd || undefined} className={`absolute rounded-[4px] ${className}`} style={style}>
       {children}
     </div>
   )

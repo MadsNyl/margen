@@ -25,6 +25,7 @@ export function EditorScreen({ project, document }: { project: Project; document
   const [reloaded, setReloaded] = useState(0)
   const [reloads, setReloads] = useState(0)
   const [choice, setChoice] = useState<ViewportChoice>('desktop')
+  const [keyGuide, setKeyGuide] = useState(false)
   const frame = useRef<HTMLDivElement>(null)
   const viewport = useMeasuredViewport(choice, frame)
 
@@ -80,7 +81,7 @@ export function EditorScreen({ project, document }: { project: Project; document
                 Reloaded · scroll kept
               </div>
             )}
-            <Toolbar mode={mode} onMode={setMode} />
+            <Toolbar mode={mode} onMode={setMode} keyGuide={keyGuide} />
             {/* Room at the bottom for the floating toolbar, which sits over the stage. */}
             {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
             <div className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
@@ -102,7 +103,7 @@ export function EditorScreen({ project, document }: { project: Project; document
                   }}
                 />
                 <DrawLayer bridge={bridge} mode={mode} frame={frame} />
-                <PickLayer bridge={bridge} mode={mode} reloads={reloads} />
+                <PickLayer bridge={bridge} mode={mode} reloads={reloads} onKeyGuide={setKeyGuide} />
               </div>
             </div>
           </div>
