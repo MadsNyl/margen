@@ -8,7 +8,10 @@ export type PromptPart = { type: 'text'; text: string } | { type: 'image'; media
 
 /** The prompt for one Turn. `document` is the open Document, relative to the Project. */
 export function buildPrompt(turn: TurnInput, document?: string): PromptPart[] {
-  if (turn.annotations.length === 0) return [{ type: 'text', text: turn.text }]
+  if (turn.annotations.length === 0) {
+    // Named every Turn, so the Agent knows which file "this page" is, even a new, empty one.
+    return [{ type: 'text', text: document ? `${turn.text}\n\n(The Document open in Margen is ${document}.)` : turn.text }]
+  }
   const blocks = [
     ...(turn.text ? [turn.text] : []),
     `I pointed at these${document ? ` in ${document}` : ''} (shown in Margen). The numbers are mine:`,

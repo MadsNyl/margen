@@ -289,7 +289,10 @@ function ChatBar({ documents }: { documents: DocumentInfo[] }) {
               role="option"
               aria-selected={index === highlighted}
               className={`flex h-8 cursor-default items-center gap-2 rounded-lg px-2.5 text-[13px] ${index === highlighted ? 'bg-muted' : ''}`}
-              onMouseEnter={() => setActive(index)}
+              // Only a mouse that really moves: the list opening under a still cursor mustn't undo ↑/↓.
+              onMouseMove={(event) => {
+                if (event.movementX || event.movementY) setActive(index)
+              }}
               // Keeps focus in the bar, so the click doesn't close the picker first.
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => choose(doc)}

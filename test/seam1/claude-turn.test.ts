@@ -496,6 +496,23 @@ describe('model and effort', () => {
 })
 
 describe('a Turn with Annotations', () => {
+  test('without Annotations the prompt still names the open Document', async () => {
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* () {
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir, document: 'campaigns/christmas.html' })
+    session.send({ text: 'A warm landing page for the Christmas menu', annotations: [] })
+    await untilTurnEnd(session)
+
+    expect(runs[0]?.prompts.map((prompt) => prompt.message.content)).toEqual([
+      'A warm landing page for the Christmas menu\n\n(The Document open in Margen is campaigns/christmas.html.)',
+    ])
+  })
+
   test('the prompt lists each Pick Annotation by number with its comment, element, source lines and Viewport width', async () => {
     const { provider, runs } = pretendMac({
       turns: [
