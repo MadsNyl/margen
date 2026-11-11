@@ -1,11 +1,12 @@
-import type { ReactNode } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
-import { FolderIcon, PlusIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
+import { ArrowRightIcon, FolderIcon, PlusIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { plural } from '../format'
 import { host, useHostValue } from '../host'
 
-export function StartScreen() {
+/** `naming` shows the New project card's name field; ⌘N in the app root turns it on. */
+export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (naming: boolean) => void }) {
   const recents = useHostValue('recents.list', 'recents.changed')
 
   return (
@@ -42,6 +43,8 @@ export function StartScreen() {
               title="New project"
               shortcut="⌘N"
               hint="Name it, then describe what to make"
+              footer={naming && <NameField onCancel={() => onNaming(false)} />}
+              onClick={() => onNaming(true)}
             >
               An empty folder in <span className="font-mono text-[11.5px]">~/Documents/Margen</span>, ready for its
               first page.
@@ -81,26 +84,83 @@ export function StartScreen() {
   )
 }
 
+/** A card on the Start screen. With a `footer` (the name field) it stops being a button and shows that instead of the hint. */
 function Choice(props: {
   art: ReactNode
   artClass: string
   title: string
   shortcut: string
   hint: string
+  footer?: ReactNode
   children: ReactNode
   onClick?: () => void
 }) {
-  return (
-    <button
-      onClick={props.onClick}
-      className="relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200 hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]">
+  const content = (
+    <>
       <span className={`grid size-12 place-items-center rounded-[14px] ${props.artClass}`}>{props.art}</span>
       <span>
         <h3 className="m-0 text-[17px] font-medium tracking-[-0.01em]">{props.title}</h3>
         <p className="mt-1 mb-0 text-[13px] leading-normal text-tx2">{props.children}</p>
       </span>
-      <span className="mt-auto text-xs text-tx3">{props.hint}</span>
+      {props.footer || <span className="mt-auto text-xs text-tx3">{props.hint}</span>}
       <kbd className="absolute top-[22px] right-[22px]">{props.shortcut}</kbd>
+    </>
+  )
+  const card =
+    'relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200'
+  if (props.footer) return <div className={card}>{content}</div>
+  return (
+    <button onClick={props.onClick} className={`${card} hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]`}>
+      {content}
     </button>
+  )
+}
+
+/** The New project card's name field. Enter or the arrow makes the Project and opens it; Escape cancels. */
+function NameField({ onCancel }: { onCancel: () => void }) {
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string>()
+  const [busy, setBusy] = useState(false)
+
+  const create = (event: FormEvent) => {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError(undefined)
+    // On success `projects.changed` swaps this screen for the Project page.
+    host.call('projects.create', name).catch(() => {
+      setBusy(false)
+      setError('Couldn’t make the folder. Try another name.')
+    })
+  }
+
+  return (
+    <div className="mt-auto">
+      <form
+        className="flex h-11 items-center gap-1.5 rounded-full border border-line py-0 pr-1.5 pl-4 shadow-[0_2px_10px_-2px_rgba(0,0,0,.08)]"
+        onSubmit={create}
+      >
+        <input
+          autoFocus
+          className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-0 placeholder:text-tx3"
+          placeholder="Project name"
+          aria-label="Project name"
+          autoComplete="off"
+          spellCheck={false}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => event.key === 'Escape' && onCancel()}
+        />
+        <button
+          className="grid size-8 flex-none place-items-center rounded-full bg-primary text-white transition hover:bg-primary-h disabled:cursor-default disabled:bg-[#d4d4d8]"
+          title="Create"
+          aria-label="Create"
+          disabled={busy}
+        >
+          <ArrowRightIcon />
+        </button>
+      </form>
+      {error && <p className="mt-1.5 mb-0 px-4 text-xs text-tx3">{error}</p>}
+    </div>
   )
 }

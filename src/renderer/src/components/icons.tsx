@@ -59,3 +59,9 @@ export const ArrowUpIcon = () => (
     <path d="M10 16V4M5 9l5-5 5 5" strokeWidth={2} />
   </Icon>
 )
+
+export const ArrowRightIcon = () => (
+  <Icon>
+    <path d="M4 10h12M11 5l5 5-5 5" strokeWidth={2} />
+  </Icon>
+)

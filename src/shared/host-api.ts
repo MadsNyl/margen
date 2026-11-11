@@ -55,6 +55,8 @@ export interface HostCalls {
   'projects.choose': () => Project | null
   /** Opens a folder as the current Project. Rejects if it isn't there. */
   'projects.open': (path: string) => Project
+  /** Makes an empty folder for a new Project under `~/Documents/Margen/` and opens it. */
+  'projects.create': (name: string) => Project
   'projects.current': () => Project | null
   /** Goes back to the Start screen: no Project is open. */
   'projects.close': () => void

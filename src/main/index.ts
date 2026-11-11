@@ -59,7 +59,14 @@ function createWindow(): BrowserWindow {
 void app.whenReady().then(() => {
   // Only a packaged build has a release feed; dev runs and tests get no updates.
   const updates = app.isPackaged ? createElectronUpdateSource(process.env) : undefined
-  const host = createHost({ dataDir: app.getPath('userData'), agent: chooseAgentProvider(process.env), updates, pickFolder })
+  const host = createHost({
+    dataDir: app.getPath('userData'),
+    agent: chooseAgentProvider(process.env),
+    updates,
+    pickFolder,
+    // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
+    projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
+  })
   bindHostToIpc(host, ipcMain, () => BrowserWindow.getAllWindows(), FORWARDED_EVENTS)
   if (updates) {
     const check = () => void host.call('update.check')

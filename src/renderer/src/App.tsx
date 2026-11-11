@@ -10,6 +10,7 @@ type Screen = { name: 'loading' } | { name: 'onboarding'; status: AgentStatus } 
 // Screens: onboarding (02), Start (01, 03, 04), Project (03), Editor (05+), Settings (16).
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'loading' })
+  const [naming, setNaming] = useState(false)
   const project = useHostValue('projects.current', 'projects.changed')
   const ready = screen.name === 'start'
 
@@ -21,18 +22,31 @@ export function App() {
     )
   }, [])
 
-  // ⌘O opens a folder from the Start screen and the Project page.
+  // Opening a Project puts the New project card back to its resting state.
+  const [shownProject, setShownProject] = useState(project)
+  if (project !== shownProject) {
+    setShownProject(project)
+    if (project) setNaming(false)
+  }
+
+  // ⌘O opens a folder and ⌘N names a new Project, from the Start screen and the Project page.
   useEffect(() => {
     if (!ready) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'o') {
+      if (!event.metaKey || event.shiftKey || event.altKey) return
+      const key = event.key.toLowerCase()
+      if (key === 'o') {
         event.preventDefault()
         void host.call('projects.choose')
+      } else if (key === 'n') {
+        event.preventDefault()
+        setNaming(true)
+        if (project) void host.call('projects.close')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [ready])
+  }, [ready, project])
 
   return (
     <div className="flex h-full flex-col bg-shell">
@@ -41,7 +55,7 @@ export function App() {
       {screen.name === 'onboarding' && (
         <OnboardingScreen initial={screen.status} onContinue={() => setScreen({ name: 'start' })} />
       )}
-      {ready && project !== undefined && (project ? <ProjectPage key={project.path} project={project} /> : <StartScreen />)}
+      {ready && project !== undefined && (project ? <ProjectPage key={project.path} project={project} /> : <StartScreen naming={naming} onNaming={setNaming} />)}
     </div>
   )
 }

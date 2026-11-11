@@ -1,8 +1,10 @@
-import { basename, resolve } from 'node:path'
+import { homedir } from 'node:os'
+import { basename, join, resolve } from 'node:path'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import { createUpdater, type UpdateSource } from '../updates'
 import { listDocuments } from '../projects/documents'
+import { makeProjectFolder } from '../projects/new-project'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { createEmitter } from './emitter'
@@ -15,6 +17,8 @@ export interface HostDeps {
   updates?: UpdateSource
   /** The native folder picker; resolves `undefined` when cancelled. Tests and e2e pass their own. */
   pickFolder?: () => Promise<string | undefined>
+  /** Where new Projects are made: `~/Documents/Margen` unless tests pass their own. */
+  projectsDir?: string
 }
 
 export interface Host extends HostApi {
@@ -23,7 +27,13 @@ export interface Host extends HostApi {
 
 type Handlers = { [K in HostCallName]: (...args: Parameters<HostCalls[K]>) => Promise<Awaited<ReturnType<HostCalls[K]>>> }
 
-export function createHost({ dataDir, agent, updates, pickFolder = async () => undefined }: HostDeps): Host {
+export function createHost({
+  dataDir,
+  agent,
+  updates,
+  pickFolder = async () => undefined,
+  projectsDir = join(homedir(), 'Documents', 'Margen'),
+}: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
   let current: Project | null = null
@@ -56,6 +66,7 @@ export function createHost({ dataDir, agent, updates, pickFolder = async () => u
       return folder ? open(folder) : null
     },
     'projects.open': open,
+    'projects.create': async (name) => open(await makeProjectFolder(projectsDir, name)),
     'projects.current': async () => current,
     'projects.close': async () => {
       close()
