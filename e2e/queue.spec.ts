@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { FakeAgentScript } from '../src/main/agent/fake'
-import { launchApp, makeFolder, type LaunchedApp } from './app'
+import { inDocument, launchApp, makeFolder, type LaunchedApp } from './app'
 
 let launched: LaunchedApp | undefined
 let folder: string | undefined
@@ -75,6 +75,32 @@ test('Stop interrupts the Turn, and the Queue waits until the next send', async 
   await expect(chat.getByRole('log').getByText('And make it blue')).toBeVisible()
   await window.keyboard.press('Escape')
   await expect(chat.getByText(/^Interrupted/)).toHaveCount(2)
+})
+
+test('Esc leaves Pick or Draw and leaves the Turn running; with nothing else to do it stops the Turn, also with the Document focused', async () => {
+  const { app, window, chat, composer } = await openEditor({ turns: [[{ type: 'text', text: 'Working on it' }, { type: 'wait', ms: 30_000 }]] })
+  const toolbar = window.getByRole('toolbar', { name: 'Mode' })
+  const stop = chat.getByRole('button', { name: 'Stop' })
+  const escInDocument = () => inDocument(app, `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await composer.fill('Make the heading bigger')
+  await composer.press('Enter')
+  await expect(chat.getByText('Working on it')).toBeVisible()
+
+  for (const mode of ['Pick', 'Draw']) {
+    await toolbar.getByRole('button', { name: mode }).click()
+    await window.keyboard.press('Escape')
+    await expect(toolbar.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(stop).toBeVisible()
+  }
+
+  await toolbar.getByRole('button', { name: 'Pick' }).click()
+  await escInDocument()
+  await expect(toolbar.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(stop).toBeVisible()
+
+  await escInDocument()
+  await expect(chat.getByText(/^Interrupted/)).toBeVisible()
+  await expect(stop).toBeHidden()
 })
 
 test('the model and effort menu sets them for the next Turns', async () => {

@@ -27,7 +27,7 @@ export function ChatPanel({ document }: { document: string }) {
   const scroller = useRef<HTMLDivElement>(null)
   const leave = useLeave()
 
-  // Esc stops the running Turn, unless something else (a menu, a popup) took it first.
+  // Esc stops the running Turn, unless something else (a menu, a popup, the comment box, leaving Pick or Draw) took it first.
   useEffect(() => {
     if (!running) return
     const onKey = (event: KeyboardEvent) => {

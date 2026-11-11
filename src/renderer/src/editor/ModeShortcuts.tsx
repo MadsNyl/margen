@@ -5,8 +5,9 @@ import { useDraft } from './draft'
 
 // The editor's shortcut keys, wherever the focus is (the page's script passes
 // them on while the Document has it): V Browse, P Pick, D Draw, Esc discards the open
-// Annotation or goes back to Browse. Not while typing. An Esc that discards is
-// taken (`preventDefault`), so it doesn't also stop a running Turn (ChatPanel).
+// Annotation or goes back to Browse. Not while typing. An Esc that does either is
+// taken (`preventDefault`), so it doesn't also stop a running Turn (ChatPanel);
+// one from the Document that did nothing is passed on to the editor's window for that.
 
 const MODES: Partial<Record<ModeKey, Mode>> = { v: 'browse', p: 'pick', d: 'draw' }
 
@@ -25,7 +26,10 @@ export function ModeShortcuts({ bridge, mode, onMode }: { bridge: DocumentBridge
       } else if (draft.open) {
         draft.remove(draft.open)
         return true
-      } else if (mode !== 'browse') onMode('browse')
+      } else if (mode !== 'browse') {
+        onMode('browse')
+        return true
+      }
       return false
     }
   })
@@ -43,7 +47,8 @@ export function ModeShortcuts({ bridge, mode, onMode }: { bridge: DocumentBridge
   useEffect(
     () =>
       bridge?.on((message) => {
-        if (message.type === 'key') press.current(message.key)
+        if (message.type !== 'key' || press.current(message.key) || message.key !== 'Escape') return
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
       }),
     [bridge],
   )
