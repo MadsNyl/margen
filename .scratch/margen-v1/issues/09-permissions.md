@@ -12,3 +12,9 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Approval requests reach the UI as an event and the answer reaches the Agent (fake provider test)
 - [ ] Allow once and Deny render as resolved cards afterwards, as in the prototype
 - [ ] Allow everything skips all approvals; the preset badge in the Composer reflects the setting
+
+
+**Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
+- Claude Code auto-runs read-only shell commands like `ls` without calling the permission callback; add the hook from claude-agent-sdk.md that forces shell commands through Margen.
+- In the default mode writes inside the Project still ask, so Margen's callback must allow them itself.
+- Resolve real paths on both sides (symlinks, `/private/tmp`) before the inside-Project check.
