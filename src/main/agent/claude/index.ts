@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import type { AgentSetupResult, AgentStatus } from '@shared/agent'
 import type { AgentProvider } from '../provider'
+import { startClaudeSession } from './session'
 import type { ClaudeSystem } from './system'
 
 // The Claude Code AgentProvider. It runs the user's own `claude` and only
@@ -84,9 +85,7 @@ export function createClaudeCodeProvider(system: ClaudeSystem): AgentProvider {
     detect,
     install,
     signIn,
-    startSession: () => {
-      throw new Error('Claude Code sessions arrive in ticket 07')
-    },
+    startSession: (options) => startClaudeSession(system, detect, options),
   }
 }
 

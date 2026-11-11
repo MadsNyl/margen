@@ -67,10 +67,33 @@ export interface TurnInput {
 
 export type ApprovalDecision = 'allow-once' | 'deny'
 
+/** A tool the Agent used. Events with the same `id` are one tool call: first `running`, then `done` or `failed`. */
+export type ToolEvent = { type: 'tool'; id?: string; status?: 'running' | 'done' | 'failed' } & (
+  | {
+      tool: 'read' | 'edit' | 'write'
+      /** Relative to the Project folder with `/` separators, or absolute when outside it. */
+      file: string
+      /** Lines added and removed, once an edit or write is done. */
+      added?: number
+      removed?: number
+    }
+  | {
+      tool: 'shell' | 'search' | 'web' | 'other'
+      /** The Agent's own name for the tool: Bash, Grep, WebFetch… */
+      name: string
+      /** What it ran on: the command, the pattern, the URL. */
+      detail: string
+    }
+)
+
 export type AgentEvent =
-  | { type: 'thinking' }
+  /** The Agent is thinking. `text` is a piece of its (summarised) thoughts, when it shares them. */
+  | { type: 'thinking'; text?: string }
+  /** A piece of the reply. Consecutive text events join up into one reply. */
   | { type: 'text'; text: string }
-  | { type: 'tool'; tool: 'read' | 'edit' | 'write'; file: string; added?: number; removed?: number }
+  | ToolEvent
   | { type: 'approval-request'; id: string; kind: 'shell' | 'outside-project'; detail: string }
-  | { type: 'turn-end'; reason: 'done' | 'interrupted' }
-  | { type: 'error'; message: string }
+  /** Every Turn ends with exactly one turn-end; `failed` comes after an error event. */
+  | { type: 'turn-end'; reason: 'done' | 'interrupted' | 'failed' }
+  /** `signed-out`: the Agent's own login is missing or expired, so the fix is to sign in again. */
+  | { type: 'error'; message: string; reason?: 'signed-out' | 'not-installed' }

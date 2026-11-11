@@ -3,7 +3,7 @@
 // via `createHost`. Add new calls to `HostCalls` and new events to
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
-import type { AgentSetupResult, AgentStatus } from './agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, TurnInput } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
 export interface Project {
@@ -47,6 +47,16 @@ export interface OpenDocument {
   url: string
 }
 
+/** One thing in a Session's conversation: what the user sent, or something the Agent did. */
+export type SessionEntry = { type: 'user'; turn: TurnInput } | AgentEvent
+
+/** The open Document's Session, as the chat shows it. */
+export interface SessionView {
+  /** The Document it belongs to, as in `OpenDocument.path`. */
+  document: string
+  entries: SessionEntry[]
+}
+
 /** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
 export type UpdateStatus =
   | { state: 'unavailable' }
@@ -81,6 +91,11 @@ export interface HostCalls {
   'document.close': () => void
   /** Opens the open Document's file in the default browser. */
   'document.openInBrowser': () => void
+  /** The open Document's Session, or `null` when no Document is open. */
+  'session.current': () => SessionView | null
+  /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
+  'session.send': (turn: TurnInput) => void
+  'session.answerApproval': (id: string, decision: ApprovalDecision) => void
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
@@ -103,6 +118,8 @@ export interface HostEvents {
    * Debounced: several writes close together send one event. The view reloads on it.
    */
   'document.updated': { path: string }
+  /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
+  'session.entry': { document: string; index: number; entry: SessionEntry }
 }
 
 export type HostCallName = keyof HostCalls

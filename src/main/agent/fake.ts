@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
 import { createChannel } from './channel'
 import type { AgentProvider, AgentSession, StartSessionOptions } from './provider'
 
@@ -9,9 +9,8 @@ import type { AgentProvider, AgentSession, StartSessionOptions } from './provide
 // An approval-request pauses the Turn until it's answered, `wait` makes a slow
 // Turn, and `interrupt` ends the running Turn with turn-end "interrupted".
 // Install and Sign in play back their scripted outcome (done by default) after
-// `ms`; a done one updates what `detect` reports from then on.
-
-type ToolEvent = Extract<AgentEvent, { type: 'tool' }>
+// `ms`; a done one updates what `detect` reports from then on. A Turn with an
+// error step ends with turn-end "failed".
 
 export type FakeStep =
   | Exclude<AgentEvent, ToolEvent>
@@ -39,6 +38,8 @@ export interface FakeAgentProvider extends AgentProvider {
   sent: TurnInput[]
   /** Every approval answer given to any of its Sessions, in order. */
   approvals: { id: string; decision: ApprovalDecision }[]
+  /** The options of every Session started, in order. */
+  sessions: StartSessionOptions[]
 }
 
 const fallbackTurn: FakeStep[] = [{ type: 'text', text: 'OK.' }]
@@ -48,10 +49,12 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
   const turns = [...(script.turns ?? [])]
   const sent: TurnInput[] = []
   const approvals: FakeAgentProvider['approvals'] = []
-  let sessionCount = 0
+  const sessions: StartSessionOptions[] = []
 
-  function startSession({ projectDir, resumeId }: StartSessionOptions): AgentSession {
-    const id = resumeId ?? `fake-session-${++sessionCount}`
+  function startSession(options: StartSessionOptions): AgentSession {
+    const { projectDir, resumeId } = options
+    sessions.push(options)
+    const id = resumeId ?? `fake-session-${sessions.length}`
     const channel = createChannel<AgentEvent>()
     const pendingApprovals = new Map<string, () => void>()
     let queue = Promise.resolve()
@@ -59,6 +62,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
 
     async function play(steps: FakeStep[]) {
       let interrupted = false
+      let failed = false
       const stopped = new Promise<void>((resolve) => {
         interruptCurrent = () => {
           interrupted = true
@@ -77,22 +81,23 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
         }
         if (step.type === 'tool') {
           const { content, ...event } = step
-          if (content !== undefined) {
+          if (content !== undefined && 'file' in step) {
             const path = join(projectDir, step.file)
             await mkdir(dirname(path), { recursive: true })
             await writeFile(path, content)
           }
-          channel.push(event)
+          channel.push(event as ToolEvent)
           continue
         }
         channel.push(step)
+        if (step.type === 'error') failed = true
         if (step.type === 'approval-request') {
           await unlessInterrupted(new Promise<void>((resolve) => pendingApprovals.set(step.id, resolve)))
         }
         if (step.type === 'turn-end') return
       }
       interruptCurrent = undefined
-      channel.push({ type: 'turn-end', reason: interrupted ? 'interrupted' : 'done' })
+      channel.push({ type: 'turn-end', reason: interrupted ? 'interrupted' : failed ? 'failed' : 'done' })
     }
 
     return {
@@ -111,6 +116,10 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
         pendingApprovals.get(approvalId)?.()
         pendingApprovals.delete(approvalId)
       },
+      close() {
+        interruptCurrent?.()
+        channel.close()
+      },
     }
   }
 
@@ -124,6 +133,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
   return {
     sent,
     approvals,
+    sessions,
     detect: async () => status,
     install: () => setup(script.install, { installed: true, version: script.install?.version ?? status.version ?? 'fake' }),
     signIn: () =>

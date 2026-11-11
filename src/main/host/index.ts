@@ -3,6 +3,8 @@ import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
+import { projectPolicy } from '../permissions'
+import { startDocumentSession, type DocumentSession } from '../sessions'
 import { createUpdater, type UpdateSource } from '../updates'
 import { documentFile, documentUrl, resolveDocumentUrl, watchDocument, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
@@ -47,6 +49,7 @@ export function createHost({
   let stopWatching = () => {}
   let document: OpenDocument | null = null
   let stopWatchingDocument = () => {}
+  let session: DocumentSession | null = null
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -67,6 +70,13 @@ export function createHost({
     closeDocument()
     document = { path, name: info.name, url: documentUrl(project.path, path) }
     stopWatchingDocument = watchDocument(project.path, path, () => events.emit('document.updated', { path }))
+    session = startDocumentSession({
+      agent,
+      projectDir: project.path,
+      document: path,
+      permissions: projectPolicy(project.path),
+      onEntry: (entry, index) => events.emit('session.entry', { document: path, index, entry }),
+    })
     events.emit('document.opened', document)
     return document
   }
@@ -74,6 +84,8 @@ export function createHost({
   function closeDocument() {
     stopWatchingDocument()
     stopWatchingDocument = () => {}
+    session?.dispose()
+    session = null
     if (!document) return
     document = null
     events.emit('document.opened', null)
@@ -108,6 +120,12 @@ export function createHost({
     'document.openInBrowser': async () => {
       if (current && document) await openExternal(pathToFileURL(join(current.path, document.path)).href)
     },
+    'session.current': async () => session?.view() ?? null,
+    'session.send': async (turn) => {
+      if (!session) throw new Error('No Document is open')
+      session.send(turn)
+    },
+    'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
       await clearRecents(dataDir)

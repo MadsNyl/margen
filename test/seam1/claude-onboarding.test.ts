@@ -73,6 +73,10 @@ function pretendMac(machine: Machine) {
       terminalOpened = true
     },
     async sleep() {},
+    loginEnv: async () => ({}),
+    query() {
+      throw new Error('No Turns in these tests')
+    },
   }
   return { system, ran }
 }
