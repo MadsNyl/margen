@@ -12,3 +12,7 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Switching Documents shows that Document's active Session
 - [ ] New session and resume work through the host API and the history drawer
 - [ ] The Agent can still read and change other files in the Project during a Document's Session
+
+
+**Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
+- Check what resume does with credentials (the note says the SDK reads keychain credentials on resume); keep it within ADR 0002, i.e. it must be the user's own `claude` doing it, never Margen.
