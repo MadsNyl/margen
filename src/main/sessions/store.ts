@@ -82,7 +82,7 @@ export function openSessionStore(dataDir: string, projectDir: string): SessionSt
     },
     clearActive(document) {
       if (!(document in index.active)) return
-      delete index.active[document]
+      index.active = Object.fromEntries(Object.entries(index.active).filter(([doc]) => doc !== document))
       writeIndex()
     },
   }
