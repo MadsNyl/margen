@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
 import type { SessionEntry } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
 import { host } from '../host'
+import { CheckpointDivider, CheckpointDrawer } from './Checkpoints'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
 
 /** The chat panel: the open Document's Session and the Composer. */
@@ -11,6 +12,7 @@ export function ChatPanel({ document }: { document: string }) {
   const items = useMemo(() => toChat(entries), [entries])
   const running = isRunning(items)
   const scroller = useRef<HTMLDivElement>(null)
+  const [checkpointsOpen, setCheckpointsOpen] = useState(false)
 
   useLayoutEffect(() => {
     const el = scroller.current
@@ -24,15 +26,24 @@ export function ChatPanel({ document }: { document: string }) {
           <ClaudeMark />
           Claude Code
         </span>
+        <button aria-label="Checkpoints" title="Checkpoints" className="icon-btn ml-auto" onClick={() => setCheckpointsOpen(true)}>
+          <HistoryIcon />
+        </button>
       </div>
       <div ref={scroller} role="log" aria-label="Conversation" className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-2 pt-2.5 pb-[18px]">
         {items.length === 0 ? (
           <div className="m-auto px-8 text-center text-[13px] leading-relaxed text-tx3">Describe a change, or Pick and Draw on the page.</div>
         ) : (
-          items.map((item, i) => <Item key={i} item={item} running={running && i === items.length - 1} />)
+          items.map((item, i) => (
+            <Fragment key={i}>
+              {item.kind === 'user' && item.checkpoint && <CheckpointDivider id={item.checkpoint} disabled={running} />}
+              <Item item={item} running={running && i === items.length - 1} />
+            </Fragment>
+          ))
         )}
       </div>
       <Composer running={running} onSend={(turn) => void host.call('session.send', turn).catch(() => {})} />
+      {checkpointsOpen && <CheckpointDrawer disabled={running} onClose={() => setCheckpointsOpen(false)} />}
     </aside>
   )
 }
@@ -282,6 +293,15 @@ function Composer({ running, onSend }: { running: boolean; onSend: (turn: TurnIn
         </button>
       </div>
     </div>
+  )
+}
+
+function HistoryIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6v4l2.5 2" />
+    </svg>
   )
 }
 

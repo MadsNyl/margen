@@ -3,6 +3,7 @@ import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
+import { openCheckpoints, type CheckpointStore } from '../checkpoints'
 import { projectPolicy } from '../permissions'
 import { startDocumentSession, type DocumentSession } from '../sessions'
 import { createUpdater, type UpdateSource } from '../updates'
@@ -50,12 +51,14 @@ export function createHost({
   let document: OpenDocument | null = null
   let stopWatchingDocument = () => {}
   let session: DocumentSession | null = null
+  let checkpoints: CheckpointStore | null = null
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
     if (!(await isFolder(path))) throw new Error(`Folder not found: ${path}`)
     close()
     current = { path, name: basename(path) }
+    checkpoints = openCheckpoints(dataDir, path)
     stopWatching = watchDocuments(path, await listDocuments(path), (list) => events.emit('documents.changed', list))
     events.emit('projects.changed', current)
     await recordOpened(dataDir, current)
@@ -75,6 +78,13 @@ export function createHost({
       projectDir: project.path,
       document: path,
       permissions: projectPolicy(project.path),
+      beforeTurn: async (turn) => {
+        const store = checkpoints
+        if (!store) return undefined
+        const checkpoint = await store.take({ reason: 'turn', document: path, text: turn.text })
+        if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
+        return checkpoint.id
+      },
       onEntry: (entry, index) => events.emit('session.entry', { document: path, index, entry }),
     })
     events.emit('document.opened', document)
@@ -96,6 +106,7 @@ export function createHost({
     stopWatching()
     stopWatching = () => {}
     current = null
+    checkpoints = null
   }
 
   const handlers: Handlers = {
@@ -123,9 +134,17 @@ export function createHost({
     'session.current': async () => session?.view() ?? null,
     'session.send': async (turn) => {
       if (!session) throw new Error('No Document is open')
-      session.send(turn)
+      await session.send(turn)
     },
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
+    'checkpoints.list': async () => (checkpoints ? checkpoints.list() : []),
+    'checkpoints.revert': async (id) => {
+      const store = checkpoints
+      if (!store) throw new Error('No Project is open')
+      if (session?.running()) throw new Error('A Turn is running')
+      await store.revert(id)
+      if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
+    },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
       await clearRecents(dataDir)

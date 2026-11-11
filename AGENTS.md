@@ -31,12 +31,12 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
   - `turns/`: building prompts from text and Annotations, the Queue, interrupts (07, 10)
   - `permissions/`: the one `PermissionPolicy` every tool call goes through (07); the Editor preset and Allow everything (09)
   - `sessions/`: the open Document's Session and its entries (07); one Session per Document, resume, persistence (08)
-  - `checkpoints/`: the hidden git store outside the user's folder (11)
+  - `checkpoints/`: the hidden git store outside the user's folder (11), run with dugite's bundled git (never `/usr/bin/git`); the host takes one in `beforeTurn` of the Document's Session
   - `settings/`: Settings (16)
   - `updates/`: auto-update state behind an `UpdateSource` (17); `createHost({ updates })` takes the source, absent in dev and tests
 - **Shared data types** (AgentEvent, TurnInput, Annotation, anything sent over the host API) go in `src/shared/`.
 - **The renderer**: one file per screen in `src/renderer/src/screens/`, shared pieces in `components/`. The editor (05+) has its own `src/renderer/src/editor/` folder: `DocumentView.tsx` (the `<webview>`), `bridge.ts`, `ChatPanel.tsx` (the chat and Composer) and `transcript.ts` (folds Session entries into chat items). The script inside the rendered Document (Pick, Draw, scroll restore) is the `document` preload entry, `src/preload/document.ts`, kept apart from the app preload. It and the editor talk only through the Document bridge (`src/shared/document-bridge.ts`): add a message type there, validate it in `parseFromDocument`. Seam 2 reaches inside the Document view through the main process (`inDocument` in `e2e/editor.spec.ts`), since Playwright doesn't attach to webviews.
-- **Releases**: `electron-builder.yml` packages, `.github/workflows/release.yml` signs, notarizes and publishes on a `v*` tag. `pnpm dist:local` makes an unsigned dmg. Keep Mac-only code out of the core so Windows can follow.
+- **Releases**: `electron-builder.yml` packages, `.github/workflows/release.yml` signs, notarizes and publishes on a `v*` tag. `pnpm dist:local` makes an unsigned dmg. dugite's git ships unpacked from the asar; `build/dugite-git.mjs` fetches it for each arch being packed. Keep Mac-only code out of the core so Windows can follow.
 - **Margen's own data** goes in the data directory passed to `createHost` (Electron's `userData`, or `MARGEN_DATA_DIR`), never in the user's Project folder.
 
 ### Tests
@@ -45,4 +45,4 @@ Before calling a change done, run `pnpm typecheck`, `pnpm lint`, `pnpm test` and
 - The Claude Code adapter (`test/seam1/claude-*.test.ts`): `createClaudeCodeProvider(system)` with a pretend `ClaudeSystem`; for Turns its `query` yields scripted SDK messages shaped like the real `claude`'s.
 - The contract test (`test/contract/`) runs one Turn against the real `claude`, only with `MARGEN_CLAUDE_CONTRACT=1`.
 - Seam 2 (`e2e/*.spec.ts`): `launchApp({ recents, agent })` from `e2e/app.ts` launches the built app with a fresh data directory and a fake Agent script. Keep it to a handful of flows that need real layout.
-- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect`, the outcome of `install` and `signIn`, and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.
+- The fake Agent script (`FakeAgentScript` in `src/main/agent/fake.ts`) scripts `detect`, the outcome of `install` and `signIn`, and one list of steps per Turn: any AgentEvent, `tool` steps with `content` that really write the file or `removes` that really delete files, and `wait` for slow Turns. Approval requests pause until answered; interrupt ends the Turn.

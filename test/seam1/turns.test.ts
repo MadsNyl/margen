@@ -63,7 +63,7 @@ describe('a Turn in the editor', () => {
     await ended
 
     expect(seen.map(({ entry }) => entry)).toEqual([
-      { type: 'user', turn: ask },
+      { type: 'user', turn: ask, checkpoint: expect.any(String) },
       { type: 'thinking' },
       { type: 'tool', id: 't1', tool: 'read', file: 'index.html' },
       { type: 'tool', id: 't2', tool: 'edit', file: 'index.html', added: 1, removed: 1 },

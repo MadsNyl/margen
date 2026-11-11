@@ -47,8 +47,25 @@ export interface OpenDocument {
   url: string
 }
 
-/** One thing in a Session's conversation: what the user sent, or something the Agent did. */
-export type SessionEntry = { type: 'user'; turn: TurnInput } | AgentEvent
+/**
+ * One thing in a Session's conversation: what the user sent, or something the Agent did.
+ * A user entry names the Checkpoint taken just before its Turn, when there is one.
+ */
+export type SessionEntry = { type: 'user'; turn: TurnInput; checkpoint?: string } | AgentEvent
+
+/** A snapshot of the whole Project, taken before a Turn or before a revert. */
+export interface Checkpoint {
+  /** What `checkpoints.revert` takes. */
+  id: string
+  /** 1, 2, 3… in the order the Project's Checkpoints were taken. */
+  number: number
+  takenAt: string
+  /** `turn`: just before a Turn. `revert`: just before a revert, so the revert can be undone. */
+  reason: 'turn' | 'revert'
+  /** For `turn`: the Document whose Session the Turn was in, and what the user wrote. */
+  document?: string
+  text?: string
+}
 
 /** The open Document's Session, as the chat shows it. */
 export interface SessionView {
@@ -96,6 +113,13 @@ export interface HostCalls {
   /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
   'session.send': (turn: TurnInput) => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
+  /** The current Project's Checkpoints from every Session, newest first. */
+  'checkpoints.list': () => Checkpoint[]
+  /**
+   * Restores every file of the current Project to a Checkpoint, deleting files made since.
+   * Takes a `revert` Checkpoint first. Rejects while a Turn runs.
+   */
+  'checkpoints.revert': (id: string) => void
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   'update.status': () => UpdateStatus
@@ -120,6 +144,8 @@ export interface HostEvents {
   'document.updated': { path: string }
   /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
   'session.entry': { document: string; index: number; entry: SessionEntry }
+  /** The current Project's Checkpoints, newest first, whenever one is taken. */
+  'checkpoints.changed': Checkpoint[]
 }
 
 export type HostCallName = keyof HostCalls

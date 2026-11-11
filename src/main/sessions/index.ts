@@ -11,7 +11,10 @@ export interface DocumentSession {
   view(): SessionView
   /** The Agent's session id, once a Turn has started it. */
   agentSessionId(): string | undefined
-  send(turn: TurnInput): void
+  /** Resolves once the Turn has reached the Agent, after `beforeTurn`. */
+  send(turn: TurnInput): Promise<void>
+  /** A Turn is running. */
+  running(): boolean
   answerApproval(id: string, decision: ApprovalDecision): void
   interrupt(): Promise<void>
   /** Stops the Agent and sends no more entries. */
@@ -26,6 +29,8 @@ export interface DocumentSessionOptions {
   permissions: PermissionPolicy
   /** Resumes this Agent session instead of starting a new one. */
   resumeId?: string
+  /** Runs before each Turn reaches the Agent: takes its Checkpoint and resolves with the id, or `undefined` if none was taken. */
+  beforeTurn?(turn: TurnInput): Promise<string | undefined>
   onEntry(entry: SessionEntry, index: number): void
 }
 
@@ -35,6 +40,7 @@ export function startDocumentSession({
   document,
   permissions,
   resumeId,
+  beforeTurn = async () => undefined,
   onEntry,
 }: DocumentSessionOptions): DocumentSession {
   const entries: SessionEntry[] = []
@@ -67,12 +73,18 @@ export function startDocumentSession({
   return {
     view: () => ({ document, entries: [...entries] }),
     agentSessionId: () => session?.id,
-    send(turn) {
+    async send(turn) {
       if (running) throw new Error('A Turn is running')
       running = true
-      add({ type: 'user', turn })
+      const checkpoint = await beforeTurn(turn).catch((error: unknown) => {
+        console.error('No Checkpoint before this Turn:', error)
+        return undefined
+      })
+      if (disposed) return
+      add({ type: 'user', turn, ...(checkpoint && { checkpoint }) })
       agentSession().send(turn)
     },
+    running: () => running,
     answerApproval: (id, decision) => session?.answerApproval(id, decision),
     interrupt: async () => session?.interrupt(),
     dispose() {
