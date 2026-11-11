@@ -45,7 +45,7 @@ test('links the app window opens go to the browser only when they are on the web
   })
 
   await window.evaluate(() => {
-    for (const url of ['file:///etc/passwd', 'smb://server/share', 'https://example.com/', 'http://example.org/']) window.open(url)
+    for (const url of ['file:///etc/passwd', 'smb://server/share', 'https://example.com/', 'http://example.org/']) globalThis.open(url)
   })
 
   await expect
