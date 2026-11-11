@@ -13,3 +13,8 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] Scroll position is restored after a reload (Seam 2 test)
 - [ ] The breadcrumb dropdown lists the Project's Documents and switches between them
 - [ ] The editor layout and toolbar placement match the prototype (toolbar may be empty until ticket 12)
+
+
+**Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
+- Use `<webview>` or an iframe served via a custom `margen-doc://` scheme, not `WebContentsView` (it paints above Margen's own overlays). Inject Margen's script into the served copy only.
+- A fully sandboxed iframe breaks the page's `localStorage`; see electron-webview-sandbox.md for the chosen trade-off.

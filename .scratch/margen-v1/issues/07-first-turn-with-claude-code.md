@@ -14,3 +14,11 @@ Spec: `.scratch/margen-v1/spec.md`. Visual reference: `design/index.html`. Terms
 - [ ] An Agent edit to the open Document triggers live reload (Seam 2 test with the fake provider)
 - [ ] An opt-in contract test (skipped unless an env flag is set) runs a tiny Turn against a real installed `claude`
 - [ ] A failed or signed-out `claude` shows a clear error with a way to sign in again
+
+
+**Research findings to respect** (details in `/Users/madsnylund/.t3/projects/margen-notes/`, see README.md there):
+- Always pass the user's own `claude` path to the SDK and exclude the SDK's bundled binary from the app; never fall back to it (ADR 0002).
+- Disable loading the user's Claude settings files so their allow rules can't pre-approve tools behind Margen's back.
+- Request summarised thinking, or thinking text arrives empty.
+- Ignore unknown SDK message types (the user's `claude` may be older or newer than the SDK expects).
+- Paths come back resolved (e.g. `/private/tmp/...`); resolve both sides before comparing to the Project.
