@@ -45,7 +45,7 @@ test("sending in the Composer runs a Turn: the chat shows the message, the Agent
   await expect(chat.getByText('Make the heading bigger')).toBeVisible()
   await expect(composer).toHaveValue('')
   await expect(chat.getByText('Thinking')).toBeVisible()
-  await expect(chat.getByRole('button', { name: 'Send' })).toBeDisabled()
+  await expect(chat.getByRole('button', { name: 'Queue' })).toBeDisabled()
   await expect(chat.getByRole('group', { name: 'Tool' })).toHaveText([/^Read\s*index\.html$/, /^Edit\s*index\.html\s*\+1\s*−1$/])
   await expect(chat.getByText('Done. The heading is now big.')).toBeVisible()
   await expect(chat.locator('code')).toHaveText('big')
