@@ -137,3 +137,48 @@
     animation: none;
   }
 }
+
+/* The rotating word in "Let us build …" */
+.build-word {
+  animation: build-word-in 0.35s ease-out both;
+}
+@keyframes build-word-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* The dark "Nothing here yet" panel on an empty Project page */
+.ocean {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 56px 32px;
+  text-align: center;
+  color: #fff;
+  background:
+    radial-gradient(60% 80% at 20% 30%, #2b4c8a 0%, transparent 70%),
+    radial-gradient(50% 70% at 80% 70%, #1c6f8f 0%, transparent 70%), #0d1b3d;
+}
+.ocean::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.25;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.6) 1px, transparent 0);
+  background-size: 14px 14px;
+}
+.ocean h3 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+.ocean p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13.5px;
+}

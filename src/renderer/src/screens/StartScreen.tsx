@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Brand } from '../components/Brand'
-import { FolderIcon, PlusIcon, SettingsIcon } from '../components/icons'
+import { ItemRow } from '../components/Cover'
+import { FolderIcon, PlusIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
+import { plural } from '../format'
 import { host, useHostValue } from '../host'
 
 export function StartScreen() {
@@ -30,6 +32,7 @@ export function StartScreen() {
               title="Open a folder"
               shortcut="⌘O"
               hint="Margen lists every HTML file inside it"
+              onClick={() => void host.call('projects.choose')}
             >
               Any folder: a website's code, a folder of HTML files, a brand kit. Claude can read all of it.
             </Choice>
@@ -58,14 +61,15 @@ export function StartScreen() {
             {recents && recents.length > 0 && (
               <ul aria-label="Recent projects" className="m-0 grid list-none grid-cols-2 gap-x-6 gap-y-2 p-0">
                 {recents.map((project) => (
-                  <li key={project.path}>
-                    <button className="flex w-full min-w-0 items-center gap-4 rounded-[14px] p-2 text-left transition hover:bg-muted/80">
-                      <span className="size-16 flex-none rounded-[14px] bg-muted" aria-hidden />
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <b className="truncate text-sm font-normal">{project.name}</b>
-                        <small className="truncate font-mono text-[10.5px] text-tx3">{project.path}</small>
-                      </span>
-                    </button>
+                  <li key={project.path} className="min-w-0">
+                    <ItemRow
+                      coverId={project.name}
+                      badge={<SmallFolderIcon />}
+                      name={project.name}
+                      meta={`${project.missing ? 'Folder not found' : plural(project.htmlFiles, 'HTML file')} · ${project.path}`}
+                      disabled={project.missing}
+                      onClick={() => void host.call('projects.open', project.path).catch(() => {})}
+                    />
                   </li>
                 ))}
               </ul>
@@ -84,9 +88,12 @@ function Choice(props: {
   shortcut: string
   hint: string
   children: ReactNode
+  onClick?: () => void
 }) {
   return (
-    <button className="relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200 hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]">
+    <button
+      onClick={props.onClick}
+      className="relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200 hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]">
       <span className={`grid size-12 place-items-center rounded-[14px] ${props.artClass}`}>{props.art}</span>
       <span>
         <h3 className="m-0 text-[17px] font-medium tracking-[-0.01em]">{props.title}</h3>

@@ -25,10 +25,10 @@ describe('recent Projects', () => {
     expect(await host.call('recents.list')).toEqual([])
   })
 
-  test('lists the recent Projects stored in the data directory', async () => {
+  test('a recent Project whose folder was moved or deleted is listed as missing', async () => {
     await writeFile(join(dataDir, 'recents.json'), JSON.stringify([recent]))
     host = createHost({ dataDir, agent: createFakeAgentProvider() })
-    expect(await host.call('recents.list')).toEqual([recent])
+    expect(await host.call('recents.list')).toEqual([{ ...recent, htmlFiles: 0, missing: true }])
   })
 
   test('clearing empties the list, tells listeners and survives a restart', async () => {

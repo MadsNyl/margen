@@ -5,20 +5,56 @@
 
 import type { AgentStatus } from './agent'
 
-export interface RecentProject {
+/** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
+export interface Project {
   path: string
   name: string
+}
+
+export interface RecentProject extends Project {
   openedAt: string
+  /** How many Documents the folder holds right now. 0 when it's missing. */
+  htmlFiles: number
+  /** The folder was moved or deleted since it was last opened. */
+  missing: boolean
+}
+
+/** One HTML file in the open Project. */
+export interface DocumentInfo {
+  /** Relative to the Project folder, with `/` separators: `campaigns/christmas.html`. */
+  path: string
+  name: string
+  /** The subfolder, with a trailing `/`, or `''` at the top level. */
+  dir: string
+  modifiedAt: string
+}
+
+export interface DocumentList {
+  documents: DocumentInfo[]
+  /** Ignored folders (node_modules, .git, build output) that the Project contains. */
+  hidden: string[]
 }
 
 export interface HostCalls {
   'agent.detect': () => AgentStatus
+  /** Shows the folder picker and opens the chosen folder. `null` if the user cancels. */
+  'projects.choose': () => Project | null
+  /** Opens a folder as the current Project. Rejects if it isn't there. */
+  'projects.open': (path: string) => Project
+  'projects.current': () => Project | null
+  /** Goes back to the Start screen: no Project is open. */
+  'projects.close': () => void
+  /** The Documents of the current Project. */
+  'documents.list': () => DocumentList
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
 }
 
 export interface HostEvents {
+  'projects.changed': Project | null
   'recents.changed': RecentProject[]
+  /** The current Project's Documents, whenever files change on disk. */
+  'documents.changed': DocumentList
 }
 
 export type HostCallName = keyof HostCalls
