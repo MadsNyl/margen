@@ -76,6 +76,7 @@ export function createHost({
       document: path,
       permissions: projectPolicy(project.path),
       onEntry: (entry, index) => events.emit('session.entry', { document: path, index, entry }),
+      onQueue: (queue) => events.emit('session.queue', queue),
     })
     events.emit('document.opened', document)
     return document
@@ -125,6 +126,9 @@ export function createHost({
       if (!session) throw new Error('No Document is open')
       session.send(turn)
     },
+    'session.queue': async () => session?.queue() ?? null,
+    'session.unqueue': async (id) => session?.unqueue(id),
+    'session.interrupt': async () => session?.interrupt(),
     'session.answerApproval': async (id, decision) => session?.answerApproval(id, decision),
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {

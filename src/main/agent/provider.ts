@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, TurnInput } from '@shared/agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Effort, TurnInput } from '@shared/agent'
 import type { PermissionPolicy } from '../permissions'
 
 // Hides which Agent is running (Claude Code in v1, Codex in 1.1).
@@ -6,8 +6,9 @@ import type { PermissionPolicy } from '../permissions'
 
 export interface StartSessionOptions {
   projectDir: string
+  /** The model and effort for Turns that don't choose their own. */
   model?: string
-  effort?: string
+  effort?: Effort
   resumeId?: string
   /** Decides which tool calls run without asking. Defaults to `projectPolicy(projectDir)`. */
   permissions?: PermissionPolicy
@@ -26,7 +27,10 @@ export interface AgentProvider {
 export interface AgentSession {
   /** The Agent's own session id, used to resume it. */
   id: string
-  /** Starts a Turn. Send the next one only after this one's turn-end: an Agent may merge Turns sent mid-Turn. */
+  /**
+   * Starts a Turn, with the TurnInput's model and effort when it has them. Send the next one
+   * only after this one's turn-end: an Agent may merge Turns sent mid-Turn.
+   */
   send(turn: TurnInput): void
   /** Ends the running Turn; it ends with turn-end "interrupted". */
   interrupt(): Promise<void>

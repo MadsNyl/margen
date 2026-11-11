@@ -57,6 +57,20 @@ export interface SessionView {
   entries: SessionEntry[]
 }
 
+/** A message waiting in the Queue to go out as its own Turn. */
+export interface QueuedMessage {
+  id: string
+  turn: TurnInput
+}
+
+/** The open Document's Queue, in the order it sends. */
+export interface QueueView {
+  document: string
+  messages: QueuedMessage[]
+  /** After an interrupt the Queue waits: nothing sends until the user sends again. */
+  held: boolean
+}
+
 /** Where auto-update stands. `unavailable` in dev builds and tests, which have no release feed. */
 export type UpdateStatus =
   | { state: 'unavailable' }
@@ -93,8 +107,17 @@ export interface HostCalls {
   'document.openInBrowser': () => void
   /** The open Document's Session, or `null` when no Document is open. */
   'session.current': () => SessionView | null
-  /** Starts a Turn in the open Document's Session. Rejects while a Turn runs or when no Document is open. */
+  /**
+   * Starts a Turn in the open Document's Session, or queues it while a Turn runs. Sending
+   * while the Queue is held releases it: the new message goes last. Rejects when no Document is open.
+   */
   'session.send': (turn: TurnInput) => void
+  /** The open Document's Queue, or `null` when no Document is open. */
+  'session.queue': () => QueueView | null
+  /** Takes a message out of the Queue before it sends. */
+  'session.unqueue': (id: string) => void
+  /** Stops the running Turn (it ends with turn-end "interrupted") and holds the Queue. */
+  'session.interrupt': () => void
   'session.answerApproval': (id: string, decision: ApprovalDecision) => void
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
@@ -120,6 +143,8 @@ export interface HostEvents {
   'document.updated': { path: string }
   /** A new entry in the open Document's Session; `index` is its place in `SessionView.entries`. */
   'session.entry': { document: string; index: number; entry: SessionEntry }
+  /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
+  'session.queue': QueueView
 }
 
 export type HostCallName = keyof HostCalls

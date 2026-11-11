@@ -130,14 +130,6 @@ describe('a Turn in the editor', () => {
     ])
   })
 
-  test('sending while a Turn runs is refused (the Queue is ticket 10)', async () => {
-    await editor({ turns: [[{ type: 'wait', ms: 300 }]] })
-
-    await host.call('session.send', ask)
-
-    await expect(host.call('session.send', ask)).rejects.toThrow(/Turn is running/)
-  })
-
   test('there is no Session without an open Document, and another Document starts its own', async () => {
     await editor({ turns: [[{ type: 'text', text: 'One.' }]] }, { 'index.html': '', 'about.html': '' })
     const { nextTurnEnd } = entries()

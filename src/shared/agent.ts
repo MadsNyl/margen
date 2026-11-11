@@ -60,9 +60,15 @@ export interface DrawAnnotation extends AnnotationBase {
 
 export type Annotation = PickAnnotation | DrawAnnotation
 
+/** How hard the Agent thinks. Left out, the Agent uses its own default. */
+export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface TurnInput {
   text: string
   annotations: Annotation[]
+  /** The model for this Turn (`opus`, `sonnet`, `haiku` or a full id). Left out, the Agent's own default. */
+  model?: string
+  effort?: Effort
 }
 
 export type ApprovalDecision = 'allow-once' | 'deny'
