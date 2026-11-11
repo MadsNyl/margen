@@ -6,7 +6,7 @@ import type { Mode } from '@shared/document-bridge'
 
 const HINTS: Partial<Record<Mode, string>> = {
   pick: 'Hover or use the arrow keys to move between elements. Click or ↵ to pick',
-  draw: 'Draw anything: circle what you mean, or sketch what you want. Then add a comment',
+  draw: 'Draw anything: circle what you mean, or draw what you want made. Then add a comment',
 }
 
 const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactNode }[] = [
@@ -14,7 +14,7 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
     mode: 'browse',
     label: 'Browse',
     key: 'V',
-    tip: 'Browse: use the page normally',
+    tip: 'Browse: use the Document normally',
     icon: <path d="M5 3l11 5.5-4.8 1.3L9.5 15z" />,
   },
   {
@@ -33,7 +33,7 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
     mode: 'draw',
     label: 'Draw',
     key: 'D',
-    tip: 'Draw: circle, scribble or sketch, then say what you want',
+    tip: 'Draw: circle something or draw what to add, then say what you want',
     icon: <path d="M10.5 4.5C6 4 2.5 6 2.8 9s4 4.8 8.2 4.4 6.8-2.6 6.2-5.3C16.7 6 13.2 3.8 8 4.6" />,
   },
 ]
