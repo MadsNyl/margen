@@ -111,3 +111,36 @@ test("the breadcrumb lists the Project's Documents and switches between them, an
   await window.getByRole('button', { name: basename(folder ?? ''), exact: true }).click()
   await expect(window.getByRole('heading', { name: /Let us build/ })).toBeVisible()
 })
+
+test('the Viewport select shows the live width, fits the window on Desktop and switches to Mobile at 390px', async () => {
+  const { app, window } = await openEditor({ 'index.html': page('Version 1'), 'style.css': '' }, /^index\.html/)
+  const select = window.getByRole('button', { name: 'Viewport' })
+  const frame = window.getByRole('region', { name: 'Document view' })
+  const frameWidth = () => frame.evaluate((el) => Math.round(el.getBoundingClientRect().width))
+
+  // Desktop fits the window, and the select shows the width the page really gets.
+  await expect(select).toHaveText(/Desktop/)
+  const desktop = await frameWidth()
+  await expect.poll(() => inDocument(app, 'innerWidth')).toBe(desktop)
+  await expect(select).toHaveText(new RegExp(`${desktop}px`))
+
+  // Resizing the window resizes Desktop and the width shown with it.
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    const [width = 0, height = 0] = win?.getSize() ?? []
+    win?.setSize(width - 100, height)
+  })
+  await expect.poll(frameWidth).toBe(desktop - 100)
+  await expect(select).toHaveText(new RegExp(`${desktop - 100}px`))
+
+  await select.click()
+  await window.getByRole('menuitem', { name: /Mobile/ }).click()
+  await expect(select).toHaveText(/Mobile/)
+  await expect.poll(() => inDocument(app, 'innerWidth')).toBe(390)
+  await expect(select).toHaveText(/390px/)
+
+  await select.click()
+  await window.getByRole('menuitem', { name: /Tablet/ }).click()
+  await expect.poll(() => inDocument(app, 'innerWidth')).toBe(820)
+  await expect(select).toHaveText(/Tablet.*820px/)
+})

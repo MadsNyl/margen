@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { OpenDocument, Project } from '@shared/host-api'
+import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
 import { ClaudeMark, OpenExternalIcon } from '../components/icons'
 import { DocumentView } from '../editor/DocumentView'
+import { ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport } from '../editor/viewport'
 import { host, useHostValue } from '../host'
 
 const NOTICE_MS = 2200
@@ -12,6 +14,9 @@ const NOTICE_MS = 2200
 export function EditorScreen({ project, document }: { project: Project; document: OpenDocument }) {
   const [ready, setReady] = useState(false)
   const [reloaded, setReloaded] = useState(0)
+  const [choice, setChoice] = useState<ViewportChoice>('desktop')
+  const frame = useRef<HTMLDivElement>(null)
+  const viewport = useMeasuredViewport(choice, frame)
 
   useEffect(() => {
     if (!reloaded) return
@@ -20,69 +25,74 @@ export function EditorScreen({ project, document }: { project: Project; document
   }, [reloaded])
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <main className="relative mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
-        <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
-          <nav className="flex min-w-0 items-center gap-1" aria-label="Breadcrumb">
-            <button
-              className="rounded-[7px] hover:bg-black/4"
-              title="Back to Start"
-              aria-label="Back to Start"
-              onClick={() => void host.call('projects.close')}
-            >
-              <Brand />
-            </button>
-            <Slash />
-            <button className="crumb text-tx2" title="Back to the Project" onClick={() => void host.call('document.close')}>
-              {project.name}
-            </button>
-            <Slash />
-            <DocumentSwitcher document={document} />
-          </nav>
-          <div className="flex items-center gap-1">
-            {/* The Viewport select (ticket 06) goes here. */}
-            <button
-              className="inline-flex h-7 items-center rounded-[7px] px-[9px] text-tx2 hover:bg-black/4 hover:text-tx"
-              title="Open in browser"
-              aria-label="Open in browser"
-              onClick={() => void host.call('document.openInBrowser')}
-            >
-              <OpenExternalIcon />
-            </button>
-          </div>
-        </header>
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          {reloaded > 0 && (
-            <div
-              key={reloaded}
-              role="status"
-              className="notice-in pointer-events-none absolute top-3.5 left-1/2 z-21 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-[#185a36] shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
-            >
-              <span className="size-1.5 rounded-full bg-mint-strong" />
-              Reloaded · scroll kept
+    <ViewportProvider value={viewport}>
+      <div className="flex min-h-0 flex-1">
+        <main className="relative mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
+          <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
+            <nav className="flex min-w-0 items-center gap-1" aria-label="Breadcrumb">
+              <button
+                className="rounded-[7px] hover:bg-black/4"
+                title="Back to Start"
+                aria-label="Back to Start"
+                onClick={() => void host.call('projects.close')}
+              >
+                <Brand />
+              </button>
+              <Slash />
+              <button className="crumb text-tx2" title="Back to the Project" onClick={() => void host.call('document.close')}>
+                {project.name}
+              </button>
+              <Slash />
+              <DocumentSwitcher document={document} />
+            </nav>
+            <div className="flex items-center gap-1">
+              <ViewportSelect choice={choice} viewport={viewport} onChoose={setChoice} />
+              <button
+                className="inline-flex h-7 items-center rounded-[7px] px-[9px] text-tx2 hover:bg-black/4 hover:text-tx"
+                title="Open in browser"
+                aria-label="Open in browser"
+                onClick={() => void host.call('document.openInBrowser')}
+              >
+                <OpenExternalIcon />
+              </button>
             </div>
-          )}
-          {/* Room at the bottom for the floating toolbar (ticket 12), which sits over the stage. */}
-          <div className="stage-dots relative min-h-0 flex-1 border-t border-border px-9 pt-[34px] pb-24">
-            <div
-              role="region"
-              aria-label="Document view"
-              data-ready={ready}
-              className="relative mx-auto size-full overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)]"
-            >
-              <DocumentView
-                key={document.url}
-                document={document}
-                onReady={(bridge) => setReady(bridge !== null)}
-                onReloaded={() => setReloaded((n) => n + 1)}
-              />
-              {/* Pick and Draw overlays (tickets 12–14) go here, above the Document. */}
+          </header>
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {reloaded > 0 && (
+              <div
+                key={reloaded}
+                role="status"
+                className="notice-in pointer-events-none absolute top-3.5 left-1/2 z-21 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-[#185a36] shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
+              >
+                <span className="size-1.5 rounded-full bg-mint-strong" />
+                Reloaded · scroll kept
+              </div>
+            )}
+            {/* Room at the bottom for the floating toolbar (ticket 12), which sits over the stage. */}
+            {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
+            <div className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
+              <div
+                ref={frame}
+                role="region"
+                aria-label="Document view"
+                data-ready={ready}
+                style={{ width: frameWidth(choice) }}
+                className="relative mx-auto h-full overflow-hidden transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)] rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)]"
+              >
+                <DocumentView
+                  key={document.url}
+                  document={document}
+                  onReady={(bridge) => setReady(bridge !== null)}
+                  onReloaded={() => setReloaded((n) => n + 1)}
+                />
+                {/* Pick and Draw overlays (tickets 12–14) go here, above the Document. */}
+              </div>
             </div>
           </div>
-        </div>
-      </main>
-      <ChatPanel />
-    </div>
+        </main>
+        <ChatPanel />
+      </div>
+    </ViewportProvider>
   )
 }
 

@@ -72,6 +72,27 @@ export const OpenExternalIcon = () => (
   </Icon>
 )
 
+export const DesktopIcon = () => (
+  <Icon>
+    <rect x="2.5" y="3.5" width="15" height="10" rx="1.5" />
+    <path d="M7 17h6M10 13.5V17" />
+  </Icon>
+)
+
+export const TabletIcon = () => (
+  <Icon>
+    <rect x="4" y="2.5" width="12" height="15" rx="1.8" />
+    <path d="M9 15h2" />
+  </Icon>
+)
+
+export const MobileIcon = () => (
+  <Icon>
+    <rect x="6" y="2.5" width="8" height="15" rx="1.8" />
+    <path d="M9.2 15h1.6" />
+  </Icon>
+)
+
 /** Claude's spark, white on its terracotta tile, as in the chat panel's header. */
 export const ClaudeMark = () => (
   <span className="grid size-5 flex-none place-items-center rounded-md bg-[#d97757]" aria-hidden>
