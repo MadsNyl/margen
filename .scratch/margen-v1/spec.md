@@ -1,6 +1,6 @@
 # Margen v1: the desktop app
 
-Status: ready-for-agent
+Status: done
 
 ## Problem Statement
 
