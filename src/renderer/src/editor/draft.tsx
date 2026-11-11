@@ -28,6 +28,10 @@ export interface Draft {
   setChoice(choice: ModelChoice): void
   /** Adds an Annotation, numbered next, and opens its comment box. */
   add(id: string, annotation: Omit<Annotation, 'number'>): void
+  /** Changes a pending Annotation in place (a drawing's strokes, targets and screenshots). */
+  update(id: string, change: Partial<Annotation>): void
+  /** Holds back the next send until `work` (a drawing's screenshots) has finished. */
+  waitFor(work: Promise<unknown>): void
   setComment(id: string, comment: string): void
   /** Opens an Annotation's comment box, or closes it with `null`. */
   setOpen(id: string | null): void
@@ -80,6 +84,19 @@ export function DraftProvider({ document, children }: { document: string; childr
     setOpen(id)
   }, [])
 
+  const update = useCallback((id: string, change: Partial<Annotation>) => {
+    const apply = (list: PendingAnnotation[]) => list.map((p) => (p.id === id ? { ...p, annotation: { ...p.annotation, ...change } as Annotation } : p))
+    // At once too, so a send waiting on this change sends it before React renders.
+    state.current = { ...state.current, annotations: apply(state.current.annotations) }
+    setAnnotations(apply)
+  }, [])
+
+  const working = useRef(new Set<Promise<unknown>>())
+  const waitFor = useCallback((work: Promise<unknown>) => {
+    const settled = work.catch(() => {}).finally(() => working.current.delete(settled))
+    working.current.add(settled)
+  }, [])
+
   const setComment = useCallback((id: string, comment: string) => {
     setAnnotations((list) => list.map((p) => (p.id === id ? { ...p, annotation: { ...p.annotation, comment } } : p)))
   }, [])
@@ -89,7 +106,7 @@ export function DraftProvider({ document, children }: { document: string; childr
     setOpen((current) => (current === id ? null : current))
   }, [])
 
-  const send = useCallback(() => {
+  const sendNow = useCallback(() => {
     const { text, annotations, choice } = state.current
     if (!text.trim() && annotations.length === 0) return
     const turn: TurnInput = {
@@ -112,6 +129,11 @@ export function DraftProvider({ document, children }: { document: string; childr
     )
   }, [])
 
+  const send = useCallback(() => {
+    if (working.current.size === 0) return sendNow()
+    void Promise.all(working.current).then(sendNow)
+  }, [sendNow])
+
   const draft = useMemo<Draft>(
     () => ({
       text,
@@ -123,13 +145,15 @@ export function DraftProvider({ document, children }: { document: string; childr
       choice,
       setChoice,
       add,
+      update,
+      waitFor,
       setComment,
       setOpen,
       remove,
       hasContent: text.trim() !== '' || annotations.length > 0,
       send,
     }),
-    [text, annotations, open, fading, lastSent, choice, add, setComment, remove, send],
+    [text, annotations, open, fading, lastSent, choice, add, update, waitFor, setComment, remove, send],
   )
   return <DraftContext.Provider value={draft}>{children}</DraftContext.Provider>
 }

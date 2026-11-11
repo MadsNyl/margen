@@ -34,6 +34,8 @@ export interface HostDeps {
   projectsDir?: string
   /** The running app's version (Electron's `app.getVersion()`). */
   version?: string
+  /** Screenshots the Document view (a PNG data URL), or `null`. Left out in tests. */
+  captureDocument?: () => Promise<string | null>
 }
 
 export interface Host extends HostApi {
@@ -52,6 +54,7 @@ export function createHost({
   openExternal = async () => {},
   projectsDir = join(homedir(), 'Documents', 'Margen'),
   version = '0.0.0',
+  captureDocument = async () => null,
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
@@ -152,6 +155,7 @@ export function createHost({
     'document.openInBrowser': async () => {
       if (current && document) await openExternal(pathToFileURL(join(current.path, document.path)).href)
     },
+    'document.capture': async () => (document ? captureDocument() : null),
     'session.current': async () => session?.view() ?? null,
     'session.send': async (turn) => {
       const target = session

@@ -10,7 +10,7 @@
 // holds the element itself while the page lives and finds it again by its
 // selector after a reload.
 
-import type { Box, ElementDescriptor } from './agent'
+import type { Box, ElementDescriptor, Point } from './agent'
 
 export const DOCUMENT_BRIDGE_CHANNEL = 'margen:document'
 
@@ -50,6 +50,14 @@ export type FromDocument =
   | { type: 'rects'; rects: Record<string, Box | null> }
   /** A shortcut key, pressed while the page had focus. */
   | { type: 'key'; key: ModeKey }
+  /** Where the page is scrolled to, every frame it changes: strokes are in page coordinates, the overlay in the viewport's. */
+  | { type: 'view'; scroll: ScrollPosition }
+  /** In Draw: the stroke being drawn (page coordinates) and the boxes of what it catches so far. */
+  | { type: 'stroke-live'; points: Point[]; rects: Box[] }
+  /** In Draw: the user let go of a stroke (page coordinates). */
+  | { type: 'stroke'; points: Point[] }
+  /** The answer to `resolve`: what the drawing's strokes caught. The script follows target `i` as `<id>/<i>` at once. */
+  | { type: 'drawing'; id: string; targets: ElementDescriptor[]; rects: Box[] }
 
 /** From the editor to the page's script. */
 export type ToDocument =
@@ -58,6 +66,8 @@ export type ToDocument =
   | { type: 'mode'; mode: Mode }
   /** The elements to follow (replacing the last list); their rects come back as `rects`. */
   | { type: 'track'; elements: TrackedElement[] }
+  /** Resolve a drawing's strokes (page coordinates) to the elements they caught; answered with `drawing`. */
+  | { type: 'resolve'; id: string; strokes: Point[][] }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isScroll = (value: unknown): value is ScrollPosition =>
@@ -78,6 +88,20 @@ function descriptor(value: unknown): ElementDescriptor | null {
   if (!isString(selector, 2000) || !isString(tag, 100) || !isString(html, 2000)) return null
   if (text !== undefined && !isString(text, 2000)) return null
   return { selector, tag, html, ...(text !== undefined && { text }) }
+}
+
+const MAX_POINTS = 10_000
+
+function pointsOf(value: unknown): Point[] | null {
+  if (!Array.isArray(value) || value.length > MAX_POINTS) return null
+  const points = value.map((p) => (isScroll(p) ? { x: p.x, y: p.y } : null))
+  return points.every((p) => p !== null) ? (points as Point[]) : null
+}
+
+function boxesOf(value: unknown): Box[] | null {
+  if (!Array.isArray(value) || value.length > 100) return null
+  const boxes = value.map(box)
+  return boxes.every((b) => b !== null) ? (boxes as Box[]) : null
 }
 
 /** Checks a message that claims to come from the page. Never trust what arrives from the guest unchecked. */
@@ -104,6 +128,22 @@ export function parseFromDocument(value: unknown): FromDocument | null {
       rects[id] = rect === null ? null : box(rect)
     }
     return { type: 'rects', rects }
+  }
+  if (message.type === 'view' && isScroll(message.scroll)) return { type: 'view', scroll: { x: message.scroll.x, y: message.scroll.y } }
+  if (message.type === 'stroke-live') {
+    const points = pointsOf(message.points)
+    const rects = boxesOf(message.rects)
+    return points && rects ? { type: 'stroke-live', points, rects } : null
+  }
+  if (message.type === 'stroke') {
+    const points = pointsOf(message.points)
+    return points ? { type: 'stroke', points } : null
+  }
+  if (message.type === 'drawing' && isString(message.id, 100) && Array.isArray(message.targets) && message.targets.length <= 5) {
+    const targets = message.targets.map(descriptor)
+    const rects = boxesOf(message.rects)
+    if (!rects || rects.length !== targets.length || targets.some((target) => target === null)) return null
+    return { type: 'drawing', id: message.id, targets: targets as ElementDescriptor[], rects }
   }
   if (message.type === 'key' && MODE_KEYS.includes(message.key as ModeKey)) return { type: 'key', key: message.key as ModeKey }
   return null

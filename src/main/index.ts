@@ -84,6 +84,26 @@ function guardDocumentView(host: Host, contents: WebContents) {
   })
 }
 
+/** The Document view's page, once the editor has attached it. */
+let documentView: WebContents | undefined
+const CAPTURE_TIMEOUT_MS = 3000
+
+/** Screenshots the Document view. `capturePage` hangs while the window is hidden, so it gives up after a while. */
+async function captureDocument(): Promise<string | null> {
+  const view = documentView
+  if (!view || view.isDestroyed()) return null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<null>((resolve) => (timer = setTimeout(() => resolve(null), CAPTURE_TIMEOUT_MS)))
+  try {
+    const image = await Promise.race([view.capturePage(), timeout])
+    return image && !image.isEmpty() ? image.toDataURL() : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function createWindow(host: Host): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
@@ -114,7 +134,10 @@ function createWindow(host: Host): BrowserWindow {
     preferences.nodeIntegrationInSubFrames = false
     preferences.webSecurity = true
   })
-  window.webContents.on('did-attach-webview', (_event, contents) => guardDocumentView(host, contents))
+  window.webContents.on('did-attach-webview', (_event, contents) => {
+    documentView = contents
+    guardDocumentView(host, contents)
+  })
   window.once('ready-to-show', () => window.show())
   // Links leave the app for the user's browser; the app window never navigates away.
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -137,6 +160,7 @@ void app.whenReady().then(() => {
     updates,
     pickFolder,
     openExternal: (url) => shell.openExternal(url),
+    captureDocument,
     // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
     projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
     // Unpackaged (dev, Seam 2) `getVersion()` is Electron's own, so read Margen's package.json.

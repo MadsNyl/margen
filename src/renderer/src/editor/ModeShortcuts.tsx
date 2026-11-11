@@ -4,11 +4,11 @@ import type { DocumentBridge } from './bridge'
 import { useDraft } from './draft'
 
 // The editor's shortcut keys, wherever the focus is (the page's script passes
-// them on while the Document has it): V Browse, P Pick, Esc discards the open
+// them on while the Document has it): V Browse, P Pick, D Draw, Esc discards the open
 // Annotation or goes back to Browse. Not while typing. An Esc that discards is
 // taken (`preventDefault`), so it doesn't also stop a running Turn (ChatPanel).
 
-const MODES: Partial<Record<ModeKey, Mode>> = { v: 'browse', p: 'pick' }
+const MODES: Partial<Record<ModeKey, Mode>> = { v: 'browse', p: 'pick', d: 'draw' }
 
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))

@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import type { Box } from '@shared/agent'
-import type { Mode, TrackedElement } from '@shared/document-bridge'
+import type { Annotation, Box } from '@shared/agent'
+import type { Mode, ScrollPosition, TrackedElement } from '@shared/document-bridge'
+import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
+import { usePageScroll } from './DrawLayer'
 import { annotationLabel, labelOf, useDraft, type PendingAnnotation } from './draft'
 import { useViewport } from './viewport'
 
@@ -20,15 +22,17 @@ function tracked({ id, annotation }: PendingAnnotation): TrackedElement[] {
   return annotation.targets.map((target, i) => ({ id: `${id}/${i}`, selector: target.selector }))
 }
 
-/** Where an Annotation is on the page: its element's box, or its first target's. Ticket 14 anchors drawings on their strokes. */
-function anchorOf(pending: PendingAnnotation, rects: Record<string, Box | null>): Box | null {
-  const [first] = tracked(pending)
-  return (first && rects[first.id]) ?? null
+/** Where an Annotation is in the view: its element's box, or for a drawing its strokes' box (kept in page coordinates). */
+function anchorOf({ id, annotation }: PendingAnnotation, rects: Record<string, Box | null>, scroll: ScrollPosition): Box | null {
+  if (annotation.kind === 'pick') return rects[id] ?? null
+  const { x, y, width, height } = boundsOf(annotation.strokes.flat())
+  return { x: x - scroll.x, y: y - scroll.y, width, height }
 }
 
 export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | null; mode: Mode; reloads: number }) {
   const draft = useDraft()
   const viewport = useViewport()
+  const scroll = usePageScroll(bridge)
   const [hover, setHover] = useState<{ selector: string; rect: Box } | null>(null)
   const [rects, setRects] = useState<Record<string, Box | null>>({})
   const [glow, setGlow] = useState<TrackedElement[]>([])
@@ -45,6 +49,8 @@ export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | 
       else if (message.type === 'pick') {
         setRects((now) => ({ ...now, [message.id]: message.rect }))
         latest.current.add(message.id, { kind: 'pick', comment: '', viewportWidth: latest.current.width, ...message.element })
+      } else if (message.type === 'drawing') {
+        setRects((now) => ({ ...now, ...Object.fromEntries(message.rects.map((rect, i) => [`${message.id}/${i}`, rect])) }))
       }
     })
   }, [bridge])
@@ -90,11 +96,18 @@ export function PickLayer({ bridge, mode, reloads }: { bridge: DocumentBridge | 
         return rect ? <Outline key={id} glow rect={rect} className="glow rounded-[5px] border-2 border-mint-strong" /> : null
       })}
       {[...draft.annotations, ...draft.fading].map((pending) => (
-        <Marker key={pending.id} pending={pending} rects={rects} fading={draft.fading.includes(pending)} />
+        <Marker key={pending.id} pending={pending} anchor={anchorOf(pending, rects, scroll)} rects={rects} fading={draft.fading.includes(pending)} />
       ))}
-      {open && <CommentBox key={open.id} pending={open} anchor={anchorOf(open, rects)} />}
+      {open && <CommentBox key={open.id} pending={open} anchor={anchorOf(open, rects, scroll)} />}
     </div>
   )
+}
+
+/** What the comment box shows an Annotation caught: its element, a drawing's targets, or that a drawing is on empty space. */
+function caught(annotation: Annotation): string[] {
+  if (annotation.kind === 'pick') return [annotationLabel(annotation)]
+  if (annotation.targets.length === 0) return ['nothing underneath · Claude gets the drawing and where it is']
+  return annotation.targets.map((target) => labelOf(target.selector))
 }
 
 function Outline({ rect, className, glow, children }: { rect: Box; className: string; glow?: boolean; children?: ReactNode }) {
@@ -106,15 +119,26 @@ function Outline({ rect, className, glow, children }: { rect: Box; className: st
   )
 }
 
-function Marker({ pending, rects, fading }: { pending: PendingAnnotation; rects: Record<string, Box | null>; fading: boolean }) {
-  const anchor = anchorOf(pending, rects)
+function Marker({
+  pending,
+  anchor,
+  rects,
+  fading,
+}: {
+  pending: PendingAnnotation
+  anchor: Box | null
+  rects: Record<string, Box | null>
+  fading: boolean
+}) {
   if (!anchor) return null
   const fade = fading ? 'scale-60 opacity-0 transition-[opacity,scale] duration-600' : ''
+  // A drawing's targets get a dashed outline, so its strokes stay the thing you see.
+  const outline = pending.annotation.kind === 'draw' ? 'border-2 border-dashed border-ink' : 'border-2 border-ink bg-ink/5'
   return (
     <>
       {tracked(pending).map(({ id }) => {
         const rect = rects[id]
-        return rect ? <Outline key={id} rect={rect} className={`border-2 border-ink bg-ink/5 ${fade}`} /> : null
+        return rect ? <Outline key={id} rect={rect} className={`${outline} ${fade}`} /> : null
       })}
       <div
         data-marker={pending.annotation.number}
@@ -134,6 +158,12 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
   const [position, setPosition] = useState<{ left: number; top: number }>({ left: 8, top: 8 })
   const { id, annotation } = pending
   const kind = annotation.kind === 'pick' ? 'Pick' : 'Drawing'
+  const comment = useRef<HTMLTextAreaElement>(null)
+  // Drawing takes the focus into the Document; each new stroke gives it back, so typing goes on.
+  const strokes = annotation.kind === 'draw' ? annotation.strokes.length : 0
+  useEffect(() => {
+    if (strokes > 1) comment.current?.focus()
+  }, [strokes])
 
   useLayoutEffect(() => {
     const box = ref.current
@@ -163,13 +193,18 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
           ✕
         </button>
       </div>
-      <div className="flex flex-wrap gap-[5px] px-3.5 pt-2">
-        <span className="rounded-[5px] bg-ink-soft px-[7px] py-0.5 font-mono text-[10px] text-ink-tx">{annotationLabel(annotation)}</span>
-      </div>
+      <ul aria-label="Caught" className="flex flex-wrap gap-[5px] px-3.5 pt-2">
+        {caught(annotation).map((label, i) => (
+          <li key={i} className="rounded-[5px] bg-ink-soft px-[7px] py-0.5 font-mono text-[10px] text-ink-tx">
+            {label}
+          </li>
+        ))}
+      </ul>
       <textarea
+        ref={comment}
         autoFocus
         aria-label="Comment"
-        placeholder="What should change here?"
+        placeholder={annotation.kind === 'pick' ? 'What should change here?' : 'What should Claude do? e.g. "tighten these" or "add this as a NEW stamp"'}
         value={annotation.comment}
         onChange={(event) => draft.setComment(id, event.target.value)}
         onKeyDown={(event) => {
@@ -189,7 +224,7 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
         className="block min-h-[58px] w-full resize-none border-0 bg-transparent px-3.5 py-2.5 text-sm leading-normal outline-0 select-text placeholder:text-tx3"
       />
       <div className="flex items-center gap-1.5 pt-2 pr-2.5 pb-2.5 pl-3.5">
-        <span className="mr-auto text-[11.5px] text-tx3">Esc to discard</span>
+        <span className="mr-auto text-[11.5px] text-tx3">{annotation.kind === 'pick' ? 'Esc to discard' : 'Keep drawing to add strokes'}</span>
         <button className="sbtn" onClick={() => draft.setOpen(null)}>
           Add <kbd>⌘↵</kbd>
         </button>

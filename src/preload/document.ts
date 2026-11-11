@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { ipcRenderer } from 'electron'
-import type { Box } from '@shared/agent'
+import type { Box, Point } from '@shared/agent'
 import {
   DOCUMENT_BRIDGE_CHANNEL,
   MODE_KEYS,
@@ -11,6 +11,7 @@ import {
   type ToDocument,
   type TrackedElement,
 } from '@shared/document-bridge'
+import { resolveDrawing, resolveStroke, type Layout } from '@shared/draw'
 import { describeElement, findElement, rectOf, selectorOf } from './elements'
 
 // Margen's script inside the Document view. It is the `<webview>`'s preload, so it
@@ -63,6 +64,19 @@ for (const event of ['wheel', 'keydown', 'pointerdown', 'touchstart'] as const) 
 }
 window.addEventListener('scroll', report, { passive: true })
 
+// The editor draws strokes in page coordinates over the view, so it needs the scroll at once, not throttled.
+let viewFrame = 0
+window.addEventListener(
+  'scroll',
+  () => {
+    viewFrame ||= requestAnimationFrame(() => {
+      viewFrame = 0
+      send({ type: 'view', scroll: position() })
+    })
+  },
+  { passive: true },
+)
+
 // Modes. In Pick (and Draw) the page's own clicks, presses and drags are
 // blocked: these listeners are on window in the capture phase and were added
 // before any of the page's scripts ran, so they go first and stop the rest.
@@ -95,6 +109,8 @@ for (const type of BLOCKED) {
       event.preventDefault()
       event.stopImmediatePropagation()
       if (mode === 'pick' && event.type === 'click' && isElement(event.target)) pick(event.target)
+      if (mode === 'draw' && event.type === 'pointerdown') startStroke(event as PointerEvent)
+      if (mode === 'draw' && event.type === 'pointerup') endStroke()
     },
     { capture: true },
   )
@@ -115,24 +131,28 @@ window.addEventListener(
   { capture: true },
 )
 
-/** Pick shows a plain arrow rather than the page's own pointers. Adopted, so nothing is written into the page. */
-const plainCursor = (() => {
+/** Pick shows a plain arrow rather than the page's own pointers, Draw a pen. Adopted, so nothing is written into the page. */
+function cursorSheet(cursor: string) {
   try {
     const sheet = new CSSStyleSheet()
-    sheet.replaceSync('*, *::before, *::after { cursor: default !important }')
+    sheet.replaceSync(`*, *::before, *::after { cursor: ${cursor} !important }`)
     return sheet
   } catch {
     return null
   }
-})()
+}
+const PEN =
+  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='3' cy='19' r='2.5' fill='%232f7bff'/%3E%3Cpath d='M5 17L18 4l2 2L7 19' fill='white' stroke='%232f7bff' stroke-width='1.4'/%3E%3C/svg%3E") 3 19, crosshair`
+const cursors: Partial<Record<Mode, CSSStyleSheet | null>> = { pick: cursorSheet('default'), draw: cursorSheet(PEN) }
 
 function setMode(next: Mode) {
   mode = next
-  if (plainCursor) {
-    const others = document.adoptedStyleSheets.filter((sheet) => sheet !== plainCursor)
-    document.adoptedStyleSheets = mode === 'browse' ? others : [...others, plainCursor]
-  }
+  const ours = Object.values(cursors)
+  const others = document.adoptedStyleSheets.filter((sheet) => !ours.includes(sheet))
+  const cursor = cursors[mode]
+  document.adoptedStyleSheets = cursor ? [...others, cursor] : others
   if (mode !== 'pick') hovered = null
+  if (mode !== 'draw') stroke = null
   watch()
 }
 
@@ -144,6 +164,7 @@ let picks = 0
 window.addEventListener(
   'pointermove',
   (event) => {
+    if (mode === 'draw') moveStroke(event)
     if (mode !== 'pick' || !isElement(event.target) || event.target === hovered) return
     hovered = event.target
     watch()
@@ -161,6 +182,68 @@ function pick(element: Element) {
   const id = `pick-${++picks}`
   followed.set(id, { selector: selectorOf(element), element })
   send({ type: 'pick', id, element: describeElement(element), rect: rectOf(element) })
+  watch()
+}
+
+// Draw: a stroke follows the pointer while it's down, lighting up what it
+// catches; on release it goes to the editor, which asks back (`resolve`) what
+// the whole drawing caught. Points and boxes are in page coordinates here.
+
+let stroke: { points: Point[]; layout: Layout<Element> } | null = null
+let strokeFrame = 0
+/** Fewer points than this make a click or a slip, not a stroke. */
+const LIVE_POINTS = 6
+
+const pagePoint = (event: PointerEvent): Point => ({ x: event.clientX + window.scrollX, y: event.clientY + window.scrollY })
+const toView = ({ x, y, width, height }: Box): Box => ({ x: x - window.scrollX, y: y - window.scrollY, width, height })
+
+/** The page's elements and their boxes in page coordinates, as they are now. `<body>` and above are never caught. */
+function pageLayout(): Layout<Element> {
+  const boxes = new Map<Element, Box>()
+  for (const element of document.body?.querySelectorAll('*') ?? []) {
+    const { x, y, width, height } = rectOf(element)
+    if (width > 0 && height > 0) boxes.set(element, { x: x + window.scrollX, y: y + window.scrollY, width, height })
+  }
+  return {
+    elements: [...boxes.keys()],
+    box: (element) => boxes.get(element) ?? { x: 0, y: 0, width: 0, height: 0 },
+    parent: (element) => (element.parentElement && element.parentElement !== document.body ? element.parentElement : null),
+  }
+}
+
+function startStroke(event: PointerEvent) {
+  if (event.button !== 0) return
+  stroke = { points: [pagePoint(event)], layout: pageLayout() }
+  try {
+    document.documentElement.setPointerCapture(event.pointerId)
+  } catch {
+    // Not every pointer can be captured; the stroke still works inside the page.
+  }
+}
+
+function moveStroke(event: PointerEvent) {
+  if (!stroke) return
+  stroke.points.push(pagePoint(event))
+  strokeFrame ||= requestAnimationFrame(() => {
+    strokeFrame = 0
+    if (!stroke) return
+    const caught = stroke.points.length < LIVE_POINTS ? [] : resolveStroke(stroke.points, stroke.layout)
+    send({ type: 'stroke-live', points: stroke.points, rects: caught.map((element) => toView(stroke?.layout.box(element) ?? rectOf(element))) })
+  })
+}
+
+function endStroke() {
+  if (!stroke) return
+  const { points } = stroke
+  stroke = null
+  send({ type: 'stroke', points })
+}
+window.addEventListener('pointercancel', endStroke, { capture: true })
+
+function resolve(id: string, strokes: Point[][]) {
+  const targets = resolveDrawing(strokes, pageLayout())
+  targets.forEach((element, i) => followed.set(`${id}/${i}`, { selector: selectorOf(element), element }))
+  send({ type: 'drawing', id, targets: targets.map(describeElement), rects: targets.map(rectOf) })
   watch()
 }
 
@@ -211,6 +294,7 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   if (message.type === 'restore-scroll') restore(message.scroll)
   else if (message.type === 'mode') setMode(message.mode)
   else if (message.type === 'track') track(message.elements)
+  else if (message.type === 'resolve') resolve(message.id, message.strokes)
 })
 
 window.addEventListener('DOMContentLoaded', () => send({ type: 'ready', url: location.href }))

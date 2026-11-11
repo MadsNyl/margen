@@ -21,8 +21,8 @@ interface El {
 
 function page() {
   const all: El[] = []
-  const el = (name: string, [x, y, width, height]: number[], parent: El | null = null) => {
-    const element = { name, box: { x, y, width, height }, parent }
+  const el = (name: string, [x, y, width, height]: [number, number, number, number], parent: El | null = null): El => {
+    const element: El = { name, box: { x, y, width, height }, parent }
     all.push(element)
     return element
   }

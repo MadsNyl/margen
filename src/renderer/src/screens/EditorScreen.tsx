@@ -9,6 +9,7 @@ import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
 import { DraftProvider } from '../editor/draft'
+import { DrawLayer } from '../editor/DrawLayer'
 import { ModeShortcuts } from '../editor/ModeShortcuts'
 import { PickLayer } from '../editor/PickLayer'
 import { Toolbar } from '../editor/Toolbar'
@@ -100,7 +101,7 @@ export function EditorScreen({ project, document }: { project: Project; document
                     setReloads((n) => n + 1)
                   }}
                 />
-                {/* Draw's canvas (ticket 14) goes here too, above the Document. */}
+                <DrawLayer bridge={bridge} mode={mode} frame={frame} />
                 <PickLayer bridge={bridge} mode={mode} reloads={reloads} />
               </div>
             </div>

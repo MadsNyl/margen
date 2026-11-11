@@ -149,6 +149,8 @@ export interface HostCalls {
   'document.close': () => void
   /** Opens the open Document's file in the default browser. */
   'document.openInBrowser': () => void
+  /** A screenshot of the Document view as it is shown, a PNG data URL in device pixels (2× on Retina). `null` if it can't be taken. */
+  'document.capture': () => string | null
   /** The open Document's Session, or `null` when no Document is open. */
   'session.current': () => SessionView | null
   /**
