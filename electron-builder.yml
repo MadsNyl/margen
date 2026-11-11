@@ -1,0 +1,46 @@
+# Packaging and publishing for Margen. `pnpm dist:local` makes an unsigned
+# build on your machine; .github/workflows/release.yml makes the signed and
+# notarized release. The secrets it needs are listed in the README.
+appId: app.margen.desktop
+productName: Margen
+copyright: Copyright © 2026 Mads Nylund
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+  # The Agent SDK's bundled claude binaries: Margen runs the user's own claude (ADR 0002).
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # The zip is what electron-updater downloads on macOS; the dmg is for people.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Not built yet, but nothing stands in the way of a Windows release.
+win:
+  icon: build/icon.png
+  target: nsis
+
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+
+# electron-updater reads the same feed from the packaged app-update.yml.
+# Owner and repo come from package.json `repository`.
+publish:
+  provider: github
+  releaseType: release

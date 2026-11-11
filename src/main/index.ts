@@ -2,13 +2,17 @@ import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import type { HostEventName } from '@shared/host-api'
 import { chooseAgentProvider } from './agent'
+import { createElectronUpdateSource } from './auto-update'
 import { createHost } from './host'
 import { bindHostToIpc } from './ipc'
 
 // Electron bootstrap only: windows, security settings and wiring the host API
 // to IPC. Domain logic lives in framework-free modules behind `createHost`.
 
-const FORWARDED_EVENTS: HostEventName[] = ['recents.changed']
+const FORWARDED_EVENTS: HostEventName[] = ['recents.changed', 'update.changed']
+
+const FIRST_UPDATE_CHECK_MS = 10_000
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 if (process.env.MARGEN_DATA_DIR) app.setPath('userData', process.env.MARGEN_DATA_DIR)
 
@@ -44,8 +48,15 @@ function createWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
-  const host = createHost({ dataDir: app.getPath('userData'), agent: chooseAgentProvider(process.env) })
+  // Only a packaged build has a release feed; dev runs and tests get no updates.
+  const updates = app.isPackaged ? createElectronUpdateSource(process.env) : undefined
+  const host = createHost({ dataDir: app.getPath('userData'), agent: chooseAgentProvider(process.env), updates })
   bindHostToIpc(host, ipcMain, () => BrowserWindow.getAllWindows(), FORWARDED_EVENTS)
+  if (updates) {
+    const check = () => void host.call('update.check')
+    setTimeout(check, FIRST_UPDATE_CHECK_MS)
+    setInterval(check, UPDATE_CHECK_INTERVAL_MS)
+  }
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
