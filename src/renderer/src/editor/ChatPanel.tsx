@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision, ToolEvent } from '@shared/agent'
-import type { PermissionPreset, SessionView } from '@shared/host-api'
+import type { PermissionPreset } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
 import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
@@ -11,6 +11,7 @@ import { HistoryDrawer } from './HistoryDrawer'
 import { useLeave } from './leave'
 import { ModelPicker } from './ModelPicker'
 import { QueuePanel } from './Queue'
+import { useSession } from './session'
 import { isRunning, toChat, type AgentError, type ApprovalRequest, type ChatItem, type ReplyPart } from './transcript'
 
 /** The chat panel: the open Document's Session and the Composer. */
@@ -92,38 +93,6 @@ function HeaderButton({ label, onClick, children }: { label: string; onClick: ()
       </svg>
     </button>
   )
-}
-
-/**
- * The open Document's active Session: what's there now, then each new entry as it
- * arrives. New session and resume replace it.
- */
-function useSession(document: string): SessionView | undefined {
-  const [session, setSession] = useState<SessionView>()
-  useEffect(() => {
-    let live = true
-    const offEntry = host.on('session.entry', (payload) => {
-      if (payload.document !== document) return
-      setSession((prev) =>
-        prev?.id === payload.session && payload.index === prev.entries.length
-          ? { ...prev, entries: [...prev.entries, payload.entry] }
-          : prev,
-      )
-    })
-    const offChanged = host.on('session.changed', (view) => {
-      if (view.document === document) setSession(view)
-    })
-    void host.call('session.current').then((view) => {
-      if (!live || view?.document !== document) return
-      setSession((prev) => (prev && (prev.id !== view.id || prev.entries.length >= view.entries.length) ? prev : view))
-    })
-    return () => {
-      live = false
-      offEntry()
-      offChanged()
-    }
-  }, [document])
-  return session
 }
 
 function Item({ item, running }: { item: ChatItem; running: boolean }) {

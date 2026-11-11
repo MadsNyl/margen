@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Annotation, TurnInput } from '@shared/agent'
-import { host } from '../host'
+import { host, useHostValue } from '../host'
 import type { ModelChoice } from './ModelPicker'
+import { useSession } from './session'
 
 // The Composer's draft: the message text and the Annotations collected for it.
 // The chat panel's input, the chips, the markers on the Document and the comment
@@ -26,7 +27,7 @@ export interface Draft {
   /** The model and effort the next Turn uses. */
   choice: ModelChoice
   setChoice(choice: ModelChoice): void
-  /** Adds an Annotation, numbered next, and opens its comment box. */
+  /** Adds an Annotation, numbered next in the Session, and opens its comment box. */
   add(id: string, annotation: Omit<Annotation, 'number'>): void
   /** Changes a pending Annotation in place (a drawing's strokes, targets and screenshots). */
   update(id: string, change: Partial<Annotation>): void
@@ -69,17 +70,26 @@ export function DraftProvider({ document, children }: { document: string; childr
     setLastSent([])
     setChoice({})
   }
-  const next = useRef(1)
-  useEffect(() => {
-    next.current = 1
-  }, [document])
-  const state = useRef({ text, annotations, choice })
+  // Annotations are numbered per Session, after the highest it has used: sent, queued, or sent and not back from the host yet.
+  const session = useSession(document)
+  const queue = useHostValue('session.queue', 'session.queue')
+  const used = Math.max(
+    0,
+    ...(session?.entries ?? []).flatMap((entry) => (entry.type === 'user' ? numbers(entry.turn) : [])),
+    ...(queue?.document === document ? queue.messages.flatMap((message) => numbers(message.turn)) : []),
+  )
+  const justSent = useRef<{ session?: string; number: number }>({ number: 0 })
+  const state = useRef({ text, annotations, choice, used, session: session?.id })
   useLayoutEffect(() => {
-    state.current = { text, annotations, choice }
+    state.current = { text, annotations, choice, used, session: session?.id }
   })
 
   const add = useCallback((id: string, annotation: Omit<Annotation, 'number'>) => {
-    const pending = { id, annotation: { ...annotation, number: next.current++ } as Annotation }
+    const { annotations, used, session } = state.current
+    const sent = justSent.current.session === session ? justSent.current.number : 0
+    const number = Math.max(used, sent, ...annotations.map((p) => p.annotation.number)) + 1
+    const pending = { id, annotation: { ...annotation, number } as Annotation }
+    state.current = { ...state.current, annotations: [...annotations, pending] }
     setAnnotations((list) => [...list, pending])
     setOpen(id)
   }, [])
@@ -107,8 +117,10 @@ export function DraftProvider({ document, children }: { document: string; childr
   }, [])
 
   const sendNow = useCallback(() => {
-    const { text, annotations, choice } = state.current
+    const { text, annotations, choice, session } = state.current
     if (!text.trim() && annotations.length === 0) return
+    const before = justSent.current.session === session ? justSent.current.number : 0
+    justSent.current = { session, number: Math.max(before, ...annotations.map((p) => p.annotation.number)) }
     const turn: TurnInput = {
       text: text.trim(),
       annotations: annotations.map((p) => p.annotation),
@@ -157,6 +169,8 @@ export function DraftProvider({ document, children }: { document: string; childr
   )
   return <DraftContext.Provider value={draft}>{children}</DraftContext.Provider>
 }
+
+const numbers = (turn: TurnInput) => turn.annotations.map((annotation) => annotation.number)
 
 /** The short label for an element in chips and the chat: its selector's last two steps, `section.hero › h1`. */
 export function labelOf(selector: string): string {

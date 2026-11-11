@@ -182,3 +182,29 @@ test('pick an element by click, comment, add, reopen from its chip and send: the
   await expect(frame.locator('[data-glow]')).toHaveCount(1)
   await expect(frame.locator('[data-glow]')).toHaveCount(0)
 })
+
+test("Annotations are numbered per Session: on after the Session's highest, from 1 in a new one", async () => {
+  const { window, chat, toolbar } = await openEditor()
+  const pickHeading = async () => {
+    await toolbar.getByRole('button', { name: 'Pick' }).click()
+    await pageInMode('pick')
+    await clickInDocument('h1')
+  }
+  await pickHeading()
+  await window.getByRole('dialog', { name: 'Annotation 1' }).getByRole('textbox', { name: 'Comment' }).press('Enter')
+  await expect(chat.getByText('Done.')).toBeVisible()
+
+  // A fresh editor on the same Session goes on from its highest number.
+  await window.getByTitle('Back to the Project').click()
+  await window.getByRole('list', { name: 'Documents' }).getByRole('button', { name: /^index\.html/ }).click()
+  await expect(window.getByRole('region', { name: 'Document view' })).toHaveAttribute('data-ready', 'true')
+  await pickHeading()
+  const second = window.getByRole('dialog', { name: 'Annotation 2' })
+  await expect(second).toBeVisible()
+  await second.getByRole('button', { name: 'Discard' }).click()
+
+  await chat.getByRole('button', { name: 'New session' }).click()
+  await expect(chat.getByText('· Session 2', { exact: true })).toBeVisible()
+  await pickHeading()
+  await expect(window.getByRole('dialog', { name: 'Annotation 1' })).toBeVisible()
+})
