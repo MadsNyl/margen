@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import type { AgentSetupResult, AgentStatus } from '@shared/agent'
 import type { AgentProvider } from '../provider'
 import { startClaudeSession } from './session'
-import type { ClaudeSystem } from './system'
+import { QUICK_RUN_MS, runInLoginShell, type ClaudeSystem } from './system'
 
 // The Claude Code AgentProvider. It runs the user's own `claude` and only
 // ever reads `claude auth status`; it never touches credentials (ADR 0002).
@@ -23,7 +23,7 @@ export function createClaudeCodeProvider(system: ClaudeSystem): AgentProvider {
    * doesn't inherit the shell's PATH), then where the installers put it.
    */
   async function findClaude(): Promise<string | undefined> {
-    const lookup = await system.run(system.shell, ['-ilc', 'command -v claude'], { timeoutMs: 10_000 })
+    const lookup = await runInLoginShell(system, 'command -v claude')
     // Shell startup files can print their own lines; the path is the last absolute one.
     const onPath =
       lookup.exitCode === 0
@@ -40,7 +40,7 @@ export function createClaudeCodeProvider(system: ClaudeSystem): AgentProvider {
   async function detect(): Promise<AgentStatus> {
     const path = await findClaude()
     if (!path) return { installed: false, signedIn: false }
-    const versionOut = await system.run(path, ['--version'], { timeoutMs: 10_000 })
+    const versionOut = await system.run(path, ['--version'], { timeoutMs: QUICK_RUN_MS })
     const version = /^(\d+\.\d+\.\d+)/.exec(versionOut.stdout.trim())?.[1]
     const auth = await readAuthStatus(path)
     return {
@@ -54,7 +54,7 @@ export function createClaudeCodeProvider(system: ClaudeSystem): AgentProvider {
 
   async function readAuthStatus(path: string): Promise<{ loggedIn?: unknown; subscriptionType?: unknown }> {
     // Prints JSON either way; exits 1 when signed out.
-    const out = await system.run(path, ['auth', 'status'], { timeoutMs: 10_000 })
+    const out = await system.run(path, ['auth', 'status'], { timeoutMs: QUICK_RUN_MS })
     try {
       return JSON.parse(out.stdout) as { loggedIn?: unknown; subscriptionType?: unknown }
     } catch {

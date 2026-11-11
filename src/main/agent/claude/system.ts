@@ -27,6 +27,14 @@ export interface ClaudeSystem {
   query(params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }): ClaudeRun
 }
 
+/** How long a quick run (`claude --version`, `claude auth status`, the login shell) may take. */
+export const QUICK_RUN_MS = 10_000
+
+/** Runs `command` in the user's login shell, as Terminal would, so their PATH and profile apply. */
+export function runInLoginShell(system: Pick<ClaudeSystem, 'run' | 'shell'>, command: string): Promise<RunResult> {
+  return system.run(system.shell, ['-ilc', command], { timeoutMs: QUICK_RUN_MS })
+}
+
 /** A running `query()`. Messages are typed `unknown`: the user's `claude` may be older or newer than the SDK. */
 export interface ClaudeRun extends AsyncIterable<unknown> {
   interrupt(): Promise<unknown>

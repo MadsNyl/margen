@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { access, constants } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import type { ClaudeSystem, RunResult } from './system'
+import { runInLoginShell, type ClaudeSystem, type RunResult } from './system'
 
 /** Marks where the login shell's own output ends and `env` begins. */
 const ENV_MARKER = '__MARGEN_ENV__'
@@ -12,6 +12,8 @@ const DROPPED_ENV = /^(ELECTRON_|MARGEN_|NODE_OPTIONS$|CHROME_)/
 
 /** The real Mac. Nothing in the tests uses this. */
 export function createNodeSystem(env: NodeJS.ProcessEnv): ClaudeSystem {
+  const shell = env.SHELL || '/bin/zsh'
+
   function run(file: string, args: string[], { timeoutMs }: { timeoutMs?: number } = {}): Promise<RunResult> {
     return new Promise((resolve) => {
       execFile(file, args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -25,8 +27,7 @@ export function createNodeSystem(env: NodeJS.ProcessEnv): ClaudeSystem {
 
   /** The login shell's environment, as Terminal would give `claude` (T3 Code does the same). */
   async function readLoginEnv(): Promise<Record<string, string>> {
-    const shell = env.SHELL || '/bin/zsh'
-    const out = await run(shell, ['-ilc', `printf '%s' '${ENV_MARKER}'; /usr/bin/env -0`], { timeoutMs: 10_000 })
+    const out = await runInLoginShell({ run, shell }, `printf '%s' '${ENV_MARKER}'; /usr/bin/env -0`)
     const own = Object.fromEntries(
       Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined && !DROPPED_ENV.test(entry[0])),
     )
@@ -42,7 +43,7 @@ export function createNodeSystem(env: NodeJS.ProcessEnv): ClaudeSystem {
 
   return {
     home: homedir(),
-    shell: env.SHELL || '/bin/zsh',
+    shell,
     run,
     async isExecutable(path) {
       try {
