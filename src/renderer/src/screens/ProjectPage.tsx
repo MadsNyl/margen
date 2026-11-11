@@ -3,12 +3,14 @@ import type { DocumentInfo, DocumentList, Project } from '@shared/host-api'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
+import { useOpenSettings } from '../components/Settings'
 import { ArrowUpIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { editedAgo, joinList, plural } from '../format'
 import { host, useHostValue } from '../host'
 
 export function ProjectPage({ project }: { project: Project }) {
   const list = useHostValue('documents.list', 'documents.changed')
+  const openSettings = useOpenSettings()
 
   return (
     <main className="relative mx-2 mb-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
@@ -22,7 +24,7 @@ export function ProjectPage({ project }: { project: Project }) {
         >
           <Brand />
         </button>
-        <button className="icon-btn" title="Settings" aria-label="Settings">
+        <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
           <SettingsIcon />
         </button>
       </header>

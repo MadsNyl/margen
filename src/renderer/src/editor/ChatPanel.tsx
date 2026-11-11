@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
 import type { PermissionPreset, SessionView } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
+import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
 import { HistoryDrawer } from './HistoryDrawer'
 import { ModelPicker, type ModelChoice } from './ModelPicker'
@@ -387,19 +388,20 @@ function Composer({
 
 const PRESET_LABEL: Record<PermissionPreset, string> = { editor: 'Editor', 'allow-everything': 'Allow all' }
 
-/** The active permission preset. It's switched in Settings (ticket 16). */
+/** The active permission preset. Clicking it opens Settings, where it's switched. */
 function PresetBadge() {
   const preset = useHostValue('permissions.preset', 'permissions.changed')
+  const openSettings = useOpenSettings()
   return (
-    <span
-      role="status"
+    <button
       aria-label="Permission preset"
       title={preset === 'allow-everything' ? 'Allow everything: Claude never asks' : 'Editor preset: shell commands and paths outside the Project ask first'}
-      className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2"
+      className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2 hover:bg-muted hover:text-tx"
+      onClick={openSettings}
     >
       <ShieldIcon />
       {preset && PRESET_LABEL[preset]}
-    </span>
+    </button>
   )
 }
 

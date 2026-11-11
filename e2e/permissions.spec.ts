@@ -42,7 +42,7 @@ test('the Editor preset asks in the chat; Allow once and Deny leave resolved car
       ],
     ],
   })
-  await expect(chat.getByRole('status', { name: 'Permission preset' })).toHaveText('Editor')
+  await expect(chat.getByRole('button', { name: 'Permission preset' })).toHaveText('Editor')
 
   await send('Get a real bread photo')
   const card = chat.getByRole('group', { name: 'Approval' })
@@ -66,7 +66,7 @@ test('Allow everything never asks, and the Composer badge follows the preset', a
     { turns: [[{ type: 'permission', id: 'a1', request: { kind: 'shell', command: curl } }, { type: 'text', text: 'Downloaded the photo.' }]] },
     'allow-everything',
   )
-  const badge = chat.getByRole('status', { name: 'Permission preset' })
+  const badge = chat.getByRole('button', { name: 'Permission preset' })
   await expect(badge).toHaveText('Allow all')
 
   await send('Get a real bread photo')

@@ -162,6 +162,8 @@ export interface HostCalls {
   'project.send': (text: string) => OpenDocument
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
+  /** The running app's version, for Settings' About. */
+  'app.version': () => string
   'update.status': () => UpdateStatus
   /** Checks GitHub Releases and downloads a newer version if there is one. */
   'update.check': () => UpdateStatus

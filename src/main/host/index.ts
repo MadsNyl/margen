@@ -29,6 +29,8 @@ export interface HostDeps {
   openExternal?: (url: string) => Promise<void>
   /** Where new Projects are made: `~/Documents/Margen` unless tests pass their own. */
   projectsDir?: string
+  /** The running app's version (Electron's `app.getVersion()`). */
+  version?: string
 }
 
 export interface Host extends HostApi {
@@ -46,6 +48,7 @@ export function createHost({
   pickFolder = async () => undefined,
   openExternal = async () => {},
   projectsDir = join(homedir(), 'Documents', 'Margen'),
+  version = '0.0.0',
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
@@ -178,6 +181,7 @@ export function createHost({
       await clearRecents(dataDir)
       events.emit('recents.changed', [])
     },
+    'app.version': async () => version,
     'update.status': async () => updater.status(),
     'update.check': () => updater.check(),
     'update.install': async () => updater.install(),
