@@ -113,7 +113,7 @@ describe('a Turn in the editor', () => {
     await ended
 
     expect(agent.approvals).toEqual([{ id: 'a1', decision: 'allow-once' }])
-    expect(seen.map(({ entry }) => entry.type)).toEqual(['user', 'approval-request', 'text', 'turn-end'])
+    expect(seen.map(({ entry }) => entry.type)).toEqual(['user', 'approval-request', 'approval-answer', 'text', 'turn-end'])
   })
 
   test("an Agent error ends the Turn as failed and says why", async () => {

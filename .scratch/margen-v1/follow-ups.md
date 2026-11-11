@@ -10,3 +10,4 @@ Collected for the final review/fix pass.
 - Only the root `.gitignore` is read when finding Documents; symlinked folders aren't followed (from 03).
 - Esc with no comment box open both leaves Pick and stops a running Turn; the prototype only stops (from 12). Keys pressed while the Document view has focus come over the bridge and never stop a Turn.
 - Annotation numbers restart at 1 per Document view, not per Session, so a resumed Session can have two #1s (from 12).
+- Flaky (1 in ~15 runs): editor.test "a change to the page's stylesheet or images reloads it too, another Document does not" sometimes sees an extra update (from the 09 merger). Likely the 500 ms poll of the Document file in `watchDocument`.

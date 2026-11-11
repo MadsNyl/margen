@@ -1,9 +1,11 @@
-import type { AgentEvent, ToolEvent, TurnInput } from '@shared/agent'
+import type { AgentEvent, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
 import type { SessionEntry } from '@shared/host-api'
 
 // Folds a Session's entries into what the chat shows: the user's messages and,
 // after each, the Agent's reply with its streamed text joined up and each tool
-// call as one card that updates from running to done.
+// call as one card that updates from running to done. An approval-request
+// carries its answer once given; one the Turn ended without is denied, as the
+// Agent treats it.
 
 export type ApprovalRequest = Extract<AgentEvent, { type: 'approval-request' }>
 export type AgentError = Extract<AgentEvent, { type: 'error' }>
@@ -12,7 +14,7 @@ export type ReplyPart =
   | { kind: 'text'; text: string }
   | { kind: 'thinking'; text: string }
   | { kind: 'tool'; tool: ToolEvent }
-  | { kind: 'approval'; request: ApprovalRequest }
+  | { kind: 'approval'; request: ApprovalRequest; answer?: ApprovalDecision }
   | { kind: 'error'; error: AgentError }
 
 export type ChatItem =
@@ -50,10 +52,14 @@ export function toChat(entries: SessionEntry[]): ChatItem[] {
       case 'approval-request':
         reply.parts.push({ kind: 'approval', request: entry })
         break
+      case 'approval-answer':
+        for (const part of reply.parts) if (part.kind === 'approval' && part.request.id === entry.id) part.answer = entry.decision
+        break
       case 'error':
         reply.parts.push({ kind: 'error', error: entry })
         break
       case 'turn-end':
+        for (const part of reply.parts) if (part.kind === 'approval') part.answer ??= 'deny'
         reply.end = entry.reason
         reply = undefined
         break

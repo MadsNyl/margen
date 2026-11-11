@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { CanUseTool, PermissionResult, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { CanUseTool, HookCallbackMatcher, PermissionResult, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentEvent, AgentStatus, ApprovalDecision, Effort, TurnInput } from '@shared/agent'
-import { projectPolicy, type ToolRequest } from '../../permissions'
+import { approvalRequest, editorPolicy, type ToolRequest } from '../../permissions'
 import { buildPrompt, type PromptPart } from '../../turns/prompt'
 import { createChannel } from '../channel'
 import type { AgentSession, StartSessionOptions } from '../provider'
@@ -22,10 +22,19 @@ interface RunSettings {
   effort: Effort | undefined
 }
 
+/**
+ * `claude` runs read-only shell commands (`ls`, `cat`) without calling `canUseTool`.
+ * Saying "ask" here sends every shell command through it, so the policy decides.
+ */
+const ASK_BEFORE_SHELL: HookCallbackMatcher = {
+  matcher: 'Bash',
+  hooks: [async () => ({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask' } })],
+}
+
 export function startClaudeSession(
   system: ClaudeSystem,
   detect: () => Promise<AgentStatus>,
-  { projectDir, document, model, effort, resumeId, permissions = projectPolicy(projectDir) }: StartSessionOptions,
+  { projectDir, document, model, effort, resumeId, permissions = editorPolicy(projectDir) }: StartSessionOptions,
 ): AgentSession {
   const id = resumeId ?? randomUUID()
   const events = createChannel<AgentEvent>()
@@ -68,12 +77,7 @@ export function startClaudeSession(
       approvals.set(approvalId, resolve)
       signal.addEventListener('abort', () => resolve('deny'), { once: true })
     })
-    events.push({
-      type: 'approval-request',
-      id: approvalId,
-      kind: request.kind === 'shell' ? 'shell' : 'outside-project',
-      detail: describe(toolName, request),
-    })
+    events.push(approvalRequest(approvalId, request))
     const answer = await decision
     approvals.delete(approvalId)
     return answer === 'allow-once' ? allow : { behavior: 'deny', message: 'The user denied this.' }
@@ -96,6 +100,7 @@ export function startClaudeSession(
         thinking: { type: 'adaptive', display: 'summarized' },
         includePartialMessages: true,
         canUseTool,
+        hooks: { PreToolUse: [ASK_BEFORE_SHELL] },
         ...(settings.model && { model: settings.model }),
         ...(settings.effort && { effort: settings.effort }),
         ...(known ? { resume: id } : { sessionId: id }),
@@ -210,12 +215,12 @@ function toolRequest(toolName: string, input: Record<string, unknown>, projectDi
     case 'Glob':
     case 'Grep':
     case 'LS':
-      return { kind: 'read', path }
+      return { kind: 'read', path, tool: toolName }
     case 'Write':
     case 'Edit':
     case 'MultiEdit':
     case 'NotebookEdit':
-      return { kind: 'write', path }
+      return { kind: 'write', path, tool: toolName }
     case 'Bash':
       return { kind: 'shell', command: typeof input.command === 'string' ? input.command : '' }
     case 'WebFetch':
@@ -223,17 +228,5 @@ function toolRequest(toolName: string, input: Record<string, unknown>, projectDi
       return { kind: 'web' }
     default:
       return { kind: 'other', name: toolName }
-  }
-}
-
-function describe(toolName: string, request: ToolRequest): string {
-  switch (request.kind) {
-    case 'shell':
-      return request.command
-    case 'read':
-    case 'write':
-      return `${toolName} ${request.path}`
-    default:
-      return toolName
   }
 }

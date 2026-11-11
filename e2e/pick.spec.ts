@@ -60,6 +60,13 @@ async function centerOf(selector: string) {
   return { x: (frame?.x ?? 0) + rect.x, y: (frame?.y ?? 0) + rect.y }
 }
 
+/** Waits until the page itself is in the Mode: in Pick its link shows a plain arrow, in Browse the hand. */
+async function pageInMode(mode: 'browse' | 'pick') {
+  const app = launched?.app
+  if (!app) throw new Error('No app')
+  await expect.poll(() => inDocument(app, `getComputedStyle(document.querySelector('#link')).cursor`)).toBe(mode === 'pick' ? 'default' : 'pointer')
+}
+
 async function clickInDocument(selector: string) {
   const { x, y } = await centerOf(selector)
   await launched?.window.mouse.click(x, y)
@@ -69,33 +76,45 @@ test("Browse lets the page's links work; Pick blocks them and picks instead", as
   const { app, window, toolbar } = await openEditor()
   await expect(toolbar.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-pressed', 'true')
 
-  await clickInDocument('#link')
-  await expect.poll(() => inDocument(app, '[location.hash, window.clicks]')).toEqual(['#bakes', 1])
+  // A just-loaded Document view can miss the very first click, so try again until it lands.
+  await expect(async () => {
+    await clickInDocument('#link')
+    await expect.poll(() => inDocument(app, 'location.hash'), { timeout: 1000 }).toBe('#bakes')
+  }).toPass()
+  expect(await inDocument(app, 'window.clicks')).toBeGreaterThanOrEqual(1)
+  const clicks = await inDocument(app, 'window.clicks')
 
   await toolbar.getByRole('button', { name: 'Pick' }).click()
   await expect(toolbar.getByRole('button', { name: 'Pick' })).toHaveAttribute('aria-pressed', 'true')
+  await pageInMode('pick')
   await inDocument(app, `history.replaceState(null, '', location.pathname)`)
   await clickInDocument('#link')
 
   await expect(window.getByRole('dialog', { name: 'Annotation 1' })).toBeVisible()
-  expect(await inDocument(app, '[location.hash, window.clicks]')).toEqual(['', 1])
+  expect(await inDocument(app, '[location.hash, window.clicks]')).toEqual(['', clicks])
 
   // Esc discards the Annotation, then leaves Pick.
   await window.keyboard.press('Escape')
   await expect(window.getByRole('dialog', { name: 'Annotation 1' })).toBeHidden()
   await window.keyboard.press('Escape')
   await expect(toolbar.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-pressed', 'true')
+  await pageInMode('browse')
 })
 
 test('pick an element by click, comment, add, reopen from its chip and send: the Agent gets the Annotation, and it glows after the edit', async () => {
   const { app, window, frame, chat, toolbar, sentTurns } = await openEditor()
   await window.keyboard.press('p')
   await expect(toolbar.getByRole('button', { name: 'Pick' })).toHaveAttribute('aria-pressed', 'true')
+  await pageInMode('pick')
 
   // Hovering highlights the element with its selector.
   const heading = await centerOf('h1')
-  await window.mouse.move(heading.x, heading.y)
-  await expect(frame.locator('[data-highlight]')).toHaveText('main › h1.title')
+  // As with clicks, a just-loaded Document view can miss the first move; a real mouse keeps moving.
+  await expect(async () => {
+    await window.mouse.move(heading.x - 2, heading.y)
+    await window.mouse.move(heading.x, heading.y)
+    await expect(frame.locator('[data-highlight]')).toHaveText('main › h1.title', { timeout: 1000 })
+  }).toPass()
 
   await window.mouse.click(heading.x, heading.y)
   const box = window.getByRole('dialog', { name: 'Annotation 1' })

@@ -4,7 +4,8 @@ import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
-import { projectPolicy } from '../permissions'
+import { presetPolicy } from '../permissions'
+import { createPresetStore, isPreset } from '../permissions/preset'
 import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
 import { openSessionStore } from '../sessions/store'
@@ -56,6 +57,7 @@ export function createHost({
   let stopWatchingDocument = () => {}
   let session: DocumentSession | null = null
   let sessions: DocumentSessions | null = null
+  const preset = createPresetStore(dataDir)
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -81,7 +83,7 @@ export function createHost({
       agent,
       projectDir: project.path,
       document: path,
-      permissions: projectPolicy(project.path),
+      permissions: presetPolicy(project.path, preset.get),
       onEntry: (id, entry, index) => events.emit('session.entry', { document: path, session: id, index, entry }),
       onQueue: (queue) => events.emit('session.queue', queue),
       onChanged: (next) => {
@@ -167,6 +169,14 @@ export function createHost({
       const opened = await openDocument(path)
       session?.send({ text, annotations: [] })
       return opened
+    },
+    'permissions.preset': () => preset.get(),
+    'permissions.setPreset': async (next) => {
+      if (!isPreset(next)) throw new Error(`Not a permission preset: ${String(next)}`)
+      await preset.set(next)
+      events.emit('permissions.changed', next)
+      if (next === 'allow-everything') session?.allowWaiting()
+      return next
     },
     'recents.list': () => listRecents(dataDir),
     'recents.clear': async () => {
