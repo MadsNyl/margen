@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Attachment } from '@shared/agent'
-import { ArrowUpIcon, AttachIcon, CloseIcon, MicIcon } from '../components/icons'
+import { Dialog } from '../components/Dialog'
+import { ArrowUpIcon, AttachIcon, MicIcon } from '../components/icons'
 import { host } from '../host'
 import { AttachmentChips } from './attachments'
 import { useLeave } from './leave'
@@ -16,17 +17,6 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
   const [creating, setCreating] = useState(false)
   const [failed, setFailed] = useState<string>()
   const leave = useLeave()
-
-  // Escape closes the dialog and does nothing else (it doesn't stop a Turn).
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const attach = () =>
     void host
@@ -48,26 +38,13 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,17,17,.18)] backdrop-blur-[2px]"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-    >
+    <Dialog label="New Document" onClose={onClose} className="w-[620px]">
       <form
-        role="dialog"
-        aria-modal
-        aria-label="New Document"
-        className="modal-in w-[620px] max-w-[calc(100vw-48px)] rounded-[26px] border border-line bg-white shadow-[0_30px_80px_-20px_rgba(0,0,0,.35),0_0_0_1px_rgba(0,0,0,.04)]"
         onSubmit={(event) => {
           event.preventDefault()
           create()
         }}
       >
-        <div className="flex items-center gap-2 pt-3.5 pr-3 pl-5 text-[12.5px] text-tx3">
-          New Document · Claude names the file
-          <button type="button" className="icon-btn ml-auto size-7" aria-label="Close" title="Close (Esc)" onClick={onClose}>
-            <CloseIcon className="size-3.5" />
-          </button>
-        </div>
         <textarea
           autoFocus
           aria-label="Describe the new Document"
@@ -82,7 +59,7 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
               create()
             }
           }}
-          className="block max-h-[40vh] min-h-[96px] w-full resize-none border-0 bg-transparent px-5 pt-1.5 pb-2 text-[14.5px] leading-[1.55] outline-0 placeholder:text-tx3"
+          className="block max-h-[40vh] min-h-[112px] w-full resize-none border-0 bg-transparent px-5 pt-4 pb-2 text-[14.5px] leading-[1.55] outline-0 placeholder:text-tx3"
         />
         {files.length > 0 && (
           <div className="px-4 pb-1">
@@ -114,6 +91,6 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   )
 }

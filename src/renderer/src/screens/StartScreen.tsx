@@ -1,12 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
+import { Dialog } from '../components/Dialog'
 import { useOpenSettings } from '../components/Settings'
+import { UpdateButton } from '../components/UpdateButton'
 import { ArrowRightIcon, FolderIcon, PlusIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { plural } from '../format'
 import { host, useHostValue } from '../host'
 
-/** `naming` shows the New project card's name field; ⌘N in the app root turns it on. */
+/** `naming` shows the New project dialog; ⌘N in the app root turns it on. */
 export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (naming: boolean) => void }) {
   const recents = useHostValue('recents.list', 'recents.changed')
   const openSettings = useOpenSettings()
@@ -16,9 +18,12 @@ export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (
       <div className="grain-banner" aria-hidden />
       <header className="relative z-10 flex h-12 flex-none items-center justify-between px-3">
         <Brand />
-        <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
-          <SettingsIcon />
-        </button>
+        <span className="flex items-center gap-0.5">
+          <UpdateButton />
+          <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
+            <SettingsIcon />
+          </button>
+        </span>
       </header>
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col items-center px-6 pt-14 pb-16">
@@ -45,13 +50,13 @@ export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (
               title="New project"
               shortcut="⌘N"
               hint="Name it, then describe what to make"
-              footer={naming && <NameField onCancel={() => onNaming(false)} />}
               onClick={() => onNaming(true)}
             >
               An empty folder in <span className="font-mono text-[11.5px]">~/Documents/Margen</span>, ready for its
               first page.
             </Choice>
           </div>
+          {naming && <NewProjectDialog onClose={() => onNaming(false)} />}
 
           <div className="mt-13 mb-1.5 flex w-[min(760px,100%)] items-baseline justify-between">
             <h2 className="m-0 text-[13px] font-medium text-tx2">Recent</h2>
@@ -86,16 +91,15 @@ export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (
   )
 }
 
-/** A card on the Start screen. With a `footer` (the name field) it stops being a button and shows that instead of the hint. */
+/** A card on the Start screen. */
 function Choice(props: {
   art: ReactNode
   artClass: string
   title: string
   shortcut: string
   hint: string
-  footer?: ReactNode
   children: ReactNode
-  onClick?: () => void
+  onClick: () => void
 }) {
   const content = (
     <>
@@ -104,29 +108,29 @@ function Choice(props: {
         <h3 className="m-0 text-[17px] font-medium tracking-[-0.01em]">{props.title}</h3>
         <p className="mt-1 mb-0 text-[13px] leading-normal text-tx2">{props.children}</p>
       </span>
-      {props.footer || <span className="mt-auto text-xs text-tx3">{props.hint}</span>}
+      <span className="mt-auto text-xs text-tx3">{props.hint}</span>
       <kbd className="absolute top-[22px] right-[22px]">{props.shortcut}</kbd>
     </>
   )
-  const card =
-    'relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200'
-  if (props.footer) return <div className={card}>{content}</div>
   return (
-    <button onClick={props.onClick} className={`${card} hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]`}>
+    <button
+      onClick={props.onClick}
+      className="relative flex min-h-[190px] flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[22px] text-left shadow-[0_2px_10px_-2px_rgba(0,0,0,.06)] transition duration-200 hover:-translate-y-px hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,.16)]"
+    >
       {content}
     </button>
   )
 }
 
-/** The New project card's name field. Enter or the arrow makes the Project and opens it; Escape cancels. */
-function NameField({ onCancel }: { onCancel: () => void }) {
+/** New project: name the folder. Enter or the arrow makes the Project and opens it; Escape cancels. */
+function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
   const create = (event: FormEvent) => {
     event.preventDefault()
-    if (busy) return
+    if (busy || !name.trim()) return
     setBusy(true)
     setError(undefined)
     // On success `projects.changed` swaps this screen for the Project page.
@@ -137,32 +141,34 @@ function NameField({ onCancel }: { onCancel: () => void }) {
   }
 
   return (
-    <div className="mt-auto">
-      <form
-        className="flex h-11 items-center gap-1.5 rounded-full border border-line py-0 pr-1.5 pl-4 shadow-[0_2px_10px_-2px_rgba(0,0,0,.08)]"
-        onSubmit={create}
-      >
+    <Dialog label="New project" onClose={onClose} className="w-[480px]">
+      <form className="flex h-[60px] items-center gap-1.5 py-0 pr-3 pl-5" onSubmit={create}>
         <input
           autoFocus
-          className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-0 placeholder:text-tx3"
-          placeholder="Project name"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[15px] outline-0 placeholder:text-tx3"
+          placeholder="Name the new project"
           aria-label="Project name"
           autoComplete="off"
           spellCheck={false}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => event.key === 'Escape' && onCancel()}
         />
         <button
           className="grid size-8 flex-none place-items-center rounded-full bg-primary text-white transition hover:bg-primary-h disabled:cursor-default disabled:bg-[#d4d4d8]"
-          title="Create"
+          title="Create (↵)"
           aria-label="Create"
-          disabled={busy}
+          disabled={busy || !name.trim()}
         >
           <ArrowRightIcon />
         </button>
       </form>
-      {error && <p className="mt-1.5 mb-0 px-4 text-xs text-tx3">{error}</p>}
-    </div>
+      <p className="m-0 border-t border-line px-5 py-2.5 text-[12px] text-tx3">
+        {error ?? (
+          <>
+            A new folder in <span className="font-mono text-[11px]">~/Documents/Margen</span>
+          </>
+        )}
+      </p>
+    </Dialog>
   )
 }

@@ -4,6 +4,7 @@ import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
 import { useOpenSettings } from '../components/Settings'
+import { UpdateButton } from '../components/UpdateButton'
 import { ArrowUpIcon, ChevronDownIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { editedAgo, joinList, plural } from '../format'
 import { host, useHostValue } from '../host'
@@ -24,9 +25,12 @@ export function ProjectPage({ project }: { project: Project }) {
         >
           <Brand />
         </button>
-        <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
-          <SettingsIcon />
-        </button>
+        <span className="flex items-center gap-0.5">
+          <UpdateButton />
+          <button className="icon-btn" title="Settings" aria-label="Settings" onClick={openSettings}>
+            <SettingsIcon />
+          </button>
+        </span>
       </header>
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col items-center px-6 pt-7">

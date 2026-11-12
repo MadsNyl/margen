@@ -218,7 +218,7 @@ function AboutSection() {
         title={`Margen ${version ?? ''}`}
         detail={
           <>
-            Free and open source (MIT). Part of Margin.
+            Free and open source (MIT).
             {update && updateLine(update) && <span className="block">{updateLine(update)}</span>}
           </>
         }

@@ -10,6 +10,7 @@ import {
   Clock01Icon,
   ComputerIcon,
   Cursor01Icon,
+  Download04Icon,
   CursorPointer01Icon,
   FileCodeIcon,
   Folder01Icon,
@@ -56,6 +57,7 @@ export const HistoryIcon = ({ className }: Props) => <Icon icon={Clock01Icon} cl
 export const ShieldIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={Shield01Icon} className={className} />
 export const BrowseIcon = ({ className }: Props) => <Icon icon={Cursor01Icon} className={className} />
 export const PickIcon = ({ className }: Props) => <Icon icon={CursorPointer01Icon} className={className} />
+export const UpdateIcon = ({ className }: Props) => <Icon icon={Download04Icon} className={className} />
 export const DrawIcon = ({ className }: Props) => <Icon icon={PencilEdit01Icon} className={className} />
 
 /** Claude's spark, white on its terracotta tile, as in the chat panel's header. A brand mark, so not a Hugeicon. */
