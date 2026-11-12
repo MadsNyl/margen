@@ -12,6 +12,8 @@ export interface LaunchOptions {
   agent?: FakeAgentScript
   /** The folder the native folder picker returns. */
   pickFolder?: string
+  /** What the file picker returns: absolute paths. */
+  pickFiles?: string[]
   /** The permission preset chosen before launch; the Editor preset when left out. */
   preset?: PermissionPreset
 }
@@ -28,7 +30,7 @@ export interface LaunchedApp {
 }
 
 /** Launches the built app with a fresh data directory and the fake AgentProvider. */
-export async function launchApp({ recents, agent = {}, pickFolder, preset }: LaunchOptions = {}): Promise<LaunchedApp> {
+export async function launchApp({ recents, agent = {}, pickFolder, pickFiles, preset }: LaunchOptions = {}): Promise<LaunchedApp> {
   const dataDir = await mkdtemp(join(tmpdir(), 'margen-e2e-'))
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
   if (preset) await writeFile(join(dataDir, 'permissions.json'), JSON.stringify({ preset }))
@@ -48,6 +50,7 @@ export async function launchApp({ recents, agent = {}, pickFolder, preset }: Lau
       MARGEN_FAKE_AGENT: agentScript,
       MARGEN_PROJECTS_DIR: projectsDir,
       ...(pickFolder && { MARGEN_PICK_FOLDER: pickFolder }),
+      ...(pickFiles && { MARGEN_PICK_FILES: JSON.stringify(pickFiles) }),
     } as Record<string, string>,
   })
   const window = await app.firstWindow()

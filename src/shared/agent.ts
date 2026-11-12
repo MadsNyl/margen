@@ -71,9 +71,17 @@ export interface ModelChoice {
   effort?: Effort
 }
 
+/** A file the user attached from their Mac with the file picker. The Agent reads it where it is; Margen copies nothing. */
+export interface Attachment {
+  /** Absolute. */
+  path: string
+  name: string
+}
+
 export interface TurnInput {
   text: string
   annotations: Annotation[]
+  attachments?: Attachment[]
   /** The model for this Turn (`opus`, `sonnet`, `haiku` or a full id). Left out, the Agent's own default. */
   model?: string
   effort?: Effort

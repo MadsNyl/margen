@@ -7,6 +7,7 @@ import { captureDocument } from './capture'
 import { usePageScroll } from './DrawLayer'
 import { annotationLabel, labelOf, useDraft, type Draft, type PendingAnnotation } from './draft'
 import { useViewport } from './viewport'
+import { CloseIcon } from '../components/icons'
 
 // The layer over the Document view: the Pick highlight, a marker for each
 // pending Annotation, the comment box of the open one, and after a reload the
@@ -259,7 +260,7 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
         <span className="grid size-[19px] place-items-center rounded-full bg-ink text-[10.5px] font-semibold text-white">{annotation.number}</span>
         <b className="font-medium text-tx">{kind}</b>
         <button className="ml-auto text-tx3 hover:text-tx" aria-label="Discard" title="Discard (Esc)" onClick={() => draft.remove(id)}>
-          ✕
+          <CloseIcon />
         </button>
       </div>
       <ul aria-label="Caught" className="flex flex-wrap gap-[5px] px-3.5 pt-2">

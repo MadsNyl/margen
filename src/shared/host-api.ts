@@ -3,7 +3,7 @@
 // via `createHost`. Add new calls to `HostCalls` and new events to
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
-import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ModelChoice, TurnInput } from './agent'
+import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Attachment, ModelChoice, TurnInput } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
 export interface Project {
@@ -196,7 +196,9 @@ export interface HostCalls {
    */
   'project.send': (text: string) => OpenDocument
   /** The editor's New Document: always makes a new Document the Agent names, and starts its Session with the message. */
-  'project.newDocument': (text: string) => OpenDocument
+  'project.newDocument': (text: string, attachments?: Attachment[]) => OpenDocument
+  /** Opens the file picker. The chosen files can go along with a message as attachments, and the Agent may read them without asking. */
+  'files.pick': () => Attachment[]
   /** Shows the Project's folder in Finder. */
   'project.reveal': () => void
   'recents.list': () => RecentProject[]

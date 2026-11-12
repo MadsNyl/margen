@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import type { Attachment } from '@shared/agent'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import { openCheckpoints, type CheckpointStore } from '../checkpoints'
@@ -26,6 +27,8 @@ export interface HostDeps {
   updates?: UpdateSource
   /** The native folder picker; resolves `undefined` when cancelled. Tests and e2e pass their own. */
   pickFolder?: () => Promise<string | undefined>
+  /** The native file picker, several files at once; resolves `[]` when cancelled. Tests and e2e pass their own. */
+  pickFiles?: () => Promise<string[]>
   /** Opens a URL in the user's default browser (Electron's `shell.openExternal` in the app). */
   openExternal?: (url: string) => Promise<void>
   /** Opens a folder in the file manager (Electron's `shell.openPath` in the app). */
@@ -53,6 +56,7 @@ export function createHost({
   agent,
   updates,
   pickFolder = async () => undefined,
+  pickFiles = async () => [],
   openExternal = async () => {},
   showFolder = async () => {},
   projectsDir = join(homedir(), 'Documents', 'Margen'),
@@ -95,6 +99,7 @@ export function createHost({
       name: info.name,
       checkpoints: () => checkpoints,
       preset: preset.get,
+      attached: (file) => picked.has(file),
       emit: events.emit,
     })
     events.emit('document.opened', opened.info)
@@ -126,6 +131,13 @@ export function createHost({
     checkpoints = null
   }
 
+  /**
+   * Files the user chose in the file picker. The Agent may read these without
+   * asking, wherever they are; a path the renderer names without picking it still asks.
+   */
+  const picked = new Set<string>()
+  const pickedOnly = (attachments: Attachment[] | undefined) => attachments?.filter((file) => picked.has(file.path))
+
   /** The Agent names the new Document; if it can't, the description's first words do. */
   async function newDocumentFile(projectDir: string, description: string): Promise<string> {
     const name = await agent.nameDocument(description).catch(() => undefined)
@@ -133,9 +145,10 @@ export function createHost({
   }
 
   /** Opens the Document and starts its Session with the message. */
-  async function startDocument(path: string, text: string): Promise<OpenDocument> {
+  async function startDocument(path: string, text: string, attachments?: Attachment[]): Promise<OpenDocument> {
     const info = await openDocument(path)
-    await opened?.session().send({ text, annotations: [] })
+    const files = pickedOnly(attachments)
+    await opened?.session().send({ text, annotations: [], ...(files?.length && { attachments: files }) })
     return info
   }
 
@@ -169,7 +182,8 @@ export function createHost({
       const target = session()
       const source = turn.annotations.length ? await readFile(file, 'utf8').catch(() => undefined) : undefined
       if (target !== opened?.session()) throw new Error('The Document was closed')
-      await target.send(locateAnnotations(turn, source))
+      const files = pickedOnly(turn.attachments)
+      await target.send(locateAnnotations({ ...turn, ...(files ? { attachments: files } : {}) }, source))
     },
     'session.running': async () => opened?.session().running() ?? false,
     'session.queue': async () => opened?.session().queue() ?? null,
@@ -195,7 +209,13 @@ export function createHost({
       )
       return startDocument(mentioned ?? (await newDocumentFile(project.path, text)), text)
     },
-    'project.newDocument': async (text) => startDocument(await newDocumentFile(requireProject().project.path, text), text),
+    'project.newDocument': async (text, attachments) =>
+      startDocument(await newDocumentFile(requireProject().project.path, text), text, attachments),
+    'files.pick': async () => {
+      const paths = await pickFiles()
+      for (const path of paths) picked.add(path)
+      return paths.map((path) => ({ path, name: basename(path) }))
+    },
     'project.reveal': async () => showFolder(requireProject().project.path),
     'model.choice': () => modelChoice.get(),
     'model.setChoice': async (choice) => {

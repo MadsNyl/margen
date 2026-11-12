@@ -4,6 +4,7 @@ import { plural } from '../format'
 import { host } from '../host'
 import { CheckpointList } from './Checkpoints'
 import { useLeave } from './leave'
+import { CloseIcon } from '../components/icons'
 
 type Tab = 'sessions' | 'checkpoints'
 
@@ -46,7 +47,7 @@ export function HistoryDrawer({ open, running, onClose }: { open: boolean; runni
           className="ml-auto grid size-8 place-items-center rounded-lg text-tx2 hover:bg-black/4 hover:text-tx"
           onClick={onClose}
         >
-          ✕
+          <CloseIcon />
         </button>
       </div>
       {tab === 'sessions' && (

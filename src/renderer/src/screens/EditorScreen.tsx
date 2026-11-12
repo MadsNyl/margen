@@ -4,7 +4,7 @@ import type { OpenDocument, Project } from '@shared/host-api'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
-import { OpenExternalIcon } from '../components/icons'
+import { AddIcon, ChevronDownIcon, OpenExternalIcon } from '../components/icons'
 import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
@@ -152,7 +152,7 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
         onClick={() => setOpen(!open)}
       >
         <span className="truncate">{document.name}</span>
-        <span className="text-[10px] text-tx3">▼</span>
+        <ChevronDownIcon />
       </button>
       {open && (
         <Menu className="top-9 left-0 max-h-[60vh] w-72 overflow-y-auto">
@@ -176,9 +176,7 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
               setCreating(true)
             }}
           >
-            <span className="grid size-4 place-items-center text-tx2" aria-hidden>
-              +
-            </span>
+            <AddIcon className="size-4 text-tx2" />
             New Document…
           </MenuItem>
         </Menu>

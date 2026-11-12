@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Mode } from '@shared/document-bridge'
+import { BrowseIcon, DrawIcon, PickIcon } from '../components/icons'
 
 // The floating toolbar: a dark pill at the bottom of the stage with one button
 // per Mode.
@@ -15,26 +16,21 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
     label: 'Browse',
     key: 'V',
     tip: 'Browse: use the Document normally',
-    icon: <path d="M5 3l11 5.5-4.8 1.3L9.5 15z" />,
+    icon: <BrowseIcon />,
   },
   {
     mode: 'pick',
     label: 'Pick',
     key: 'P',
     tip: 'Pick: click an element, or move with the arrow keys',
-    icon: (
-      <>
-        <rect x="2.5" y="2.5" width="10" height="10" rx="1.5" strokeDasharray="2.2 2" />
-        <path d="M10 10l7.5 3-3 1.2L13 17.5z" />
-      </>
-    ),
+    icon: <PickIcon />,
   },
   {
     mode: 'draw',
     label: 'Draw',
     key: 'D',
     tip: 'Draw: circle something or draw what to add, then say what you want',
-    icon: <path d="M10.5 4.5C6 4 2.5 6 2.8 9s4 4.8 8.2 4.4 6.8-2.6 6.2-5.3C16.7 6 13.2 3.8 8 4.6" />,
+    icon: <DrawIcon />,
   },
 ]
 
@@ -98,9 +94,7 @@ export function Toolbar({ mode, onMode, keyGuide }: { mode: Mode; onMode: (mode:
               className={`tool group ${colours}`}
               onClick={() => onMode(tool.mode)}
             >
-              <svg viewBox="0 0 20 20" className="size-4 flex-none fill-none stroke-current" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {tool.icon}
-              </svg>
+              {tool.icon}
               {on && <span>{tool.label}</span>}
               <kbd>{tool.key}</kbd>
               <span className="pointer-events-none absolute bottom-[50px] left-1/2 -translate-x-1/2 rounded-[7px] bg-primary px-[9px] py-[5px] text-[11.5px] font-normal whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">

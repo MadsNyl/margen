@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ToolEvent } from '@shared/agent'
+import { ChevronRightIcon } from '../components/icons'
 
 // What the Agent did between two pieces of its reply, as one muted line that
 // opens into a timeline of its tool calls. The run in progress stays open and
@@ -23,16 +24,7 @@ export function Activity({ steps, active }: { steps: Step[]; active: boolean }) 
       >
         {active ? <span className="shimmer">{label}</span> : label}
         {tools.length > 0 && (
-          <svg
-            viewBox="0 0 12 12"
-            className={`size-2.5 fill-none stroke-current transition-transform ${open ? 'rotate-90' : ''}`}
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M4.5 2.5 8 6l-3.5 3.5" />
-          </svg>
+          <ChevronRightIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
         )}
       </button>
       {open && (

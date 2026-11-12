@@ -8,9 +8,13 @@ export type PromptPart = { type: 'text'; text: string } | { type: 'image'; media
 
 /** The prompt for one Turn. `document` is the open Document, relative to the Project. */
 export function buildPrompt(turn: TurnInput, document?: string): PromptPart[] {
+  const attached = turn.attachments?.length
+    ? [`I attached these files. Read them where they are:\n${turn.attachments.map((file) => `- ${file.path}`).join('\n')}`]
+    : []
   if (turn.annotations.length === 0) {
     // Named every Turn, so the Agent knows which file "this page" is, even a new, empty one.
-    return [{ type: 'text', text: document ? `${turn.text}\n\n(The Document open in Margen is ${document}.)` : turn.text }]
+    const blocks = [turn.text, ...attached, ...(document ? [`(The Document open in Margen is ${document}.)`] : [])].filter(Boolean)
+    return [{ type: 'text', text: blocks.join('\n\n') }]
   }
   // Each Pick's crop and each drawing's screenshot and crop are numbered in the order they're attached.
   let images = 0
@@ -20,6 +24,7 @@ export function buildPrompt(turn: TurnInput, document?: string): PromptPart[] {
   })
   const blocks = [
     ...(turn.text ? [turn.text] : []),
+    ...attached,
     `I pointed at these${document ? ` in ${document}` : ''} (shown in Margen). The numbers are mine:`,
     ...(turn.annotations.some((annotation) => annotation.kind === 'draw') ? [DRAWINGS] : []),
     ...pictured.map(({ annotation, numbers }) => describeAnnotation(annotation, document, numbers)),

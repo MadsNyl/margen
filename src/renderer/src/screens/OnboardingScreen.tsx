@@ -2,6 +2,7 @@ import { useId, useState, type ReactNode } from 'react'
 import type { AgentSetupResult, AgentStatus } from '@shared/agent'
 import { Brand } from '../components/Brand'
 import { host } from '../host'
+import { CheckIcon } from '../components/icons'
 
 type StepState = 'missing' | 'working' | 'done' | 'failed'
 
@@ -145,7 +146,7 @@ function Step(props: {
       className="grid grid-cols-[28px_1fr_auto] items-center gap-3.5 border-t border-border px-5 py-[18px] first:border-t-0"
     >
       <div className={`grid size-[26px] place-items-center rounded-full text-[11.5px] ${markClass[props.state]}`} aria-hidden>
-        {props.state === 'done' ? '✓' : props.state === 'working' ? '' : props.number}
+        {props.state === 'done' ? <CheckIcon /> : props.state === 'working' ? '' : props.number}
       </div>
       <div className="min-w-0">
         <h4 id={titleId} className="m-0 mb-[3px] text-sm font-medium">

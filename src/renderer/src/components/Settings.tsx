@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { AgentStatus } from '@shared/agent'
 import type { PermissionPreset, UpdateStatus } from '@shared/host-api'
 import { host, useHostValue } from '../host'
+import { CloseIcon } from './icons'
 
 const OpenSettings = createContext<() => void>(() => {})
 
@@ -49,7 +50,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
             Settings
           </h2>
           <button className="icon-btn ml-auto" title="Close" aria-label="Close" onClick={onClose}>
-            ✕
+            <CloseIcon />
           </button>
         </div>
         <AgentSection />

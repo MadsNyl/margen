@@ -1,5 +1,6 @@
 import type { Annotation } from '@shared/agent'
 import { annotationLabel, useDraft } from './draft'
+import { CloseIcon } from '../components/icons'
 
 // Annotations in the chat panel: the Composer's chips for pending ones, and the
 // rows in a sent message.
@@ -20,8 +21,8 @@ export function Chips() {
             <b className="max-w-[150px] truncate font-mono text-[10px] font-normal text-tx">{label(annotation)}</b>
             {annotation.comment && <span className="max-w-[110px] truncate">{annotation.comment}</span>}
           </button>
-          <button aria-label={`Remove Annotation ${annotation.number}`} className="px-[3px] text-[15px] leading-none text-tx3 hover:text-tx" onClick={() => draft.remove(id)}>
-            ×
+          <button aria-label={`Remove Annotation ${annotation.number}`} className="grid place-items-center px-[3px] text-tx3 hover:text-tx" onClick={() => draft.remove(id)}>
+            <CloseIcon className="size-3" />
           </button>
         </li>
       ))}

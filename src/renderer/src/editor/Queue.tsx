@@ -1,5 +1,6 @@
 import type { QueueView } from '@shared/host-api'
 import { host } from '../host'
+import { CloseIcon } from '../components/icons'
 
 /** The yellow Queue above the Composer: messages sent during a Turn, in the order they'll go out. */
 export function QueuePanel({ queue }: { queue: QueueView }) {
@@ -16,8 +17,8 @@ export function QueuePanel({ queue }: { queue: QueueView }) {
             <span className="min-w-0 flex-1 truncate">
               {turn.text || turn.annotations.map((a) => `#${a.number} ${a.comment || a.kind}`).join(', ')}
             </span>
-            <button aria-label="Remove" title="Remove" className="px-1 text-tx3 hover:text-tx" onClick={() => void host.call('session.unqueue', id)}>
-              ✕
+            <button aria-label="Remove" title="Remove" className="grid place-items-center px-1 text-tx3 hover:text-tx" onClick={() => void host.call('session.unqueue', id)}>
+              <CloseIcon className="size-3.5" />
             </button>
           </li>
         ))}

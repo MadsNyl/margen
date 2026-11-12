@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type RefObject } from 'react'
 import { VIEWPORTS, viewportOf, type Viewport, type ViewportChoice } from '@shared/viewport'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
-import { DesktopIcon, MobileIcon, TabletIcon } from '../components/icons'
+import { ChevronDownIcon, DesktopIcon, MobileIcon, TabletIcon } from '../components/icons'
 
 const ViewportContext = createContext<Viewport | null>(null)
 
@@ -63,7 +63,7 @@ export function ViewportSelect({
         <CurrentIcon />
         <span>{viewport.name}</span>
         <span className="text-xs text-tx3 tabular-nums">{viewport.width}px</span>
-        <span className="text-[9px] text-tx3">▼</span>
+        <ChevronDownIcon />
       </button>
       {open && (
         <Menu className="top-9 right-0 min-w-[210px]">

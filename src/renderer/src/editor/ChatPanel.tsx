@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision } from '@shared/agent'
 import type { PermissionPreset } from '@shared/host-api'
-import { ClaudeMark } from '../components/icons'
+import { AddIcon, ArrowUpIcon, CheckIcon, ClaudeMark, HistoryIcon, ShieldIcon } from '../components/icons'
 import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
 import { Activity, type Step } from './Activity'
 import { AnnotationRows, Chips } from './annotations'
+import { AttachmentChips } from './attachments'
 import { useDraft } from './draft'
 import { CheckpointDivider } from './Checkpoints'
 import { HistoryDrawer } from './HistoryDrawer'
@@ -55,11 +56,10 @@ export function ChatPanel({ document }: { document: string }) {
         {session && <span className="truncate text-[12.5px] whitespace-nowrap text-tx3">· Session {session.number}</span>}
         <div className="ml-auto flex">
           <HeaderButton label="New session" onClick={() => leave(() => host.call('session.new').catch(() => {}))}>
-            <path d="M10 4v12M4 10h12" />
+            <AddIcon />
           </HeaderButton>
           <HeaderButton label="Sessions & Checkpoints" onClick={() => setHistory(true)}>
-            <circle cx="10" cy="10" r="7" />
-            <path d="M10 6v4l2.5 2" />
+            <HistoryIcon />
           </HeaderButton>
         </div>
       </div>
@@ -90,9 +90,7 @@ function HeaderButton({ label, onClick, children }: { label: string; onClick: ()
       onClick={onClick}
       className="grid size-8 place-items-center rounded-lg text-tx2 hover:bg-black/4 hover:text-tx"
     >
-      <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        {children}
-      </svg>
+      {children}
     </button>
   )
 }
@@ -103,6 +101,11 @@ function Item({ item, running }: { item: ChatItem; running: boolean }) {
       <div className="max-w-[90%] self-end rounded-[18px_18px_6px_18px] border border-line bg-white px-3.5 py-2.5 text-[13.5px] leading-[1.55] whitespace-pre-wrap shadow-[0_1px_3px_rgba(0,0,0,.03)] select-text">
         <AnnotationRows annotations={item.turn.annotations} />
         {item.turn.text}
+        {item.turn.attachments?.length ? (
+          <div className="mt-2">
+            <AttachmentChips files={item.turn.attachments} />
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -180,7 +183,14 @@ function Approval({ request, answer }: { request: ApprovalRequest; answer: Appro
         aria-label="Approval"
         className={`my-1.5 rounded-xl px-3 py-2 text-xs ${allowed ? 'bg-mint text-[#185a36]' : 'bg-muted text-tx2'}`}
       >
-        {allowed ? '✓ Allowed once' : 'Denied'} · <span className="font-mono break-all">{request.detail}</span>
+        {allowed ? (
+          <>
+            <CheckIcon className="mb-px inline size-3" /> Allowed once
+          </>
+        ) : (
+          'Denied'
+        )}{' '}
+        · <span className="font-mono break-all">{request.detail}</span>
       </div>
     )
   }
@@ -318,9 +328,7 @@ function Composer({
             onClick={send}
             className="grid size-8 place-items-center rounded-full bg-primary text-white disabled:cursor-default disabled:bg-[#d4d4d8]"
           >
-            <svg viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M10 16V4M5 9l5-5 5 5" />
-            </svg>
+            <ArrowUpIcon />
           </button>
         )}
       </div>
@@ -347,10 +355,3 @@ function PresetBadge() {
   )
 }
 
-function ShieldIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-3.5 fill-none stroke-current" strokeWidth={1.6} strokeLinejoin="round" aria-hidden>
-      <path d="M10 2l6 2.5v4.6c0 4-2.6 7-6 8.4-3.4-1.4-6-4.4-6-8.4V4.5z" />
-    </svg>
-  )
-}

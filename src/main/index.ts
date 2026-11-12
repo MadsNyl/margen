@@ -49,6 +49,15 @@ async function pickFolder(): Promise<string | undefined> {
   return result.canceled ? undefined : result.filePaths[0]
 }
 
+/** The native file picker for attachments. `MARGEN_PICK_FILES=<JSON list of paths>` stands in for it in Seam 2 tests. */
+async function pickFiles(): Promise<string[]> {
+  if (process.env.MARGEN_PICK_FILES) return JSON.parse(process.env.MARGEN_PICK_FILES) as string[]
+  const window = BrowserWindow.getFocusedWindow()
+  const options: Electron.OpenDialogOptions = { properties: ['openFile', 'multiSelections'], buttonLabel: 'Attach' }
+  const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+  return result.canceled ? [] : result.filePaths
+}
+
 /** Only http(s) links are handed to the browser: `shell.openExternal` would also open files and other apps' schemes. */
 const isWebUrl = (url: string) => /^https?:/i.test(url)
 
@@ -159,6 +168,7 @@ void app.whenReady().then(() => {
     agent: chooseAgentProvider(process.env),
     updates,
     pickFolder,
+    pickFiles,
     openExternal: (url) => shell.openExternal(url),
     showFolder: async (path) => {
       const error = await shell.openPath(path)

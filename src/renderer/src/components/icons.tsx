@@ -1,99 +1,64 @@
-import type { ReactNode } from 'react'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import {
+  Add01Icon,
+  ArrowDown01Icon,
+  ArrowRight01Icon,
+  ArrowRight02Icon,
+  ArrowUp02Icon,
+  Attachment01Icon,
+  Cancel01Icon,
+  Clock01Icon,
+  ComputerIcon,
+  Cursor01Icon,
+  CursorPointer01Icon,
+  FileCodeIcon,
+  Folder01Icon,
+  LinkSquare02Icon,
+  Mic01Icon,
+  PencilEdit01Icon,
+  Settings01Icon,
+  Shield01Icon,
+  SmartPhone01Icon,
+  Tablet01Icon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
 
-function Icon({ children, className = 'size-4' }: { children: ReactNode; className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      className={`flex-none fill-none stroke-current ${className}`}
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {children}
-    </svg>
-  )
+// Every icon in the app is a Hugeicons stroke icon, at one stroke width.
+// Sizes are Tailwind size classes; the icon takes the text colour.
+
+function Icon({ icon, className = 'size-4', strokeWidth = 1.6 }: { icon: IconSvgElement; className?: string; strokeWidth?: number }) {
+  return <HugeiconsIcon icon={icon} size="100%" strokeWidth={strokeWidth} className={`flex-none ${className}`} aria-hidden />
 }
 
-export const SettingsIcon = () => (
-  <Icon>
-    <circle cx="10" cy="10" r="2.6" />
-    <path d="M10 2v2.2M10 15.8V18M2 10h2.2M15.8 10H18M4.3 4.3l1.6 1.6M14.1 14.1l1.6 1.6M4.3 15.7l1.6-1.6M14.1 5.9l1.6-1.6" />
-  </Icon>
-)
+type Props = { className?: string }
 
-export const FolderIcon = () => (
-  <Icon className="size-[22px]">
-    <path d="M2.5 5.5h5l1.5 2h8.5v8.5h-15z" />
-  </Icon>
-)
+export const SettingsIcon = ({ className }: Props) => <Icon icon={Settings01Icon} className={className} />
+export const FolderIcon = ({ className = 'size-[22px]' }: Props) => <Icon icon={Folder01Icon} className={className} />
+export const SmallFolderIcon = ({ className = 'size-4' }: Props) => <Icon icon={Folder01Icon} className={className} />
+export const PlusIcon = ({ className = 'size-[22px]' }: Props) => <Icon icon={Add01Icon} className={className} />
+export const HtmlFileIcon = ({ className }: Props) => <Icon icon={FileCodeIcon} className={className} />
+export const MicIcon = ({ className }: Props) => <Icon icon={Mic01Icon} className={className} />
+export const AttachIcon = ({ className }: Props) => <Icon icon={Attachment01Icon} className={className} />
+export const ArrowUpIcon = ({ className }: Props) => <Icon icon={ArrowUp02Icon} className={className} strokeWidth={2} />
+export const ArrowRightIcon = ({ className }: Props) => <Icon icon={ArrowRight02Icon} className={className} strokeWidth={2} />
+export const OpenExternalIcon = ({ className = 'size-[15px]' }: Props) => <Icon icon={LinkSquare02Icon} className={className} />
+export const DesktopIcon = ({ className }: Props) => <Icon icon={ComputerIcon} className={className} />
+export const TabletIcon = ({ className }: Props) => <Icon icon={Tablet01Icon} className={className} />
+export const MobileIcon = ({ className }: Props) => <Icon icon={SmartPhone01Icon} className={className} />
+/** A dropdown's caret. */
+export const ChevronDownIcon = ({ className = 'size-3.5 text-tx3' }: Props) => <Icon icon={ArrowDown01Icon} className={className} strokeWidth={2} />
+/** A disclosure's caret, pointing right while closed. */
+export const ChevronRightIcon = ({ className = 'size-3' }: Props) => <Icon icon={ArrowRight01Icon} className={className} strokeWidth={2} />
+export const CloseIcon = ({ className = 'size-4' }: Props) => <Icon icon={Cancel01Icon} className={className} />
+export const CheckIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={Tick02Icon} className={className} strokeWidth={2} />
+export const AddIcon = ({ className = 'size-4' }: Props) => <Icon icon={Add01Icon} className={className} />
+export const HistoryIcon = ({ className }: Props) => <Icon icon={Clock01Icon} className={className} />
+export const ShieldIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={Shield01Icon} className={className} />
+export const BrowseIcon = ({ className }: Props) => <Icon icon={Cursor01Icon} className={className} />
+export const PickIcon = ({ className }: Props) => <Icon icon={CursorPointer01Icon} className={className} />
+export const DrawIcon = ({ className }: Props) => <Icon icon={PencilEdit01Icon} className={className} />
 
-export const PlusIcon = () => (
-  <Icon className="size-[22px]">
-    <path d="M10 4v12M4 10h12" />
-  </Icon>
-)
-
-export const SmallFolderIcon = ({ className = 'size-4' }: { className?: string }) => (
-  <Icon className={className}>
-    <path d="M2.5 5.5h5l1.5 2h8.5v8.5h-15z" />
-  </Icon>
-)
-
-export const HtmlFileIcon = () => (
-  <Icon>
-    <path d="M5 2h7l4 4v12H5z" />
-    <path d="M12 2v4h4M8.5 10.5L7 12l1.5 1.5M11.5 10.5L13 12l-1.5 1.5" />
-  </Icon>
-)
-
-export const MicIcon = () => (
-  <Icon>
-    <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
-    <path d="M4.5 9.5a5.5 5.5 0 0011 0M10 15v2.5" />
-  </Icon>
-)
-
-export const ArrowUpIcon = () => (
-  <Icon>
-    <path d="M10 16V4M5 9l5-5 5 5" strokeWidth={2} />
-  </Icon>
-)
-
-export const ArrowRightIcon = () => (
-  <Icon>
-    <path d="M4 10h12M11 5l5 5-5 5" strokeWidth={2} />
-  </Icon>
-)
-
-export const OpenExternalIcon = () => (
-  <Icon className="size-[15px]">
-    <path d="M11 3h6v6M17 3l-8 8M14 12v5H3V6h5" />
-  </Icon>
-)
-
-export const DesktopIcon = () => (
-  <Icon>
-    <rect x="2.5" y="3.5" width="15" height="10" rx="1.5" />
-    <path d="M7 17h6M10 13.5V17" />
-  </Icon>
-)
-
-export const TabletIcon = () => (
-  <Icon>
-    <rect x="4" y="2.5" width="12" height="15" rx="1.8" />
-    <path d="M9 15h2" />
-  </Icon>
-)
-
-export const MobileIcon = () => (
-  <Icon>
-    <rect x="6" y="2.5" width="8" height="15" rx="1.8" />
-    <path d="M9.2 15h1.6" />
-  </Icon>
-)
-
-/** Claude's spark, white on its terracotta tile, as in the chat panel's header. */
+/** Claude's spark, white on its terracotta tile, as in the chat panel's header. A brand mark, so not a Hugeicon. */
 export const ClaudeMark = () => (
   <span className="grid size-5 flex-none place-items-center rounded-md bg-[#d97757]" aria-hidden>
     <svg viewBox="0 0 20 20" width="11" height="11">

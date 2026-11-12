@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
+import type { Attachment } from '@shared/agent'
+import { ArrowUpIcon, AttachIcon, CloseIcon, MicIcon } from '../components/icons'
 import { host } from '../host'
+import { AttachmentChips } from './attachments'
 import { useLeave } from './leave'
 
 /**
- * The switcher's New Document: describe it, and the Agent names a new file,
- * opens it and starts making it. Leaving a running Turn asks first, as any switch does.
+ * The switcher's New Document: the Project page's chat bar as a dialog, with
+ * room to write and files to attach. The Agent names a new file, opens it and
+ * starts making it. Leaving a running Turn asks first, as any switch does.
  */
 export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('')
+  const [files, setFiles] = useState<Attachment[]>([])
   const [creating, setCreating] = useState(false)
   const [failed, setFailed] = useState<string>()
   const leave = useLeave()
@@ -23,13 +28,19 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const attach = () =>
+    void host
+      .call('files.pick')
+      .then((chosen) => setFiles((had) => [...had, ...chosen.filter((file) => !had.some((h) => h.path === file.path))]))
+      .catch(() => {})
+
   const create = () => {
     const description = text.trim()
     if (!description || creating) return
     leave(() => {
       setCreating(true)
       setFailed(undefined)
-      return host.call('project.newDocument', description).then(onClose, (error: unknown) => {
+      return host.call('project.newDocument', description, files).then(onClose, (error: unknown) => {
         setCreating(false)
         setFailed(error instanceof Error ? error.message : String(error))
       })
@@ -44,24 +55,26 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
       <form
         role="dialog"
         aria-modal
-        aria-labelledby="new-document-title"
-        className="modal-in w-[460px] rounded-[18px] bg-white px-5 pt-[18px] pb-3.5 shadow-[0_30px_80px_-20px_rgba(0,0,0,.35),0_0_0_1px_rgba(0,0,0,.06)]"
+        aria-label="New Document"
+        className="modal-in w-[620px] max-w-[calc(100vw-48px)] rounded-[26px] border border-line bg-white shadow-[0_30px_80px_-20px_rgba(0,0,0,.35),0_0_0_1px_rgba(0,0,0,.04)]"
         onSubmit={(event) => {
           event.preventDefault()
           create()
         }}
       >
-        <h2 id="new-document-title" className="m-0 text-[15px] font-medium">
-          New Document
-        </h2>
-        <p className="mt-1 mb-3 text-[13px] text-tx2">Describe what to make. Claude names the file and starts on it.</p>
+        <div className="flex items-center gap-2 pt-3.5 pr-3 pl-5 text-[12.5px] text-tx3">
+          New Document · Claude names the file
+          <button type="button" className="icon-btn ml-auto size-7" aria-label="Close" title="Close (Esc)" onClick={onClose}>
+            <CloseIcon className="size-3.5" />
+          </button>
+        </div>
         <textarea
           autoFocus
           aria-label="Describe the new Document"
-          placeholder="A price list for the café, with this season's drinks…"
+          placeholder="Describe a new Document…"
           value={text}
           disabled={creating}
-          rows={5}
+          rows={4}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -69,20 +82,35 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
               create()
             }
           }}
-          className="block w-full resize-none rounded-xl border border-line bg-shell px-3 py-2.5 text-[13.5px] leading-[1.55] outline-0 placeholder:text-tx3 focus:border-border focus:bg-white"
+          className="block max-h-[40vh] min-h-[96px] w-full resize-none border-0 bg-transparent px-5 pt-1.5 pb-2 text-[14.5px] leading-[1.55] outline-0 placeholder:text-tx3"
         />
+        {files.length > 0 && (
+          <div className="px-4 pb-1">
+            <AttachmentChips files={files} onRemove={(path) => setFiles((had) => had.filter((file) => file.path !== path))} />
+          </div>
+        )}
         {failed && (
-          <p role="alert" className="mt-2 mb-0 text-[12.5px] text-tx2">
+          <p role="alert" className="m-0 px-5 pb-1 text-[12.5px] text-tx2">
             {failed}
           </p>
         )}
-        <div className="mt-3 flex items-center justify-end gap-1.5">
-          {creating && <span className="mr-auto shimmer text-[12.5px]">Naming it…</span>}
-          <button type="button" className="sbtn" onClick={onClose}>
-            Cancel
+        <div className="flex items-center gap-0.5 px-3 pb-3">
+          <button type="button" className="icon-btn rounded-full" title="Attach files" aria-label="Attach files" disabled={creating} onClick={attach}>
+            <AttachIcon />
           </button>
-          <button type="submit" className="sbtn sbtn-go" disabled={!text.trim() || creating}>
-            Create
+          <span className="flex-1" />
+          {creating && <span className="mr-2 shimmer text-[12.5px]">Naming it…</span>}
+          <button type="button" className="icon-btn rounded-full" title="Voice" aria-label="Voice">
+            <MicIcon />
+          </button>
+          <button
+            type="submit"
+            className="grid size-8 flex-none place-items-center rounded-full bg-primary text-white disabled:cursor-default disabled:bg-[#d4d4d8]"
+            title="Create (↵)"
+            aria-label="Create"
+            disabled={!text.trim() || creating}
+          >
+            <ArrowUpIcon />
           </button>
         </div>
       </form>

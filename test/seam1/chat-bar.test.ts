@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { buildPrompt } from '../../src/main/turns/prompt'
 import type { SessionEntry } from '../../src/shared/host-api'
 import { createHost, type Host } from '../../src/main/host'
 import { createFakeAgentProvider, type FakeAgentProvider, type FakeAgentScript } from '../../src/main/agent/fake'
@@ -23,9 +24,9 @@ afterEach(async () => {
   await rm(projectDir, { recursive: true, force: true })
 })
 
-async function launch(script: FakeAgentScript = {}) {
+async function launch(script: FakeAgentScript = {}, pickFiles?: () => Promise<string[]>) {
   agent = createFakeAgentProvider(script)
-  host = createHost({ dataDir, agent })
+  host = createHost({ dataDir, agent, ...(pickFiles && { pickFiles }) })
   await host.call('projects.open', projectDir)
 }
 
@@ -120,5 +121,47 @@ describe('The Project chat bar', () => {
     expect(opened.path).toBe('home-variant.html')
     expect(await host.call('document.current')).toEqual(opened)
     expect(agent.sent).toEqual([{ text: 'A variant of @index.html', annotations: [] }])
+  })
+
+  test('files picked in the file picker go along with the new Document, and the Agent reads them without asking', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'margen-attach-'))
+    const brief = join(outside, 'brief.pdf')
+    const secret = join(outside, 'secret.txt')
+    await writeFile(brief, 'pdf')
+    await writeFile(secret, 'no')
+    await launch(
+      {
+        documentName: 'price-list',
+        turns: [
+          [
+            { type: 'permission', id: 'r1', request: { kind: 'read', path: brief, tool: 'Read' } },
+            { type: 'permission', id: 'r2', request: { kind: 'read', path: secret, tool: 'Read' } },
+          ],
+        ],
+      },
+      async () => [brief],
+    )
+    const asked: string[] = []
+    host.on('session.entry', ({ entry }) => entry.type === 'approval-request' && asked.push(entry.detail))
+
+    expect(await host.call('files.pick')).toEqual([{ path: brief, name: 'brief.pdf' }])
+    // secret.txt was never picked, so naming it doesn't make it an attachment.
+    await host.call('project.newDocument', 'A price list from this brief', [
+      { path: brief, name: 'brief.pdf' },
+      { path: secret, name: 'secret.txt' },
+    ])
+
+    expect(agent.sent).toEqual([{ text: 'A price list from this brief', annotations: [], attachments: [{ path: brief, name: 'brief.pdf' }] }])
+    await expect.poll(() => asked).toEqual([`Read ${secret}`])
+    await host.call('session.interrupt')
+    await rm(outside, { recursive: true, force: true })
+  })
+
+  test('the prompt lists attached files by path for the Agent to read', () => {
+    const [part] = buildPrompt({ text: 'Use my logo', annotations: [], attachments: [{ path: '/Users/me/logo.png', name: 'logo.png' }] }, 'home.html')
+    expect(part).toEqual({
+      type: 'text',
+      text: 'Use my logo\n\nI attached these files. Read them where they are:\n- /Users/me/logo.png\n\n(The Document open in Margen is home.html.)',
+    })
   })
 })

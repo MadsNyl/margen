@@ -4,7 +4,7 @@ import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
 import { useOpenSettings } from '../components/Settings'
-import { ArrowUpIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
+import { ArrowUpIcon, ChevronDownIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
 import { editedAgo, joinList, plural } from '../format'
 import { host, useHostValue } from '../host'
 
@@ -89,9 +89,7 @@ function FilesHeader({ title, project, note }: { title: string; project: Project
         title={project.path}
         onClick={() => void host.call('project.reveal').catch(() => {})}
       >
-        <svg viewBox="0 0 20 20" className="size-3.5 fill-none stroke-current" strokeWidth={1.6} strokeLinejoin="round" aria-hidden>
-          <path d="M2.5 5.5a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z" />
-        </svg>
+        <SmallFolderIcon className="size-3.5" />
         Show in Finder
       </button>
     </div>
@@ -123,7 +121,7 @@ function ProjectSwitcher({ project }: { project: Project }) {
           <SmallFolderIcon className="size-3" />
         </span>
         <span>{project.name}</span>
-        <span className="text-[10px] text-tx3">▼</span>
+        <ChevronDownIcon />
       </button>
       {open && (
         <Menu className="top-10 left-1/2 w-64 -translate-x-1/2">

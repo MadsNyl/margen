@@ -49,7 +49,7 @@ test('the Editor preset asks in the chat; Allow once and Deny leave resolved car
   await expect(card).toContainText('Claude wants to run a shell command')
   await expect(card).toContainText(curl)
   await card.getByRole('button', { name: 'Allow once' }).click()
-  await expect(card).toHaveText(`✓ Allowed once · ${curl}`)
+  await expect(card).toHaveText(`Allowed once · ${curl}`)
   await expect(card.getByRole('button')).toHaveCount(0)
   await expect(chat.getByText('Downloaded the photo.')).toBeVisible()
 

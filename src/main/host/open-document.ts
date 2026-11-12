@@ -1,8 +1,8 @@
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { HostEventName, HostEvents, OpenDocument, PermissionPreset, Project } from '@shared/host-api'
 import type { AgentProvider } from '../agent/provider'
 import type { CheckpointStore } from '../checkpoints'
-import { presetPolicy } from '../permissions'
+import { presetPolicy, type PermissionPolicy } from '../permissions'
 import { documentUrl, watchDocument } from '../projects/document'
 import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
@@ -34,17 +34,19 @@ export interface EditorDocumentOptions {
   /** The open Project's Checkpoints, or `null` once it's closed: no Checkpoint is taken then. */
   checkpoints(): CheckpointStore | null
   preset(): Promise<PermissionPreset>
+  /** Whether the user attached this file with the file picker, so the Agent may read it without asking. */
+  attached(path: string): boolean
   emit<K extends HostEventName>(event: K, payload: HostEvents[K]): void
 }
 
-export function openEditorDocument({ dataDir, agent, project, path, name, checkpoints, preset, emit }: EditorDocumentOptions): EditorDocument {
+export function openEditorDocument({ dataDir, agent, project, path, name, checkpoints, preset, attached, emit }: EditorDocumentOptions): EditorDocument {
   const stopWatching = watchDocument(project.path, path, () => emit('document.updated', { path }))
   const sessions: DocumentSessions = documentSessions({
     store: openSessionStore(dataDir, project.path),
     agent,
     projectDir: project.path,
     document: path,
-    permissions: presetPolicy(project.path, preset),
+    permissions: withAttachments(presetPolicy(project.path, preset), project.path, attached),
     beforeTurn: async (turn) => {
       const store = checkpoints()
       if (!store) return undefined
@@ -71,4 +73,9 @@ export function openEditorDocument({ dataDir, agent, project, path, name, checkp
       sessions.dispose()
     },
   }
+}
+
+/** Reading a file the user attached is allowed; everything else is up to `policy`. */
+function withAttachments(policy: PermissionPolicy, projectDir: string, attached: (path: string) => boolean): PermissionPolicy {
+  return async (request) => (request.kind === 'read' && attached(resolve(projectDir, request.path)) ? 'allow' : policy(request))
 }
