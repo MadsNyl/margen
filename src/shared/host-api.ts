@@ -4,6 +4,7 @@
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
 import type { TextEdit } from './document-bridge'
+import type { TemplateChoice, MarkedTemplateId } from './templates'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Attachment, ModelChoice, TurnInput } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
@@ -46,6 +47,8 @@ export interface OpenDocument {
    * stable per Project folder, so the page keeps one origin (and its localStorage).
    */
   url: string
+  /** The Template its file is marked with when it was opened (`<meta name="margen-template">`); absent for a Blank Document. */
+  template?: MarkedTemplateId
 }
 
 /**
@@ -202,8 +205,11 @@ export interface HostCalls {
    * makes a new one the Agent names, and starts that Document's Session with the message.
    */
   'project.send': (text: string) => OpenDocument
-  /** The editor's New Document: always makes a new Document the Agent names, and starts its Session with the message. */
-  'project.newDocument': (text: string, attachments?: Attachment[]) => OpenDocument
+  /**
+   * The editor's New Document, the Project page's Template cards and an `@` Template chip: always makes a new
+   * Document the Agent names, from `template`'s starting file (Blank when left out), and starts its Session with the message.
+   */
+  'project.newDocument': (text: string, attachments?: Attachment[], template?: TemplateChoice) => OpenDocument
   /** Opens the file picker. The chosen files can go along with a message as attachments, and the Agent may read them without asking. */
   'files.pick': () => Attachment[]
   /** Shows the Project's folder in Finder. */

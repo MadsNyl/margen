@@ -3,8 +3,9 @@ import { join } from 'node:path'
 import { slugify } from './new-project'
 
 // The Project page's chat bar (and the editor's New Document) makes a new
-// Document from a description: an empty file at the top of the Project, named
-// by the Agent, or after the description's first words when it can't say.
+// Document from a description: a file at the top of the Project, empty or a
+// Template's starting file, named by the Agent, or after the description's
+// first words when it can't say.
 
 /** Enough words to tell Documents apart, few enough to stay a readable file name. */
 const NAME_WORDS = 5
@@ -17,17 +18,17 @@ export function documentSlug(description: string): string {
 }
 
 /**
- * Makes the empty file and returns its path relative to the Project, named `name`
- * (the Agent's choice) when it gives one. A taken name gets `-2`, `-3`, … instead.
+ * Makes the file with `content` (empty by default) and returns its path relative to the Project,
+ * named `name` (the Agent's choice) when it gives one. A taken name gets `-2`, `-3`, … instead.
  */
-export async function makeDocumentFile(projectDir: string, description: string, name?: string): Promise<string> {
+export async function makeDocumentFile(projectDir: string, description: string, name?: string, content = ''): Promise<string> {
   const given = name && slugify(name.replace(/\.html?$/i, ''))
   const slug = given && given !== 'untitled' ? given.split('-').slice(0, NAME_WORDS).join('-') : documentSlug(description)
   for (let n = 1; ; n++) {
     const path = `${n === 1 ? slug : `${slug}-${n}`}.html`
     try {
       // `wx` fails on anything already there, so nothing is overwritten.
-      await writeFile(join(projectDir, path), '', { flag: 'wx' })
+      await writeFile(join(projectDir, path), content, { flag: 'wx' })
       return path
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error

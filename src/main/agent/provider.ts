@@ -12,6 +12,8 @@ export interface StartSessionOptions {
   model?: string
   effort?: Effort
   resumeId?: string
+  /** The Template's instructions when the Document is marked with one: the Agent follows them for the whole Session. */
+  instructions?: string
   /** Decides which tool calls run without asking. Defaults to the Editor preset, `editorPolicy(projectDir)`. */
   permissions?: PermissionPolicy
 }
