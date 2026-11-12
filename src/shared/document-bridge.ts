@@ -42,6 +42,16 @@ export function pickKeyOf(event: { key: string; shiftKey: boolean }): PickKey | 
   return (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'] as const).find((key) => key === event.key) ?? null
 }
 
+/** A text edit made by hand: the element (its CSS path) and its plain text before and after. */
+export interface TextEdit {
+  selector: string
+  before: string
+  after: string
+}
+
+/** The longest text a hand edit may carry. */
+const TEXT_EDIT_MAX = 20_000
+
 /** An element the editor follows (a marker, a glow), and how to find it again after a reload. */
 export interface TrackedElement {
   id: string
@@ -70,6 +80,8 @@ export type FromDocument =
   | { type: 'stroke'; points: Point[] }
   /** The answer to `resolve`: what the drawing's strokes caught. The script follows target `i` as `<id>/<i>` at once. */
   | { type: 'drawing'; id: string; targets: ElementDescriptor[]; rects: Box[] }
+  /** In Browse: the user double-clicked an element's plain text, changed it and pressed ↵ (or clicked away). */
+  | ({ type: 'text-edit' } & TextEdit)
 
 /** From the editor to the page's script. */
 export type ToDocument =
@@ -80,6 +92,8 @@ export type ToDocument =
   | { type: 'track'; elements: TrackedElement[] }
   /** Resolve a drawing's strokes (page coordinates) to the elements they caught; answered with `drawing`. */
   | { type: 'resolve'; id: string; strokes: Point[][] }
+  /** The last text edit couldn't be saved: put the text back as it was. */
+  | { type: 'text-edit-failed' }
   /** In Pick: an arrow or ↵ pressed in the editor while the page didn't have focus. */
   | { type: 'key'; key: PickKey }
 
@@ -161,5 +175,8 @@ export function parseFromDocument(value: unknown): FromDocument | null {
     return { type: 'drawing', id: message.id, targets: targets as ElementDescriptor[], rects }
   }
   if (message.type === 'key' && MODE_KEYS.includes(message.key as ModeKey)) return { type: 'key', key: message.key as ModeKey }
+  if (message.type === 'text-edit' && isString(message.selector, 2000) && isString(message.before, TEXT_EDIT_MAX) && isString(message.after, TEXT_EDIT_MAX)) {
+    return { type: 'text-edit', selector: message.selector, before: message.before, after: message.after }
+  }
   return null
 }

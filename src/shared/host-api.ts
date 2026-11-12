@@ -3,6 +3,7 @@
 // via `createHost`. Add new calls to `HostCalls` and new events to
 // `HostEvents`; the IPC wiring and the preload pick them up by name.
 
+import type { TextEdit } from './document-bridge'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Attachment, ModelChoice, TurnInput } from './agent'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
@@ -63,8 +64,8 @@ export interface Checkpoint {
   /** 1, 2, 3… in the order the Project's Checkpoints were taken. */
   number: number
   takenAt: string
-  /** `turn`: just before a Turn. `revert`: just before a revert, so the revert can be undone. */
-  reason: 'turn' | 'revert'
+  /** `turn`: just before a Turn. `revert`: just before a revert, so the revert can be undone. `edit`: just before the user edited text by hand. */
+  reason: 'turn' | 'revert' | 'edit'
   /** For `turn`: the Document and the number of the Session the Turn was in, and what the user wrote. */
   document?: string
   session?: number
@@ -151,6 +152,12 @@ export interface HostCalls {
   'document.close': () => void
   /** Opens the open Document's file in the default browser. */
   'document.openInBrowser': () => void
+  /**
+   * The user's own edit of an element's plain text in the Document view. Writes
+   * it to the file after a Checkpoint; rejects (saying why) while a Turn runs, or
+   * when the text isn't written plainly in the file.
+   */
+  'document.editText': (edit: TextEdit) => void
   /** A screenshot of the Document view as it is shown, a PNG data URL in device pixels (2× on Retina). `null` if it can't be taken. */
   'document.capture': () => string | null
   /** The open Document's Session, or `null` when no Document is open. */

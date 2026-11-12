@@ -69,7 +69,9 @@ export function CheckpointList({ disabled }: { disabled: boolean }) {
           <small className="mt-[3px] block truncate text-[12px] text-tx3" title={checkpoint.text}>
             {checkpoint.reason === 'revert'
               ? 'Before a revert'
-              : ['Before a turn', checkpoint.document, checkpoint.session && `Session ${checkpoint.session}`].filter(Boolean).join(' · ')}{' '}
+              : checkpoint.reason === 'edit'
+                ? ['Before your text edit', checkpoint.document].join(' · ')
+                : ['Before a turn', checkpoint.document, checkpoint.session && `Session ${checkpoint.session}`].filter(Boolean).join(' · ')}{' '}
             · {time(checkpoint.takenAt)}
           </small>
         </div>

@@ -5,7 +5,7 @@ A folder the user opens in Margen (any folder, such as a website's code or a fol
 _Avoid_: workspace, repo, context folder
 
 **Document**
-One HTML file in a Project. A Project can hold many. Margen shows it and annotates it; only the Agent changes it.
+One HTML file in a Project. A Project can hold many. Margen shows it and annotates it, and the Agent changes it. The user can also fix plain text by hand: double-click it in Browse.
 _Avoid_: page, site, file (when the Document is meant)
 
 **Agent**
@@ -38,7 +38,7 @@ Messages that were sent while the Agent was busy with a Turn. Each goes out as i
 _Avoid_: batch (collecting Annotations is the Composer's job, not the Queue's)
 
 **Checkpoint**
-A snapshot of the Project taken automatically before each Turn, so the user can go back to how things were before that Turn. Checkpoints belong to the Project, not to a Session or a Document, because one Turn can change several files.
+A snapshot of the Project taken automatically before each Turn (and before each text edit made by hand), so the user can go back to how things were before that Turn. Checkpoints belong to the Project, not to a Session or a Document, because one Turn can change several files.
 _Avoid_: commit, save, version
 
 **Permission preset**

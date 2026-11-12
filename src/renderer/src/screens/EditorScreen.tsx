@@ -16,7 +16,7 @@ import { NewDocumentDialog } from '../editor/NewDocument'
 import { PickLayer } from '../editor/PickLayer'
 import { Toolbar } from '../editor/Toolbar'
 import { ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport } from '../editor/viewport'
-import { host, useHostValue } from '../host'
+import { errorMessage, host, useHostValue } from '../host'
 
 const NOTICE_MS = 2200
 
@@ -36,6 +36,25 @@ export function EditorScreen({ project, document }: { project: Project; document
     const timer = setTimeout(() => setReloaded(0), NOTICE_MS)
     return () => clearTimeout(timer)
   }, [reloaded])
+
+  // A text edit made by hand in the Document goes to the file; if it can't, the text goes back and the notice says why.
+  const [editFailed, setEditFailed] = useState<{ n: number; message: string }>()
+  useEffect(() => {
+    if (!bridge) return
+    return bridge.on((message) => {
+      if (message.type !== 'text-edit') return
+      const { selector, before, after } = message
+      host.call('document.editText', { selector, before, after }).catch((error: unknown) => {
+        bridge.send({ type: 'text-edit-failed' })
+        setEditFailed((last) => ({ n: (last?.n ?? 0) + 1, message: errorMessage(error) }))
+      })
+    })
+  }, [bridge])
+  useEffect(() => {
+    if (!editFailed) return
+    const timer = setTimeout(() => setEditFailed(undefined), NOTICE_MS * 2)
+    return () => clearTimeout(timer)
+  }, [editFailed])
 
   return (
     <ViewportProvider value={viewport}>
@@ -67,6 +86,16 @@ export function EditorScreen({ project, document }: { project: Project; document
               >
                 <span className="size-1.5 rounded-full bg-mint-strong" />
                 Reloaded · scroll kept
+              </div>
+            )}
+            {editFailed && (
+              <div
+                key={`edit-${editFailed.n}`}
+                role="alert"
+                className="notice-in pointer-events-none absolute top-3.5 left-1/2 z-21 flex max-w-[80%] -translate-x-1/2 items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-tx2 shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
+              >
+                <span className="size-1.5 flex-none rounded-full bg-[#e5484d]" />
+                <span className="truncate">Not saved: {editFailed.message}</span>
               </div>
             )}
             <Toolbar mode={mode} onMode={setMode} keyGuide={keyGuide} />

@@ -9,7 +9,7 @@ import type { ElementDescriptor } from '@shared/agent'
 // it loads, so an element that isn't in the source, or a path that matches more
 // than one element, has no line range.
 
-type Element = DefaultTreeAdapterTypes.Element
+export type Element = DefaultTreeAdapterTypes.Element
 type ParentNode = DefaultTreeAdapterTypes.ParentNode
 
 interface Step {
@@ -23,6 +23,15 @@ export type Lines = NonNullable<ElementDescriptor['lines']>
 
 /** A parsed source file, to look up several elements in. */
 export function sourceIndex(source: string): (selector: string) => Lines | undefined {
+  const find = sourceElements(source)
+  return (selector) => {
+    const location = find(selector)?.sourceCodeLocation
+    return location ? { start: location.startLine, end: location.endLine } : undefined
+  }
+}
+
+/** The one element `selector` names in the parsed source, with its source location; undefined when none or several match. */
+export function sourceElements(source: string): (selector: string) => Element | undefined {
   const elements: Element[] = []
   const walk = (node: ParentNode) => {
     for (const child of node.childNodes) {
@@ -40,8 +49,7 @@ export function sourceIndex(source: string): (selector: string) => Lines | undef
     for (const withClasses of [true, false]) {
       const found = elements.filter((element) => matches(element, steps, withClasses))
       if (found.length > 1) return undefined
-      const location = found[0]?.sourceCodeLocation
-      if (location) return { start: location.startLine, end: location.endLine }
+      if (found[0]?.sourceCodeLocation) return found[0]
     }
     return undefined
   }

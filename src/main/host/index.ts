@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,6 +14,7 @@ import { documentFile, resolveDocumentUrl, type DocumentFile } from '../projects
 import { listDocuments } from '../projects/documents'
 import { makeDocumentFile, mentionedDocument } from '../projects/new-document'
 import { makeProjectFolder } from '../projects/new-project'
+import { applyTextEdit } from '../projects/text-edit'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { createEmitter } from './emitter'
@@ -138,6 +139,12 @@ export function createHost({
   const picked = new Set<string>()
   const pickedOnly = (attachments: Attachment[] | undefined) => attachments?.filter((file) => picked.has(file.path))
 
+  /** A short, one-line form of edited text, for the Checkpoint list. */
+  const squashed = (text: string) => {
+    const line = text.replace(/\s+/g, ' ').trim()
+    return line.length > 60 ? `${line.slice(0, 59)}…` : line
+  }
+
   /** The Agent names the new Document; if it can't, the description's first words do. */
   async function newDocumentFile(projectDir: string, description: string): Promise<string> {
     const name = await agent.nameDocument(description).catch(() => undefined)
@@ -174,6 +181,18 @@ export function createHost({
     'document.close': async () => closeDocument(),
     'document.openInBrowser': async () => {
       if (opened) await openExternal(pathToFileURL(opened.file).href)
+    },
+    'document.editText': async (change) => {
+      const { file, session, info } = requireDocument()
+      if (session().running()) throw new Error('Claude is working on the Document. Edit it once the Turn is done.')
+      const edited = applyTextEdit(await readFile(file, 'utf8'), change)
+      const store = checkpoints
+      if (store) {
+        await store.take({ reason: 'edit', document: info.path, text: `${squashed(change.before)} → ${squashed(change.after)}` })
+        events.emit('checkpoints.changed', await store.list())
+      }
+      // The reload watch sees the write and reloads the Document view, keeping its scroll.
+      await writeFile(file, edited)
     },
     'document.capture': async () => (opened ? captureDocument() : null),
     'session.current': async () => opened?.session().view() ?? null,

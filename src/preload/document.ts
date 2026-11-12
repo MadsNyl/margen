@@ -102,7 +102,7 @@ const BLOCKED = [
 
 const isElement = (target: EventTarget | null): target is Element => (target as Node | null)?.nodeType === Node.ELEMENT_NODE
 const editable = (target: EventTarget | null) =>
-  isElement(target) && (target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]') !== null)
+  isElement(target) && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]') !== null
 
 for (const type of BLOCKED) {
   window.addEventListener(
@@ -122,6 +122,7 @@ for (const type of BLOCKED) {
 window.addEventListener(
   'keydown',
   (event) => {
+    if (textEdit && editKey(event)) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
     const pickKeyPressed = mode === 'pick' && !editable(event.target) ? pickKeyOf(event) : null
     if (pickKeyPressed) {
@@ -156,6 +157,7 @@ const PEN =
 const cursors: Partial<Record<Mode, CSSStyleSheet | null>> = { pick: cursorSheet('default'), draw: cursorSheet(PEN) }
 
 function setMode(next: Mode) {
+  if (textEdit) finishTextEdit(true)
   mode = next
   const ours = Object.values(cursors)
   const others = document.adoptedStyleSheets.filter((sheet) => !ours.includes(sheet))
@@ -165,6 +167,101 @@ function setMode(next: Mode) {
   if (mode !== 'draw') stroke = null
   byKey = false
   watch()
+}
+
+// Browse: double-click an element's plain text to change it by hand. It
+// becomes editable in place, outlined in the accent; ↵ or clicking away saves,
+// Esc puts it back. Saving goes to the editor as a `text-edit`, which writes
+// the file; the reload that follows shows the saved text.
+
+interface TextEditing {
+  element: HTMLElement
+  before: string
+  /** What the element's own attribute and outline were, to put back. */
+  editable: string | null
+  outline: string
+  outlineOffset: string
+}
+
+let textEdit: TextEditing | null = null
+/** The last edit sent, so a failed save can put its text back. */
+let lastEdit: { element: HTMLElement; before: string } | null = null
+
+/** Text a hand edit can change: an element with only text inside, not a link, button or form control. */
+function plainText(element: Element): element is HTMLElement {
+  return (
+    element instanceof HTMLElement &&
+    element.children.length === 0 &&
+    (element.textContent ?? '').trim() !== '' &&
+    element.closest('a, button, label, input, textarea, select, option, script, style, [contenteditable]:not([contenteditable="false"])') === null
+  )
+}
+
+window.addEventListener(
+  'dblclick',
+  (event) => {
+    if (mode !== 'browse' || textEdit || !isElement(event.target) || !plainText(event.target)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    startTextEdit(event.target, event.clientX, event.clientY)
+  },
+  { capture: true },
+)
+
+function startTextEdit(element: HTMLElement, x: number, y: number) {
+  textEdit = {
+    element,
+    before: element.textContent ?? '',
+    editable: element.getAttribute('contenteditable'),
+    outline: element.style.outline,
+    outlineOffset: element.style.outlineOffset,
+  }
+  element.setAttribute('contenteditable', 'plaintext-only')
+  element.style.outline = '2px solid #2f7bff'
+  element.style.outlineOffset = '3px'
+  element.focus({ preventScroll: true })
+  // The caret goes where the double-click was.
+  const caret = document.caretRangeFromPoint(x, y)
+  const selection = window.getSelection()
+  if (caret && selection) {
+    selection.removeAllRanges()
+    selection.addRange(caret)
+  }
+  element.addEventListener('blur', onTextEditBlur, { once: true })
+}
+
+function onTextEditBlur() {
+  if (textEdit) finishTextEdit(true)
+}
+
+/** ↵ saves and Esc cancels; every other key just types. True when the key was the edit's. */
+function editKey(event: KeyboardEvent): boolean {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) finishTextEdit(true)
+  else if (event.key === 'Escape') finishTextEdit(false)
+  else return false
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  return true
+}
+
+function finishTextEdit(save: boolean) {
+  const editing = textEdit
+  if (!editing) return
+  textEdit = null
+  const { element, before } = editing
+  element.removeEventListener('blur', onTextEditBlur)
+  if (editing.editable === null) element.removeAttribute('contenteditable')
+  else element.setAttribute('contenteditable', editing.editable)
+  element.style.outline = editing.outline
+  element.style.outlineOffset = editing.outlineOffset
+  window.getSelection()?.removeAllRanges()
+  const after = element.textContent ?? ''
+  if (!save || after.trim() === '' || after.replace(/\s+/g, ' ').trim() === before.replace(/\s+/g, ' ').trim()) {
+    element.textContent = before
+    return
+  }
+  lastEdit = { element, before }
+  send({ type: 'text-edit', selector: selectorOf(element), before, after })
 }
 
 // Pick: the highlight follows the mouse; a click picks.
@@ -334,6 +431,10 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   else if (message.type === 'track') track(message.elements)
   else if (message.type === 'resolve') resolve(message.id, message.strokes)
   else if (message.type === 'key' && mode === 'pick') pickKey(message.key)
+  else if (message.type === 'text-edit-failed' && lastEdit) {
+    lastEdit.element.textContent = lastEdit.before
+    lastEdit = null
+  }
 })
 
 window.addEventListener('DOMContentLoaded', () => send({ type: 'ready', url: location.href }))

@@ -75,6 +75,26 @@ export function inDocument(app: ElectronApplication, expression: string): Promis
   }, expression)
 }
 
+/**
+ * Real keyboard input into the Document view, as the user's typing would arrive:
+ * `text` is inserted where the caret is, then each of `keys` (Enter, Escape…) is pressed.
+ */
+export function typeInDocument(app: ElectronApplication, text: string, keys: string[] = []): Promise<void> {
+  return app.evaluate(
+    async ({ webContents }, { text, keys }) => {
+      const guest = webContents.getAllWebContents().filter((w) => w.getType() === 'webview' && !w.isDestroyed()).at(-1)
+      if (!guest) throw new Error('No Document view')
+      guest.focus()
+      if (text) await guest.insertText(text)
+      for (const keyCode of keys) {
+        guest.sendInputEvent({ type: 'keyDown', keyCode })
+        guest.sendInputEvent({ type: 'keyUp', keyCode })
+      }
+    },
+    { text, keys },
+  )
+}
+
 /** Makes a temporary folder holding the given files, for use as a Project. */
 export async function makeFolder(files: Record<string, string>): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'margen-fixture-'))

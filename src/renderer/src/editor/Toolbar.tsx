@@ -15,7 +15,7 @@ const TOOLS: { mode: Mode; label: string; key: string; tip: string; icon: ReactN
     mode: 'browse',
     label: 'Browse',
     key: 'V',
-    tip: 'Browse: use the Document normally',
+    tip: 'Browse: use the Document normally. Double-click text to edit it',
     icon: <BrowseIcon />,
   },
   {

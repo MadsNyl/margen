@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Attachment } from '@shared/agent'
 import { Dialog } from '../components/Dialog'
 import { ArrowUpIcon, AttachIcon, MicIcon } from '../components/icons'
-import { host } from '../host'
+import { errorMessage, host } from '../host'
 import { AttachmentChips } from './attachments'
 import { useLeave } from './leave'
 
@@ -32,7 +32,7 @@ export function NewDocumentDialog({ onClose }: { onClose: () => void }) {
       setFailed(undefined)
       return host.call('project.newDocument', description, files).then(onClose, (error: unknown) => {
         setCreating(false)
-        setFailed(error instanceof Error ? error.message : String(error))
+        setFailed(errorMessage(error))
       })
     })
   }
