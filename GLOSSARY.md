@@ -38,7 +38,7 @@ Messages that were sent while the Agent was busy with a Turn. Each goes out as i
 _Avoid_: batch (collecting Annotations is the Composer's job, not the Queue's)
 
 **Checkpoint**
-A snapshot of the Project taken automatically before each Turn (and before each text edit made by hand), so the user can go back to how things were before that Turn. Checkpoints belong to the Project, not to a Session or a Document, because one Turn can change several files.
+A snapshot taken automatically before each Turn (and before each text edit made by hand), so the user can go back to how the Document was before that Turn. Checkpoints belong to one Document: each Document lists and numbers its own, and reverting restores that Document's file only. Other files a Turn changed stay as they are.
 _Avoid_: commit, save, version
 
 **Permission preset**

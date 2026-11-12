@@ -52,7 +52,7 @@ export function openEditorDocument({ dataDir, agent, project, path, name, checkp
       if (!store) return undefined
       const number = sessions.current().view().number
       const checkpoint = await store.take({ reason: 'turn', document: path, ...(number && { session: number }), text: turn.text })
-      if (store === checkpoints()) emit('checkpoints.changed', await store.list())
+      if (store === checkpoints()) emit('checkpoints.changed', await store.list(path))
       return checkpoint.id
     },
     onEntry: (id, entry, index) => emit('session.entry', { document: path, session: id, index, entry }),

@@ -95,7 +95,7 @@ const before = {
 }
 
 describe('Checkpoints', () => {
-  test('reverting undoes every edit, creation and deletion the Turn made', async () => {
+  test("reverting restores the Document's file only: the Turn's other changes stay", async () => {
     await write(before)
     await editor({
       turns: [
@@ -113,8 +113,17 @@ describe('Checkpoints', () => {
 
     await host.call('checkpoints.revert', checkpointOf(entries))
 
+    expect(await tree()).toEqual({ 'index.html': before['index.html'], 'styles.css': 'h1 { color: blue }', 'blog/post.html': '<h1>New</h1>' })
+  })
+
+  test('reverting brings back a Document the Turn deleted', async () => {
+    await write(before)
+    await editor({ turns: [[{ type: 'tool', tool: 'shell', name: 'Bash', detail: 'rm index.html', removes: ['index.html'] }]] })
+
+    const entries = await turn('Start over')
+    await host.call('checkpoints.revert', checkpointOf(entries))
+
     expect(await tree()).toEqual(before)
-    expect(await readdir(projectDir)).not.toContain('blog')
   })
 
   test("a Project that is its own git repo keeps its .git, branches and status untouched", async () => {
@@ -143,9 +152,12 @@ describe('Checkpoints', () => {
     await host.call('checkpoints.revert', checkpointOf(entries))
 
     expect(await dotGit()).toEqual(git)
+    expect(await readFile(join(projectDir, 'index.html'), 'utf8')).toBe(project['index.html'])
+    expect(await userGit('branch', '--list', '-v')).toBe(branches)
+    await rm(join(projectDir, 'new.html'))
+    await write({ 'draft.html': '<p>wip</p>' })
     expect(await tree()).toEqual(project)
     expect(await userGit('status', '--porcelain', '--branch')).toBe(status)
-    expect(await userGit('branch', '--list', '-v')).toBe(branches)
   })
 
   test("Margen's ignored folders are left out: not snapshotted, not restored, not deleted", async () => {
@@ -175,26 +187,25 @@ describe('Checkpoints', () => {
     })
   })
 
-  test(".gitignored files are snapshotted and reverted like any other: the Project's .gitignore doesn't apply", async () => {
-    const ignored = { '.gitignore': '*.log\ncache/\n', 'debug.log': 'v1', 'cache/data.json': 'v1', 'cache/[1] *.json': 'v1' }
-    await write({ ...before, ...ignored, 'blog/.gitignore': '*\n', 'blog/post.html': 'v1' })
-    await editor({
-      turns: [
-        [
-          { type: 'tool', tool: 'write', file: 'debug.log', content: 'v2' },
-          { type: 'tool', tool: 'write', file: 'cache/more.json', content: 'new' },
-          { type: 'tool', tool: 'write', file: 'cache/[1] *.json', content: 'v2' },
-          { type: 'tool', tool: 'write', file: 'blog/post.html', content: 'v2' },
-          { type: 'tool', tool: 'write', file: 'blog/drafts/new.html', content: 'new' },
+  test('a Document whose name has glob characters is reverted by that exact path, not a pattern', async () => {
+    await write({ ...before, 'blog/[1] *.html': 'v1', 'blog/1 a.html': 'v1' })
+    await editor(
+      {
+        turns: [
+          [
+            { type: 'tool', tool: 'write', file: 'blog/[1] *.html', content: 'v2' },
+            { type: 'tool', tool: 'write', file: 'blog/1 a.html', content: 'v2' },
+          ],
         ],
-      ],
-    })
+      },
+      'blog/[1] *.html',
+    )
 
-    const entries = await turn('Log more')
+    const entries = await turn('Rewrite it')
     await host.call('checkpoints.revert', checkpointOf(entries))
 
-    expect(await tree()).toEqual({ ...before, ...ignored, 'blog/.gitignore': '*\n', 'blog/post.html': 'v1' })
-    expect(await readdir(join(projectDir, 'blog'))).not.toContain('drafts')
+    expect(await readFile(join(projectDir, 'blog/[1] *.html'), 'utf8')).toBe('v1')
+    expect(await readFile(join(projectDir, 'blog/1 a.html'), 'utf8')).toBe('v2')
   })
 
   test('a subfolder that is its own git repo is left as it is, even one with no commits yet', async () => {
@@ -235,7 +246,7 @@ describe('Checkpoints', () => {
     }
   })
 
-  test('a Checkpoint is taken before every Turn and listed newest first, across Documents and restarts', async () => {
+  test("a Checkpoint is taken before every Turn; each Document lists and numbers its own, newest first, across restarts", async () => {
     await write(before)
     await editor({ turns: [[{ type: 'tool', tool: 'edit', file: 'index.html', content: '<h1>One</h1>' }], [], []] })
     const changed: HostEvents['checkpoints.changed'][] = []
@@ -246,18 +257,24 @@ describe('Checkpoints', () => {
     await host.call('document.open', 'about.html')
     const third = checkpointOf(await turn('On about'))
 
-    const list = await host.call('checkpoints.list')
-    expect(list.map(({ id, number, reason, document, session, text }) => ({ id, number, reason, document, session, text }))).toEqual([
-      { id: third, number: 3, reason: 'turn', document: 'about.html', session: 1, text: 'On about' },
+    const about = await host.call('checkpoints.list')
+    const pick = (list: typeof about) => list.map(({ id, number, reason, document, session, text }) => ({ id, number, reason, document, session, text }))
+    expect(pick(about)).toEqual([{ id: third, number: 1, reason: 'turn', document: 'about.html', session: 1, text: 'On about' }])
+    expect(changed.at(-1)).toEqual(about)
+
+    await host.call('document.open', 'index.html')
+    const index = await host.call('checkpoints.list')
+    expect(pick(index)).toEqual([
       { id: second, number: 2, reason: 'turn', document: 'index.html', session: 1, text: 'Second' },
       { id: first, number: 1, reason: 'turn', document: 'index.html', session: 1, text: 'First' },
     ])
-    expect(changed.at(-1)).toEqual(list)
 
     host.dispose()
     host = createHost({ dataDir, agent: createFakeAgentProvider() })
     await host.call('projects.open', projectDir)
-    expect(await host.call('checkpoints.list')).toEqual(list)
+    expect(await host.call('checkpoints.list')).toEqual([])
+    await host.call('document.open', 'index.html')
+    expect(await host.call('checkpoints.list')).toEqual(index)
   })
 
   test('a queued Turn gets its own Checkpoint when the Queue starts it, after the Turn before it', async () => {

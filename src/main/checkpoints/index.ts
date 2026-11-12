@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { devNull } from 'node:os'
 import { join } from 'node:path'
 import { exec } from 'dugite'
@@ -19,13 +19,21 @@ import { IGNORED_FOLDERS } from '../projects/documents'
 //
 // The list (number, reason, Document, Session, text) is kept in checkpoints.json next
 // to the store rather than parsed from commit messages.
+//
+// A Checkpoint belongs to one Document: each snapshot is of the whole folder,
+// but a Document's Checkpoints are listed and numbered on their own, and
+// reverting to one restores that Document's file only.
 
 export interface CheckpointStore {
   /** Snapshots the Project as it is now. */
   take(meta: Pick<Checkpoint, 'reason' | 'document' | 'session' | 'text'>): Promise<Checkpoint>
-  /** Newest first. */
-  list(): Promise<Checkpoint[]>
-  /** Takes a `revert` Checkpoint, then restores every file to `id`, deleting files made since. Rejects for an unknown id. */
+  /** Newest first: the Document's own (relative to the Project), or every one when `document` is left out. */
+  list(document?: string): Promise<Checkpoint[]>
+  /**
+   * Takes a `revert` Checkpoint of the same Document, then restores that Document's
+   * file to how it was at `id` (deleting it if it didn't exist yet). Other files stay
+   * as they are. Rejects for an unknown id.
+   */
   revert(id: string): Promise<Checkpoint>
 }
 
@@ -92,7 +100,7 @@ export function openCheckpoints(dataDir: string, projectDir: string): Checkpoint
   async function take(meta: Pick<Checkpoint, 'reason' | 'document' | 'session' | 'text'>): Promise<Checkpoint> {
     const paths = await (ready ??= setup())
     const checkpoints = await readIndex(paths.index)
-    const number = checkpoints.length + 1
+    const number = checkpoints.filter((checkpoint) => checkpoint.document === meta.document).length + 1
     // What the store has and what's in the folder, minus Margen's ignored folders but not the Project's .gitignore.
     // A new subfolder that is its own git repo is listed as `dir/` and left out.
     const listed = (await git(paths, ['ls-files', '-z', '--cached', '--others', `--exclude-from=${join(paths.store, 'info', 'exclude')}`]))
@@ -113,18 +121,27 @@ export function openCheckpoints(dataDir: string, projectDir: string): Checkpoint
 
   return {
     take: (meta) => serial(() => take(meta)),
-    list: () =>
+    list: (document) =>
       serial(async () => {
         const paths = await (ready ??= setup())
-        return (await readIndex(paths.index)).reverse()
+        const all = (await readIndex(paths.index)).reverse()
+        return document === undefined ? all : all.filter((checkpoint) => checkpoint.document === document)
       }),
     revert: (id) =>
       serial(async () => {
         const paths = await (ready ??= setup())
-        if (!(await readIndex(paths.index)).some((checkpoint) => checkpoint.id === id)) throw new Error(`No such Checkpoint: ${id}`)
-        const saved = await take({ reason: 'revert' })
-        // The `revert` Checkpoint just staged every file, so this also deletes the ones made since `id`.
-        await git(paths, ['read-tree', '-u', '--reset', id])
+        const target = (await readIndex(paths.index)).find((checkpoint) => checkpoint.id === id)
+        if (!target) throw new Error(`No such Checkpoint: ${id}`)
+        const { document } = target
+        const saved = await take({ reason: 'revert', ...(document && { document }) })
+        if (!document) {
+          // From before Checkpoints had a Document: the whole folder goes back.
+          await git(paths, ['read-tree', '-u', '--reset', id])
+        } else if (await git(paths, ['cat-file', '-e', `${id}:${document}`]).then(() => true, () => false)) {
+          await git(paths, ['checkout', id, '--', document])
+        } else {
+          await rm(join(paths.work, document), { force: true })
+        }
         return saved
       }),
   }

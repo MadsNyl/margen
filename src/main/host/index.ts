@@ -189,7 +189,7 @@ export function createHost({
       const store = checkpoints
       if (store) {
         await store.take({ reason: 'edit', document: info.path, text: `${squashed(change.before)} → ${squashed(change.after)}` })
-        events.emit('checkpoints.changed', await store.list())
+        events.emit('checkpoints.changed', await store.list(info.path))
       }
       // The reload watch sees the write and reloads the Document view, keeping its scroll.
       await writeFile(file, edited)
@@ -212,12 +212,12 @@ export function createHost({
     'session.new': async () => requireDocument().sessions.startNew().view(),
     'session.resume': async (id) => requireDocument().sessions.resume(id).view(),
     'sessions.list': async () => opened?.sessions.list() ?? [],
-    'checkpoints.list': async () => (checkpoints ? checkpoints.list() : []),
+    'checkpoints.list': async () => (checkpoints && opened ? checkpoints.list(opened.info.path) : []),
     'checkpoints.revert': async (id) => {
       const store = requireProject().checkpoints
       if (opened?.session().running()) throw new Error('A Turn is running')
       await store.revert(id)
-      if (store === checkpoints) events.emit('checkpoints.changed', await store.list())
+      if (store === checkpoints && opened) events.emit('checkpoints.changed', await store.list(opened.info.path))
     },
     'project.send': async (text) => {
       const { project } = requireProject()

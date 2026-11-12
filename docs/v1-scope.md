@@ -20,7 +20,7 @@ Settled in the grilling session on 2026-11-11. Terms follow `GLOSSARY.md`; the d
 - Margen is a viewer and annotator, and the Agent edits the Document. The one exception (added 2026-11-12): double-clicking an element's plain text in Browse edits it in place, and ↵ writes it to the file at that element, after a Checkpoint. Text with tags inside or written by a script is left to the Agent, and hand edits wait while a Turn runs. Margen watches the file and live-reloads, keeping scroll position.
 - One active Session per Document, plus a history of past Sessions that can be resumed. Switching Documents switches the chat. The Agent can still read and change any file in the Project.
 - The Project page's chat bar starts a Turn and lands in the editor: a description creates a new Document and opens it with the Turn running, and an `@`-mentioned file opens that Document with the message sent.
-- A Checkpoint is taken automatically before every Turn, with "Revert to here" in the chat. Checkpoints belong to the Project, and Margen never touches the user's own git.
+- A Checkpoint is taken automatically before every Turn, with "Revert to here" in the chat. Checkpoints belong to one Document (changed 2026-11-12: you work on one file at a time): each Document has its own list and numbers, and a revert restores only that Document's file. Margen never touches the user's own git.
 
 ## Editor
 - The Document is on the left and the chat panel on the right.
