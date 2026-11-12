@@ -24,6 +24,12 @@ export interface AgentProvider {
   signIn(): Promise<AgentSetupResult>
   /** Stops a Sign in that's waiting: it ends with `cancelled`. The login in Terminal is the user's to close. */
   cancelSignIn(): void
+  /**
+   * A short file name for a new Document that `description` asks for: a few
+   * lowercase words joined by hyphens, no extension. Undefined when the Agent
+   * can't say (signed out, offline, too slow); the caller names it itself then.
+   */
+  nameDocument(description: string): Promise<string | undefined>
   startSession(opts: StartSessionOptions): AgentSession
 }
 

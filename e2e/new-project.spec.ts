@@ -22,7 +22,8 @@ test('New project asks for a name, makes the folder and opens its empty Project 
   await expect(window.getByRole('heading', { name: 'Nothing here yet' })).toBeVisible()
   await expect(window.getByText('Describe the first page above, and Claude will make it.')).toBeVisible()
   await expect(window.getByRole('button', { name: 'Switch project' })).toHaveText(/summer-menu/)
-  await expect(window.getByText(join(projectsDir, 'summer-menu'))).toBeVisible()
+  // The folder's path is in the Show in Finder button's tooltip.
+  await expect(window.getByRole('button', { name: 'Show in Finder' })).toHaveAttribute('title', join(projectsDir, 'summer-menu'))
   expect(await readdir(join(projectsDir, 'summer-menu'))).toEqual([])
 
   await window.getByRole('button', { name: 'Back to Start' }).click()

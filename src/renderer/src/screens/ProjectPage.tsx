@@ -46,7 +46,7 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
   if (documents.length === 0) {
     return (
       <>
-        <FilesHeader title="HTML files" note={project.path} />
+        <FilesHeader title="HTML files" project={project} />
         <section className="ocean">
           <h3>Nothing here yet</h3>
           <p>Describe the first page above, and Claude will make it.</p>
@@ -58,7 +58,8 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
     <>
       <FilesHeader
         title={plural(documents.length, 'HTML file')}
-        note={hidden.length ? `${joinList(hidden)} ${hidden.length === 1 ? 'is' : 'are'} hidden` : project.path}
+        project={project}
+        note={hidden.length ? `${joinList(hidden)} ${hidden.length === 1 ? 'is' : 'are'} hidden` : undefined}
       />
       <ul aria-label="Documents" className="m-0 grid list-none grid-cols-3 gap-x-6 gap-y-2 p-0">
         {documents.map((doc) => (
@@ -78,11 +79,21 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
   )
 }
 
-function FilesHeader({ title, note }: { title: string; note: string }) {
+function FilesHeader({ title, project, note }: { title: string; project: Project; note?: string }) {
   return (
-    <div className="mx-2 mb-2.5 flex items-baseline justify-between gap-4">
+    <div className="mx-2 mb-2.5 flex items-baseline gap-4">
       <h2 className="m-0 text-[13px] font-medium text-tx2">{title}</h2>
-      <small className="truncate text-xs text-tx3">{note}</small>
+      {note && <small className="min-w-0 truncate text-xs text-tx3">{note}</small>}
+      <button
+        className="ml-auto inline-flex flex-none items-center gap-1.5 text-xs text-tx3 hover:text-tx"
+        title={project.path}
+        onClick={() => void host.call('project.reveal').catch(() => {})}
+      >
+        <svg viewBox="0 0 20 20" className="size-3.5 fill-none stroke-current" strokeWidth={1.6} strokeLinejoin="round" aria-hidden>
+          <path d="M2.5 5.5a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z" />
+        </svg>
+        Show in Finder
+      </button>
     </div>
   )
 }

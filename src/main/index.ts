@@ -160,6 +160,10 @@ void app.whenReady().then(() => {
     updates,
     pickFolder,
     openExternal: (url) => shell.openExternal(url),
+    showFolder: async (path) => {
+      const error = await shell.openPath(path)
+      if (error) throw new Error(error)
+    },
     captureDocument,
     // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
     projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),

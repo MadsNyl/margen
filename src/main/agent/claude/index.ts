@@ -96,13 +96,50 @@ export function createClaudeCodeProvider(system: ClaudeSystem): AgentProvider {
     }
   }
 
+  async function nameDocument(description: string): Promise<string | undefined> {
+    const path = await findClaude()
+    if (!path) return undefined
+    // One quick reply from a small model with no tools, settings or MCP servers, and nothing kept afterwards.
+    const out = await system.run(path, ['-p', namingPrompt(description), ...NAMING_FLAGS], { timeoutMs: NAMING_MS })
+    if (out.exitCode !== 0) return undefined
+    return lastLine(out.stdout)
+  }
+
   return {
     detect,
     install,
     signIn,
     cancelSignIn: () => cancelWaiting(),
+    nameDocument,
     startSession: (options) => startClaudeSession(system, detect, options),
   }
+}
+
+/** Naming waits this long at most before the new Document is named from the description instead. */
+const NAMING_MS = 20_000
+
+const NAMING_FLAGS = [
+  '--model',
+  'haiku',
+  '--tools',
+  '',
+  '--setting-sources',
+  '',
+  '--strict-mcp-config',
+  '--disable-slash-commands',
+  '--no-session-persistence',
+  '--output-format',
+  'text',
+]
+
+function namingPrompt(description: string): string {
+  return [
+    'Name the HTML file for the document this request asks for.',
+    'Reply with the name only: 1 to 4 lowercase words joined by hyphens, no extension.',
+    'Name what the document is, not the request (a request for "a dashboard of my bakery sales" is bakery-sales-dashboard).',
+    'Use the language of the request.',
+    `Request: """${description}"""`,
+  ].join('\n')
 }
 
 function lastLine(text: string): string | undefined {

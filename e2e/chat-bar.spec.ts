@@ -63,3 +63,27 @@ test('@ offers the Project’s Documents, and sending opens the chosen one with 
   await expect(chat.getByText('Thinking')).toBeVisible()
   await expect(window.getByRole('button', { name: 'Switch document' })).toHaveText(/christmas\.html/)
 })
+
+test("the editor's switcher ends with New Document: describe it, and it opens under the Agent's name with the Turn running", async () => {
+  folder = await makeFolder({ 'index.html': '<h1>Home</h1>' })
+  launched = await launchApp({ pickFolder: folder, agent: { documentName: 'bakery-sales-dashboard', turns: [slowTurn] } })
+  const { window } = launched
+  await window.getByRole('button', { name: /Open a folder/ }).click()
+  await window.getByRole('button', { name: /index\.html/ }).click()
+
+  const switcher = window.getByRole('button', { name: 'Switch document' })
+  await switcher.click()
+  await expect(window.getByRole('menuitem').last()).toHaveText('+New Document…')
+  await window.getByRole('menuitem', { name: 'New Document…' }).click()
+
+  const dialog = window.getByRole('dialog', { name: 'New Document' })
+  await dialog.getByRole('textbox', { name: 'Describe the new Document' }).fill('let us write a dashboard for my bakery sales')
+  await dialog.getByRole('textbox', { name: 'Describe the new Document' }).press('Enter')
+
+  await expect(dialog).toBeHidden()
+  await expect(switcher).toHaveText(/bakery-sales-dashboard\.html/)
+  const chat = window.getByRole('complementary', { name: 'Chat' })
+  await expect(chat.getByText('let us write a dashboard for my bakery sales')).toBeVisible()
+  await expect(chat.getByText('Here it is.')).toBeVisible()
+  expect((await readdir(folder)).sort()).toEqual(['bakery-sales-dashboard.html', 'index.html'])
+})

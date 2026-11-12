@@ -93,7 +93,7 @@ test("the breadcrumb lists the Project's Documents and switches between them, an
 
   await window.getByRole('button', { name: 'Switch document' }).click()
   const menu = window.getByRole('menu')
-  await expect(menu.getByRole('menuitem')).toHaveText([/index\.html/, /about\.html\s*pages\//])
+  await expect(menu.getByRole('menuitem')).toHaveText([/index\.html/, /about\.html\s*pages\//, /New Document…/])
   await menu.getByRole('menuitem', { name: /about\.html/ }).click()
 
   await expect(window.getByRole('button', { name: 'Switch document' })).toHaveText(/about\.html/)

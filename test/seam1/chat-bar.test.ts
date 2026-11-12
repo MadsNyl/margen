@@ -99,4 +99,26 @@ describe('The Project chat bar', () => {
 
     expect(opened.path).toBe('newsletter-like-missing-html.html')
   })
+
+  test("a new Document takes the Agent's name for it, made safe as a file name", async () => {
+    await launch({ documentName: 'Bakery Sales Dashboard.html' })
+
+    const { opened } = await sendFromBar('let us write a dashboard for my bakery sales, monthly charts')
+
+    expect(opened.path).toBe('bakery-sales-dashboard.html')
+  })
+
+  test("the editor's New Document always makes a new one, even when the text @-mentions a Document", async () => {
+    await launch({ documentName: 'home-variant' })
+    const ended = new Promise<void>((resolve) => {
+      const off = host.on('session.entry', ({ entry }) => entry.type === 'turn-end' && (off(), resolve()))
+    })
+
+    const opened = await host.call('project.newDocument', 'A variant of @index.html')
+    await ended
+
+    expect(opened.path).toBe('home-variant.html')
+    expect(await host.call('document.current')).toEqual(opened)
+    expect(agent.sent).toEqual([{ text: 'A variant of @index.html', annotations: [] }])
+  })
 })

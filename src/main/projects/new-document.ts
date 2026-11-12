@@ -2,8 +2,9 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { slugify } from './new-project'
 
-// The Project page's chat bar makes a new Document from a description: an
-// empty file at the top of the Project, named after the description's first words.
+// The Project page's chat bar (and the editor's New Document) makes a new
+// Document from a description: an empty file at the top of the Project, named
+// by the Agent, or after the description's first words when it can't say.
 
 /** Enough words to tell Documents apart, few enough to stay a readable file name. */
 const NAME_WORDS = 5
@@ -15,9 +16,13 @@ export function documentSlug(description: string): string {
   return words.slice(0, NAME_WORDS).join('-')
 }
 
-/** Makes the empty file and returns its path relative to the Project. A taken name gets `-2`, `-3`, … instead. */
-export async function makeDocumentFile(projectDir: string, description: string): Promise<string> {
-  const slug = documentSlug(description)
+/**
+ * Makes the empty file and returns its path relative to the Project, named `name`
+ * (the Agent's choice) when it gives one. A taken name gets `-2`, `-3`, … instead.
+ */
+export async function makeDocumentFile(projectDir: string, description: string, name?: string): Promise<string> {
+  const given = name && slugify(name.replace(/\.html?$/i, ''))
+  const slug = given && given !== 'untitled' ? given.split('-').slice(0, NAME_WORDS).join('-') : documentSlug(description)
   for (let n = 1; ; n++) {
     const path = `${n === 1 ? slug : `${slug}-${n}`}.html`
     try {

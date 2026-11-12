@@ -12,6 +12,7 @@ import { DraftProvider } from '../editor/draft'
 import { DrawLayer } from '../editor/DrawLayer'
 import { LeaveGuard, useLeave } from '../editor/leave'
 import { ModeShortcuts } from '../editor/ModeShortcuts'
+import { NewDocumentDialog } from '../editor/NewDocument'
 import { PickLayer } from '../editor/PickLayer'
 import { Toolbar } from '../editor/Toolbar'
 import { ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport } from '../editor/viewport'
@@ -139,6 +140,7 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
   const { open, setOpen, ref } = useDropdown()
   const list = useHostValue('documents.list', 'documents.changed')
   const leave = useLeave()
+  const [creating, setCreating] = useState(false)
 
   return (
     <div ref={ref} className="relative min-w-0">
@@ -167,8 +169,21 @@ function DocumentSwitcher({ document }: { document: OpenDocument }) {
               {doc.dir && <small className="ml-auto flex-none font-mono text-[10.5px] font-normal text-tx3">{doc.dir}</small>}
             </MenuItem>
           ))}
+          <div className="my-1 border-t border-line" />
+          <MenuItem
+            onClick={() => {
+              setOpen(false)
+              setCreating(true)
+            }}
+          >
+            <span className="grid size-4 place-items-center text-tx2" aria-hidden>
+              +
+            </span>
+            New Document…
+          </MenuItem>
         </Menu>
       )}
+      {creating && <NewDocumentDialog onClose={() => setCreating(false)} />}
     </div>
   )
 }

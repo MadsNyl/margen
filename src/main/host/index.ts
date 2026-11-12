@@ -28,6 +28,8 @@ export interface HostDeps {
   pickFolder?: () => Promise<string | undefined>
   /** Opens a URL in the user's default browser (Electron's `shell.openExternal` in the app). */
   openExternal?: (url: string) => Promise<void>
+  /** Opens a folder in the file manager (Electron's `shell.openPath` in the app). */
+  showFolder?: (path: string) => Promise<void>
   /** Where new Projects are made: `~/Documents/Margen` unless tests pass their own. */
   projectsDir?: string
   /** The running app's version (Electron's `app.getVersion()`). */
@@ -52,6 +54,7 @@ export function createHost({
   updates,
   pickFolder = async () => undefined,
   openExternal = async () => {},
+  showFolder = async () => {},
   projectsDir = join(homedir(), 'Documents', 'Margen'),
   version = '0.0.0',
   captureDocument = async () => null,
@@ -123,6 +126,19 @@ export function createHost({
     checkpoints = null
   }
 
+  /** The Agent names the new Document; if it can't, the description's first words do. */
+  async function newDocumentFile(projectDir: string, description: string): Promise<string> {
+    const name = await agent.nameDocument(description).catch(() => undefined)
+    return makeDocumentFile(projectDir, description, name)
+  }
+
+  /** Opens the Document and starts its Session with the message. */
+  async function startDocument(path: string, text: string): Promise<OpenDocument> {
+    const info = await openDocument(path)
+    await opened?.session().send({ text, annotations: [] })
+    return info
+  }
+
   const handlers: Handlers = {
     'agent.detect': () => agent.detect(),
     'agent.install': () => agent.install(),
@@ -173,15 +189,14 @@ export function createHost({
     'project.send': async (text) => {
       const { project } = requireProject()
       const { documents } = await listDocuments(project.path)
-      const path =
-        mentionedDocument(
-          text,
-          documents.map((doc) => doc.path),
-        ) ?? (await makeDocumentFile(project.path, text))
-      const info = await openDocument(path)
-      await opened?.session().send({ text, annotations: [] })
-      return info
+      const mentioned = mentionedDocument(
+        text,
+        documents.map((doc) => doc.path),
+      )
+      return startDocument(mentioned ?? (await newDocumentFile(project.path, text)), text)
     },
+    'project.newDocument': async (text) => startDocument(await newDocumentFile(requireProject().project.path, text), text),
+    'project.reveal': async () => showFolder(requireProject().project.path),
     'model.choice': () => modelChoice.get(),
     'model.setChoice': async (choice) => {
       if (!isModelChoice(choice)) throw new Error(`Not a model choice: ${JSON.stringify(choice)}`)

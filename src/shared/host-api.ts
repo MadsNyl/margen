@@ -192,9 +192,13 @@ export interface HostCalls {
   'checkpoints.revert': (id: string) => void
   /**
    * The Project page's chat bar. Opens the Document the message `@`-mentions, or
-   * makes a new one named from it, and starts that Document's Session with the message.
+   * makes a new one the Agent names, and starts that Document's Session with the message.
    */
   'project.send': (text: string) => OpenDocument
+  /** The editor's New Document: always makes a new Document the Agent names, and starts its Session with the message. */
+  'project.newDocument': (text: string) => OpenDocument
+  /** Shows the Project's folder in Finder. */
+  'project.reveal': () => void
   'recents.list': () => RecentProject[]
   'recents.clear': () => void
   /** The running app's version, for Settings' About. */

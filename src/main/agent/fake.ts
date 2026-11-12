@@ -39,6 +39,8 @@ export interface FakeAgentScript {
   install?: FakeSetupStep & { version?: string }
   signIn?: FakeSetupStep & { plan?: string }
   turns?: FakeStep[][]
+  /** What `nameDocument` answers. Absent: it can't say, as if the Agent were offline. */
+  documentName?: string
   /** Where to write every TurnInput sent so far, as JSON, so Seam 2 can see what reached the Agent. */
   sentFile?: string
 }
@@ -184,6 +186,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
       ]).finally(() => (cancelSignIn = () => {}))
     },
     cancelSignIn: () => cancelSignIn(),
+    nameDocument: async () => script.documentName,
     startSession,
   }
 }
