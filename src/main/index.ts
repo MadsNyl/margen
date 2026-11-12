@@ -10,6 +10,7 @@ import { createHost, type Host } from './host'
 import { bindHostToIpc } from './ipc'
 import { DOCUMENT_SCHEME } from './projects/document'
 import { openVideoFrames } from './video-frames'
+import { VIDEOTOOLBOX_H264 } from './video/videotoolbox'
 import { createUtilityProcessSynthesiser } from './voice-process'
 import { fakeVoicesFromScript } from './voices/fake'
 
@@ -71,6 +72,9 @@ async function pickSaveFile(defaultPath: string): Promise<string | undefined> {
   const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
   return result.canceled ? undefined : result.filePath
 }
+
+/** The platform's H.264 encoder for an export: VideoToolbox on the Mac, none (no export) elsewhere yet. */
+const videoEncoder = () => (process.platform === 'darwin' ? { encoder: VIDEOTOOLBOX_H264 } : {})
 
 /** The ffmpeg `build/ffmpeg.mjs` builds: shipped in the app's Resources, from vendor/ in dev and tests. */
 const ffmpegPath = () =>
@@ -188,7 +192,7 @@ void app.whenReady().then(() => {
     pickFolder,
     pickFiles,
     pickSaveFile,
-    video: { ffmpeg: ffmpegPath(), frames: (url) => openVideoFrames(url, join(__dirname, '../preload/document.js')) },
+    video: { ffmpeg: ffmpegPath(), ...videoEncoder(), frames: (url) => openVideoFrames(url, join(__dirname, '../preload/document.js')) },
     openExternal: (url) => shell.openExternal(url),
     showFolder: async (path) => {
       const error = await shell.openPath(path)

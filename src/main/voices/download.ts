@@ -4,7 +4,7 @@ import { createReadStream, createWriteStream } from 'node:fs'
 import { stat, unlink } from 'node:fs/promises'
 import { promisify } from 'node:util'
 
-// Fetching a voice pack's archive. The bytes go to a `.partial` file as they
+// Fetching a Voice pack's archive. The bytes go to a `.partial` file as they
 // arrive; a download that was cut off (or the app quit) asks for the rest with
 // a Range request next time. A finished file must match the release's sha256.
 

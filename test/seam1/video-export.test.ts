@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { createFakeAgentProvider } from '../../src/main/agent/fake'
 import { createHost, type Host } from '../../src/main/host'
 import { exportVideo, type Frame, type VideoFrames } from '../../src/main/video/export'
+import { VIDEOTOOLBOX_H264 } from '../../src/main/video/videotoolbox'
 import { encodeWav } from '../../src/main/voices/wav'
 import { animationVideoFile } from '../../src/main/templates/animation-video'
 import { mp4Tracks } from './mp4'
@@ -60,7 +61,7 @@ async function launch(frames: VideoFrames, save: (defaultPath: string) => string
   host = createHost({
     dataDir,
     agent: createFakeAgentProvider({}),
-    video: { ffmpeg, frames: async () => frames },
+    video: { ffmpeg, encoder: VIDEOTOOLBOX_H264, frames: async () => frames },
     pickSaveFile: async (defaultPath) => (defaults.push(defaultPath), save(defaultPath)),
   })
   await host.call('projects.open', projectDir)
@@ -169,7 +170,7 @@ withFfmpeg('An audio track in the export (the narration, ticket 05)', () => {
   ])('a track %s to the video’s length', async (_, seconds) => {
     const output = join(projectDir, 'narrated.mp4')
 
-    await exportVideo({ ffmpeg, frames: fakeFrames(2).frames, output, audio: await tone(seconds) })
+    await exportVideo({ ffmpeg, encoder: VIDEOTOOLBOX_H264, frames: fakeFrames(2).frames, output, audio: await tone(seconds) })
 
     const tracks = mp4Tracks(await readFile(output))
     expect(tracks.map((t) => [t.handler, t.codec])).toEqual([

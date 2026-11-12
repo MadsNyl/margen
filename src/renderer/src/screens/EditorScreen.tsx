@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Mode } from '@shared/document-bridge'
 import type { OpenDocument, Project } from '@shared/host-api'
-import type { MarkedTemplateId } from '@shared/templates'
+import { isVideoTemplate, type MarkedTemplateId } from '@shared/templates'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
@@ -43,7 +43,7 @@ export function EditorScreen({ project, document }: { project: Project; document
   // The marker as the page last loaded it says, so a reload that adds or removes it shows or hides the video controls.
   const [marker, setMarker] = useState<{ url: string; template?: MarkedTemplateId }>()
   const template = marker?.url === document.url ? marker.template : document.template
-  const video = template === 'animation-video'
+  const video = isVideoTemplate(template)
   const narration = useNarration(bridge, video, document)
   const clock = useVideoClock(bridge, video, document.url, narration.end)
   // An Animation video always shows its whole frame, fitted to the window.

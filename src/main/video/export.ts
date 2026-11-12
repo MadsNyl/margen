@@ -5,8 +5,9 @@ import type { Readable, Writable } from 'node:stream'
 
 // Exporting an Animation video to MP4 (templates ticket 03): step the video's
 // clock one frame at a time, capture each frame and pipe it to ffmpeg as raw
-// BGRA, which encodes H.264 with VideoToolbox and muxes an MP4. The frames come
-// from a `VideoFrames` (an offscreen window in the app, a pretend one in tests).
+// BGRA, which encodes H.264 with the platform's encoder (`ExportOptions.encoder`)
+// and muxes an MP4. The frames come from a `VideoFrames` (an offscreen window in
+// the app, a pretend one in tests).
 
 export const EXPORT_FPS = 30
 
@@ -31,6 +32,8 @@ export interface VideoFrames {
 export interface ExportOptions {
   /** The ffmpeg binary (`build/ffmpeg.mjs` builds it). */
   ffmpeg: string
+  /** ffmpeg's H.264 encoder and its options for this platform (VideoToolbox on the Mac, `videotoolbox.ts`); the bitrate is added here. */
+  encoder: readonly string[]
   frames: VideoFrames
   /** Where the MP4 goes. It's written beside it first and moved there once done. */
   output: string
@@ -56,7 +59,11 @@ export function frameCount(length: number, fps = EXPORT_FPS): number {
 /** H.264 needs even sizes. */
 const even = (n: number) => Math.max(2, Math.round(n / 2) * 2)
 
-function ffmpegArgs(first: Frame, frames: number, { size, audio, output }: { size: VideoFrames['size']; audio?: string; output: string }) {
+function ffmpegArgs(
+  first: Frame,
+  frames: number,
+  { size, encoder, audio, output }: { size: VideoFrames['size']; encoder: readonly string[]; audio?: string; output: string },
+) {
   const width = even(size.width)
   const height = even(size.height)
   const duration = (frames / EXPORT_FPS).toFixed(6)
@@ -68,8 +75,7 @@ function ffmpegArgs(first: Frame, frames: number, { size, audio, output }: { siz
     ...(audio ? ['-i', audio] : []),
     ...['-map', '0:v'],
     ...['-vf', `scale=${width}:${height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p`],
-    // allow_sw: Apple's software encoder where there's no hardware one (a VM).
-    ...['-c:v', 'h264_videotoolbox', '-allow_sw', '1', '-profile:v', 'high', '-b:v', String(bitrate)],
+    ...[...encoder, '-b:v', String(bitrate)],
     ...['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'],
     ...(audio ? ['-map', '1:a', '-af', 'apad', '-c:a', 'aac', '-b:a', '192k'] : []),
     ...['-t', duration, '-movflags', '+faststart', '-f', 'mp4', output],
@@ -77,7 +83,7 @@ function ffmpegArgs(first: Frame, frames: number, { size, audio, output }: { siz
 }
 
 /** Exports the video to `output`. Rejects when ffmpeg or a frame fails, and on cancel; no file is left behind then. */
-export async function exportVideo({ ffmpeg, frames, output, audio, length, onProgress, signal }: ExportOptions): Promise<void> {
+export async function exportVideo({ ffmpeg, encoder, frames, output, audio, length, onProgress, signal }: ExportOptions): Promise<void> {
   const total = frameCount(Math.max(frames.length, length ?? 0))
   const partial = `${output}.partial`
   let child: ChildProcessByStdio<Writable, null, Readable> | undefined
@@ -88,7 +94,7 @@ export async function exportVideo({ ffmpeg, frames, output, audio, length, onPro
     signal?.throwIfAborted()
     const first = await frames.frame(0)
     signal?.throwIfAborted()
-    const ffmpegProcess = spawn(ffmpeg, ffmpegArgs(first, total, { size: frames.size, audio, output: partial }), {
+    const ffmpegProcess = spawn(ffmpeg, ffmpegArgs(first, total, { size: frames.size, encoder, audio, output: partial }), {
       stdio: ['pipe', 'ignore', 'pipe'],
     })
     child = ffmpegProcess

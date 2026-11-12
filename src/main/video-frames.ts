@@ -39,7 +39,7 @@ export async function openVideoFrames(url: string, preload: string): Promise<Vid
     if (message?.type === 'clock' && message.id) waiting.get(message.id)?.(message.clock)
   })
   let gone: string | null = null
-  contents.on('render-process-gone', () => (gone = 'The page stopped while exporting'))
+  contents.on('render-process-gone', () => (gone = 'The Document stopped while exporting'))
 
   const send = (message: ToDocument) => contents.send(DOCUMENT_BRIDGE_CHANNEL, message)
   let seeks = 0
@@ -50,7 +50,7 @@ export async function openVideoFrames(url: string, preload: string): Promise<Vid
     return new Promise<ClockState>((resolve, reject) => {
       const timer = setTimeout(() => {
         waiting.delete(id)
-        reject(new Error(gone ?? 'The page didn’t draw the frame in time'))
+        reject(new Error(gone ?? 'The Document didn’t draw the frame in time'))
       }, timeout)
       waiting.set(id, (clock) => {
         clearTimeout(timer)

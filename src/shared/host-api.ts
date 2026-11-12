@@ -228,12 +228,12 @@ export interface HostCalls {
   /** Settings → Voices: every download the catalogue offers and where it stands on this Mac. */
   'voices.list': () => VoicePack[]
   /**
-   * Downloads a pack into the data directory and unpacks it; progress comes as `voices.changed`.
+   * Downloads a Voice pack into the data directory and unpacks it; progress comes as `voices.changed`.
    * Resolves once it's installed, rejects when the download fails or its checksum doesn't match.
    * A download cut off part way resumes where it stopped.
    */
   'voices.download': (pack: string) => void
-  /** Removes an installed pack from this Mac. Rejects while it downloads. */
+  /** Removes an installed Voice pack from this Mac. Rejects while it downloads. */
   'voices.delete': (pack: string) => void
   /** Speaks the Voice's sample sentence. Rejects when the Voice isn't on this Mac. */
   'voices.preview': (voice: string) => SpokenAudio
@@ -286,7 +286,7 @@ export interface HostEvents {
   'model.changed': ModelChoice
   /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
   'session.queue': QueueView
-  /** Settings → Voices changed: a download progressed, finished or failed, or a pack was deleted. */
+  /** Settings → Voices changed: a download progressed, finished or failed, or a Voice pack was deleted. */
   'voices.changed': VoicePack[]
   /** The running export has handed `frame` of the video's `frames` to the encoder. */
   'video.exportProgress': { frame: number; frames: number }

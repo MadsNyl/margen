@@ -1,5 +1,5 @@
 // Voices: open-source speech models the user downloads into Margen and that
-// run on their own Mac. One download (a voice pack) can hold several Voices:
+// run on their own Mac. One download (a Voice pack) can hold several Voices:
 // Kokoro-82M is one download with many speakers, each Piper voice is its own.
 
 /**

@@ -17,18 +17,19 @@ import type { DocumentBridge } from './bridge'
 /** How far the audio may be from the clock before it's started again from the clock's time (a seek, a stall). */
 const DRIFT = 0.25
 
-export interface Narration {
+/** The open video's narration as the editor has it: the file's, the Voice packs to choose from, and how long it is spoken. */
+export interface NarrationState {
   /** As the file says now; left out until it's been read. */
   narration?: VideoNarration
   packs?: VoicePack[]
-  /** The pack holding the video's Voice, if Margen knows the Voice. */
+  /** The Voice pack holding the video's Voice, if Margen knows the Voice. */
   pack?: VoicePack
   /** When the last line spoken so far ends, in seconds; 0 with none. */
   end: number
 }
 
 /** The open video's narration, spoken and played with the clock the page's script reports over `bridge`. */
-export function useNarration(bridge: DocumentBridge | null, video: boolean, document: OpenDocument): Narration {
+export function useNarration(bridge: DocumentBridge | null, video: boolean, document: OpenDocument): NarrationState {
   const [read, setRead] = useState<{ url: string; narration: VideoNarration }>()
   const packs = useHostValue('voices.list', 'voices.changed')
 
@@ -150,7 +151,7 @@ function usePlayback(bridge: DocumentBridge | null, video: boolean, lines: (Line
 const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`
 
 /** The top bar's Voice select: no Voice or one from Settings → Voices, and the download of one not on this Mac. */
-export function VoiceSelect({ narration: { narration, packs, pack } }: { narration: Narration }) {
+export function VoiceSelect({ narration: { narration, packs, pack } }: { narration: NarrationState }) {
   const { open, setOpen, ref } = useDropdown()
   const [failed, setFailed] = useState<string>()
   const voice = narration?.voice

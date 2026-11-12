@@ -35,7 +35,7 @@ import {
   Tick02Icon,
   VoiceIcon as VoiceGlyph,
 } from '@hugeicons/core-free-icons'
-import type { TemplateId } from '@shared/templates'
+import { isVideoTemplate, type TemplateId } from '@shared/templates'
 
 // Every icon in the app is a Hugeicons stroke icon, at one stroke width.
 // Sizes are Tailwind size classes; the icon takes the text colour.
@@ -67,10 +67,10 @@ export const ChevronRightIcon = ({ className = 'size-3' }: Props) => <Icon icon=
 export const ChevronLeftIcon = ({ className = 'size-3' }: Props) => <Icon icon={ArrowLeft01Icon} className={className} strokeWidth={2} />
 /** The Blank Template. */
 export const BlankFileIcon = ({ className }: Props) => <Icon icon={File01Icon} className={className} />
-/** The Animation video Template. */
+/** A Template that plays like a video (Animation video). */
 export const VideoIcon = ({ className }: Props) => <Icon icon={Film01Icon} className={className} />
 export const TemplateIcon = ({ template, className }: Props & { template: TemplateId }) =>
-  template === 'animation-video' ? <VideoIcon className={className} /> : <BlankFileIcon className={className} />
+  isVideoTemplate(template) ? <VideoIcon className={className} /> : <BlankFileIcon className={className} />
 export const CloseIcon = ({ className = 'size-4' }: Props) => <Icon icon={Cancel01Icon} className={className} />
 export const CheckIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={Tick02Icon} className={className} strokeWidth={2} />
 export const AddIcon = ({ className = 'size-4' }: Props) => <Icon icon={Add01Icon} className={className} />

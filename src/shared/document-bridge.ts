@@ -11,7 +11,7 @@
 // selector after a reload.
 
 import type { Box, ElementDescriptor, Point } from './agent'
-import type { MarkedTemplateId } from './templates'
+import { isMarkedTemplate, type MarkedTemplateId } from './templates'
 
 export const DOCUMENT_BRIDGE_CHANNEL = 'margen:document'
 
@@ -168,7 +168,7 @@ export function parseFromDocument(value: unknown): FromDocument | null {
   if (!isObject(value)) return null
   const message = value
   if (message.type === 'ready' && typeof message.url === 'string') {
-    return { type: 'ready', url: message.url, ...(message.template === 'animation-video' && { template: message.template }) }
+    return { type: 'ready', url: message.url, ...(isMarkedTemplate(message.template) && { template: message.template }) }
   }
   if (message.type === 'scroll' && isScroll(message.scroll)) return { type: 'scroll', scroll: { x: message.scroll.x, y: message.scroll.y } }
   if (message.type === 'hover') {

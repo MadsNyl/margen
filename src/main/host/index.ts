@@ -23,7 +23,7 @@ import { applyTextEdit } from '../projects/text-edit'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { withVoiceMarker } from '@shared/narration'
-import { isTemplateChoice, type TemplateChoice } from '@shared/templates'
+import { isTemplateChoice, isVideoTemplate, type TemplateChoice } from '@shared/templates'
 import { documentTemplate, startingFile } from '../templates'
 import { createEmitter } from './emitter'
 import { openEditorDocument, type EditorDocument } from './open-document'
@@ -54,10 +54,11 @@ export interface HostDeps {
    */
   voices?: { catalogue?: VoicePackEntry[]; synthesiser?: Synthesiser }
   /**
-   * Exporting an Animation video: the ffmpeg binary, and `frames`, which lays out the Document
-   * at `url` at its frame size and steps its clock (an offscreen window in the app). Without both, export rejects.
+   * Exporting an Animation video: the ffmpeg binary, its H.264 `encoder` for this platform (`ExportOptions.encoder`),
+   * and `frames`, which lays out the Document at `url` at its frame size and steps its clock (an offscreen window
+   * in the app). Without all three, export rejects.
    */
-  video?: { ffmpeg?: string; frames?: (url: string) => Promise<VideoFrames> }
+  video?: { ffmpeg?: string; encoder?: readonly string[]; frames?: (url: string) => Promise<VideoFrames> }
   /** The native Save dialog, opening at `defaultPath`; resolves `undefined` when cancelled. Tests and e2e pass their own. */
   pickSaveFile?: (defaultPath: string) => Promise<string | undefined>
 }
@@ -150,12 +151,11 @@ export function createHost({
   let exporting: AbortController | null = null
 
   async function exportOpenVideo(): Promise<string | null> {
-    const { file, info } = requireDocument()
+    const { file, info } = await requireVideo('Only an Animation video exports to MP4')
     const { project } = requireProject()
-    if ((await documentTemplate(file)) !== 'animation-video') throw new Error('Only an Animation video exports to MP4')
     if (exporting) throw new Error('An export is already running')
-    const { ffmpeg, frames } = video
-    if (!ffmpeg || !frames) throw new Error('Export isn’t available in this build')
+    const { ffmpeg, encoder, frames } = video
+    if (!ffmpeg || !encoder || !frames) throw new Error('Export isn’t available in this build')
     const output = await pickSaveFile(join(project.path, `${basename(info.path, extname(info.path))}.mp4`))
     if (!output) return null
     const controller = new AbortController()
@@ -167,6 +167,7 @@ export function createHost({
       if (controller.signal.aborted) return null
       await exportVideo({
         ffmpeg,
+        encoder,
         frames: await frames(info.url),
         output,
         // The video lasts until the later of its last animation and its last line.
@@ -184,15 +185,15 @@ export function createHost({
     }
   }
 
-  /** The open Document, when it's an Animation video as its file is now. */
-  async function requireVideo(): Promise<EditorDocument> {
+  /** The open Document, when it's an Animation video as its file is now; else rejects with `refusal`. */
+  async function requireVideo(refusal: string): Promise<EditorDocument> {
     const document = requireDocument()
-    if ((await documentTemplate(document.file)) !== 'animation-video') throw new Error('Only an Animation video has a Voice')
+    if (!isVideoTemplate(await documentTemplate(document.file))) throw new Error(refusal)
     return document
   }
 
   async function setVoice(voice: string | null): Promise<void> {
-    const { file, session, info } = await requireVideo()
+    const { file, session, info } = await requireVideo('Only an Animation video has a Voice')
     if (voice !== null && !(await voices.list()).some((pack) => pack.voices.some((v) => v.id === voice))) throw new Error(`Not a Voice: ${String(voice)}`)
     if (session().running()) throw new Error('Claude is working on the Document. Choose the Voice once the Turn is done.')
     const html = await readFile(file, 'utf8')
@@ -370,7 +371,7 @@ export function createHost({
     'voices.preview': (voice) => voices.preview(voice),
     'video.export': exportOpenVideo,
     'video.cancelExport': async () => exporting?.abort(),
-    'video.narration': async () => readNarration((await requireVideo()).file),
+    'video.narration': async () => readNarration((await requireVideo('Only an Animation video has narration')).file),
     'video.setVoice': setVoice,
     'video.speakLine': (voice, text) => {
       if (typeof voice !== 'string' || typeof text !== 'string') return Promise.reject(new Error('A line needs a Voice and its text'))

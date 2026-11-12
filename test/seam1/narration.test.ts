@@ -8,6 +8,7 @@ import { createHost, type Host } from '../../src/main/host'
 import { animationVideoFile } from '../../src/main/templates/animation-video'
 import type { Frame, VideoFrames } from '../../src/main/video/export'
 import type { VoicePackEntry } from '../../src/main/voices/catalogue'
+import { VIDEOTOOLBOX_H264 } from '../../src/main/video/videotoolbox'
 import { createFakeSynthesiser } from '../../src/main/voices/fake'
 import { mp4Tracks } from './mp4'
 
@@ -76,7 +77,7 @@ async function launch(opts: { files?: Record<string, string>; script?: FakeAgent
     dataDir,
     agent,
     voices: { catalogue: CATALOGUE, synthesiser },
-    ...(frames && { video: { ffmpeg, frames: async () => frames }, pickSaveFile: async (path) => path }),
+    ...(frames && { video: { ffmpeg, encoder: VIDEOTOOLBOX_H264, frames: async () => frames }, pickSaveFile: async (path) => path }),
   })
   await host.call('projects.open', projectDir)
 }

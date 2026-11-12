@@ -8,7 +8,7 @@ import { encodeWav } from './wav'
 
 // The Voices on this Mac: what the catalogue offers, downloading and deleting
 // it under `<dataDir>/voices/`, and speaking a line with an installed Voice.
-// A pack is installed when its folder `voices/<pack id>/` exists; it's unpacked
+// A Voice pack is installed when its folder `voices/<pack id>/` exists; it's unpacked
 // beside it in `voices/.downloads/` and moved into place in one rename.
 
 export interface VoicesDeps {
@@ -23,9 +23,9 @@ export interface VoicesDeps {
 
 export interface Voices {
   list(): Promise<VoicePack[]>
-  /** Resolves once the pack is installed. Downloading one already downloading joins it. */
+  /** Resolves once the Voice pack is installed. Downloading one already downloading joins it. */
   download(pack: string): Promise<void>
-  /** Rejects while the pack downloads. */
+  /** Rejects while the Voice pack downloads. */
   delete(pack: string): Promise<void>
   /** Speaks `text` with an installed Voice (`kokoro/af_heart`). */
   speak(voice: string, text: string): Promise<SpokenAudio>
@@ -46,11 +46,11 @@ export function createVoices({
   extract = extractArchive,
 }: VoicesDeps): Voices {
   const downloads = join(dir, '.downloads')
-  /** Packs downloading or whose last download failed; the rest are installed or not, as `installed` says. */
+  /** Voice packs downloading or whose last download failed; the rest are installed or not, as `installed` says. */
   const states = new Map<string, Exclude<VoicePackState, { state: 'installed' | 'available' }>>()
   const running = new Map<string, Promise<void>>()
   const installedDir = (entry: VoicePackEntry) => join(dir, entry.id)
-  /** The packs on disk, read once; downloads and deletes keep it current. */
+  /** The Voice packs on disk, read once; downloads and deletes keep it current. */
   const installed = Promise.all(
     catalogue.map((entry) => stat(installedDir(entry)).then((s) => (s.isDirectory() ? entry.id : null), () => null)),
   ).then((ids) => new Set(ids.filter((id) => id !== null)))

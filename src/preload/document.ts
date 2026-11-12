@@ -14,7 +14,7 @@ import {
   type TrackedElement,
 } from '@shared/document-bridge'
 import { resolveDrawing, resolveStroke, type Layout } from '@shared/draw'
-import { templateMarker } from '@shared/templates'
+import { isVideoTemplate, templateMarker } from '@shared/templates'
 import { arrowTarget, type ArrowKey } from './arrows'
 import { takeClock, type Clock } from './clock'
 import { describeElement, findElement, rectOf, selectorOf } from './elements'
@@ -454,5 +454,5 @@ let clock: Clock | null = null
 window.addEventListener('DOMContentLoaded', () => {
   const template = templateMarker(document.head?.outerHTML ?? '')
   send({ type: 'ready', url: location.href, ...(template && { template }) })
-  if (template === 'animation-video') clock = takeClock((state, id) => send({ type: 'clock', clock: state, ...(id !== undefined && { id }) }))
+  if (isVideoTemplate(template)) clock = takeClock((state, id) => send({ type: 'clock', clock: state, ...(id !== undefined && { id }) }))
 })

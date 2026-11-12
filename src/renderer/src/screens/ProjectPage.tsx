@@ -275,7 +275,7 @@ function TemplateCards() {
               onClick={() => setChosen(template)}
             >
               <span
-                className={`grid h-11 w-14 flex-none place-items-center rounded-[10px] ${template.id === 'animation-video' ? 'bg-violet-soft text-violet-tx' : 'bg-muted text-tx2'}`}
+                className={`grid h-11 w-14 flex-none place-items-center rounded-[10px] ${template.video ? 'bg-violet-soft text-violet-tx' : 'bg-muted text-tx2'}`}
               >
                 <TemplateIcon template={template.id} className="size-5" />
               </span>

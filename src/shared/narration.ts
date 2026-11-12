@@ -1,4 +1,5 @@
-import { TEMPLATE_META, attribute } from './templates'
+import { attribute, metaContent, withMeta } from './html'
+import { TEMPLATE_META } from './templates'
 
 // An Animation video's narration: the lines in its
 // `<script type="application/json" id="narration">` block, each spoken with
@@ -59,18 +60,9 @@ function list(numbers: number[]): string {
 
 export const VOICE_META = 'margen-voice'
 
-/** The `<meta name="margen-voice">` tags in `html`, with where each starts. */
-function voiceTags(html: string): RegExpExecArray[] {
-  return [...html.matchAll(/<meta\b[^>]*>/gi)].filter(([tag]) => attribute(tag, 'name')?.toLowerCase() === VOICE_META)
-}
-
 /** The video's Voice, as `<meta name="margen-voice" content="kokoro/af_heart">` names it. */
 export function voiceMarker(html: string): string | undefined {
-  for (const [tag] of voiceTags(html)) {
-    const content = attribute(tag, 'content')?.trim()
-    if (content) return content
-  }
-  return undefined
+  return metaContent(html, VOICE_META)
 }
 
 /**
@@ -78,21 +70,7 @@ export function voiceMarker(html: string): string | undefined {
  * A new marker goes on the line after the Template marker, else at the top of `<head>`; nothing else changes.
  */
 export function withVoiceMarker(html: string, voice: string | null): string {
-  const tag = voice === null ? '' : `<meta name="${VOICE_META}" content="${voice}">`
-  const [existing] = voiceTags(html)
-  if (existing) {
-    const at = existing.index
-    if (tag) return html.slice(0, at) + tag + html.slice(at + existing[0].length)
-    // With the line break and indent in front of it, so its line goes too.
-    const before = /\r?\n[ \t]*$/.exec(html.slice(0, at))
-    return html.slice(0, before ? before.index : at) + html.slice(at + existing[0].length)
-  }
-  if (!tag) return html
-  const template = [...html.matchAll(/<meta\b[^>]*>/gi)].find(([meta]) => attribute(meta, 'name')?.toLowerCase() === TEMPLATE_META)
-  const after = template ?? /<head\b[^>]*>/i.exec(html)
-  if (!after) return `${tag}\n${html}`
-  const end = after.index + after[0].length
-  return `${html.slice(0, end)}\n${tag}${html.slice(end)}`
+  return withMeta(html, VOICE_META, voice, TEMPLATE_META)
 }
 
 /** When the last of `lines` (each line's start and spoken length) ends, in seconds; 0 with none. `undefined` (not spoken yet) doesn't count. */

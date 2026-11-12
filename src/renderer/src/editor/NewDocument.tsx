@@ -37,7 +37,7 @@ export function NewDocumentDialog({ onClose, template: card }: { onClose: () => 
     const description = text.trim()
     if (!description || creating) return
     const choice: TemplateChoice | undefined = template
-      ? { template: template.id, ...(template.id === 'animation-video' && { frame }) }
+      ? { template: template.id, ...(template.video && { frame }) }
       : undefined
     leave(() => {
       setCreating(true)
@@ -89,7 +89,7 @@ export function NewDocumentDialog({ onClose, template: card }: { onClose: () => 
           className="block max-h-[40vh] min-h-[112px] w-full resize-none border-0 bg-transparent px-5 pt-4 pb-2 text-[14.5px] leading-[1.55] outline-0 placeholder:text-tx3"
         />
         {mentions.popover && <div className="absolute top-[72px] left-4 z-20">{mentions.popover}</div>}
-        {template?.id === 'animation-video' && <FramePicker frame={frame} onChange={setFrame} disabled={creating} />}
+        {template?.video && <FramePicker frame={frame} onChange={setFrame} disabled={creating} />}
         {files.length > 0 && (
           <div className="px-4 pb-1">
             <AttachmentChips files={files} onRemove={(path) => setFiles((had) => had.filter((file) => file.path !== path))} />
