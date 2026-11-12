@@ -20,6 +20,18 @@ _Avoid_: animation, clip, movie
 An open-source speech model the user downloads into Margen and that runs on their own Mac, turning a video's narration into speech.
 _Avoid_: TTS, speech model, voice model
 
+**Voice pack**
+One download from Settings → Voices holding one or more Voices (Kokoro's holds several speakers; a Piper pack holds one). Voices are installed and deleted a Voice pack at a time.
+_Avoid_: model, bundle
+
+**Narration**
+The lines an Animation video speaks, each with the time it starts, written in the Document and spoken with the video's one Voice.
+_Avoid_: voiceover, script, captions
+
+**Frame size**
+The fixed width and height of an Animation video (16:9, 9:16, 1:1 or 4:5), chosen when it is made. The export is exactly this size whatever the window is.
+_Avoid_: resolution, aspect, viewport (the Viewport is something else)
+
 **Agent**
 The local coding agent (Claude Code first, Codex later) that the user's own subscription runs and that edits the Document.
 _Avoid_: AI, bot, model

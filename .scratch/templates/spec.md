@@ -30,7 +30,7 @@ A new Document can be started from a **Template**: a named starting point built 
 - A reload after an edit keeps the paused time, as scroll position is kept.
 
 ### Export
-- An **Export** button in the top bar. Margen steps the clock frame by frame at 30 fps at the frame size, captures each frame and encodes H.264 MP4 with an ffmpeg bundled per arch (fetched at pack time like dugite's git). A Save dialog opens in the Project folder. No background music in this version.
+- An **Export** button in the top bar. Margen steps the clock frame by frame at 30 fps at the frame size, captures each frame and encodes H.264 MP4 with an ffmpeg bundled per arch. It is built from ffmpeg.org's source as an LGPL-only build using Apple's VideoToolbox encoder, rather than fetched like dugite's git, because the downloadable macOS builds are GPL (x264) (changed in ticket 03). A Save dialog opens in the Project folder. No background music in this version.
 
 ### Voices and narration
 - **Settings → Voices** lists downloadable Voices: Kokoro-82M (Apache-2.0) and a set of Piper voices (MIT engine), each with size, licence and a preview. They download on demand from sherpa-onnx's model releases into the data directory, and run on-device through **sherpa-onnx** (Node addon) in an Electron utility process. Nothing is sent anywhere.
