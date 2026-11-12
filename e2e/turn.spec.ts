@@ -46,10 +46,13 @@ test("sending in the Composer runs a Turn: the chat shows the message, the Agent
   await expect(composer).toHaveValue('')
   await expect(chat.getByText('Thinking')).toBeVisible()
   await expect(chat.getByRole('button', { name: 'Queue' })).toBeDisabled()
-  await expect(chat.getByRole('group', { name: 'Tool' })).toHaveText([/^Read\s*index\.html$/, /^Edit\s*index\.html\s*\+1\s*−1$/])
   await expect(chat.getByText('Done. The heading is now big.')).toBeVisible()
   await expect(chat.locator('code')).toHaveText('big')
   await expect(chat.getByText('Thinking')).toBeHidden()
+  // The tool calls fold into one muted line that opens into their timeline.
+  const activity = chat.getByRole('group', { name: 'Activity' })
+  await activity.getByRole('button', { name: 'Read 1 file, edited 1 file' }).click()
+  await expect(activity.getByRole('listitem')).toHaveText([/^Read\s*index\.html$/, /^Edited\s*index\.html\s*\+1\s*−1$/])
 
   await expect(window.getByText('Reloaded · scroll kept')).toBeVisible()
   await expect.poll(() => inDocument(app, `document.querySelector('h1').textContent`)).toBe('Big')

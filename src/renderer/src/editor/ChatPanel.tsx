@@ -1,14 +1,16 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApprovalDecision, ToolEvent } from '@shared/agent'
+import type { ApprovalDecision } from '@shared/agent'
 import type { PermissionPreset } from '@shared/host-api'
 import { ClaudeMark } from '../components/icons'
 import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
+import { Activity, type Step } from './Activity'
 import { AnnotationRows, Chips } from './annotations'
 import { useDraft } from './draft'
 import { CheckpointDivider } from './Checkpoints'
 import { HistoryDrawer } from './HistoryDrawer'
 import { useLeave } from './leave'
+import { Reply } from './Markdown'
 import { ModelPicker } from './ModelPicker'
 import { QueuePanel } from './Queue'
 import { useSession } from './session'
@@ -104,28 +106,42 @@ function Item({ item, running }: { item: ChatItem; running: boolean }) {
       </div>
     )
   }
-  const last = item.parts.at(-1)
-  const busy = running && last?.kind !== 'text' && last?.kind !== 'approval'
+  const blocks = toBlocks(item.parts)
   return (
     <div className="px-1 text-[13.5px] leading-[1.65]">
-      {item.parts.map((part, i) => (
-        <Part key={i} part={part} />
-      ))}
-      {busy && <Busy label={!last || last.kind === 'thinking' ? 'Thinking' : 'Working'} />}
+      {blocks.map((block, i) =>
+        block.kind === 'activity' ? (
+          <Activity key={i} steps={block.steps} active={running && i === blocks.length - 1} />
+        ) : (
+          <Part key={i} part={block.part} />
+        ),
+      )}
+      {running && blocks.length === 0 && <Busy label="Thinking" />}
       {item.end === 'interrupted' && <p className="text-[12.5px] text-tx3">Interrupted.</p>}
     </div>
   )
 }
 
-function Part({ part }: { part: ReplyPart }) {
+type Block = { kind: 'activity'; steps: Step[] } | { kind: 'part'; part: Exclude<ReplyPart, { kind: 'thinking' | 'tool' }> }
+
+/** Runs of thinking and tool calls become one Activity each; text, approvals and errors stand on their own. */
+function toBlocks(parts: ReplyPart[]): Block[] {
+  const blocks: Block[] = []
+  for (const part of parts) {
+    if (part.kind === 'thinking' || part.kind === 'tool') {
+      const last = blocks.at(-1)
+      const step: Step = part.kind === 'tool' ? { kind: 'tool', tool: part.tool } : { kind: 'thinking' }
+      if (last?.kind === 'activity') last.steps.push(step)
+      else blocks.push({ kind: 'activity', steps: [step] })
+    } else blocks.push({ kind: 'part', part })
+  }
+  return blocks
+}
+
+function Part({ part }: { part: Extract<Block, { kind: 'part' }>['part'] }) {
   switch (part.kind) {
     case 'text':
       return <Reply text={part.text} />
-    case 'thinking':
-      // The shimmer shows that the Agent is thinking; its thoughts stay out of the chat.
-      return null
-    case 'tool':
-      return <ToolCard tool={part.tool} />
     case 'approval':
       return <Approval request={part.request} answer={part.answer} />
     case 'error':
@@ -139,56 +155,6 @@ function Busy({ label }: { label: string }) {
       <i className="spinner" />
       <span className="shimmer">{label}</span>
     </span>
-  )
-}
-
-/** The Agent's reply: paragraphs, with `code` set in mono. */
-function Reply({ text }: { text: string }) {
-  return (
-    <div className="select-text">
-      {text
-        .split(/\n{2,}/)
-        .filter((paragraph) => paragraph.trim())
-        .map((paragraph, i) => (
-          <p key={i} className="mb-2 whitespace-pre-wrap">
-            {paragraph.split(/`([^`\n]+)`/).map((piece, j) =>
-              j % 2 ? (
-                <code key={j} className="rounded-[5px] bg-muted px-[5px] py-px font-mono text-[11.5px]">
-                  {piece}
-                </code>
-              ) : (
-                piece
-              ),
-            )}
-          </p>
-        ))}
-    </div>
-  )
-}
-
-const TOOL_LABEL = { read: 'Read', edit: 'Edit', write: 'Write' } as const
-
-function ToolCard({ tool }: { tool: ToolEvent }) {
-  const label = 'file' in tool ? TOOL_LABEL[tool.tool] : tool.name
-  const target = 'file' in tool ? tool.file : tool.detail
-  return (
-    <div
-      role="group"
-      aria-label="Tool"
-      className="my-1.5 flex items-center gap-[9px] rounded-[10px] border border-line bg-white px-[11px] py-[7px] text-[12.5px] text-tx2"
-    >
-      <span className={`flex-none font-medium text-tx ${tool.status === 'running' ? 'tool-running' : ''}`}>{label}</span>
-      <span className="min-w-0 truncate font-mono text-[11px]" title={target}>
-        {target}
-      </span>
-      {tool.status === 'failed' && <span className="ml-auto text-[11px] text-tx3">failed</span>}
-      {'file' in tool && tool.added !== undefined && (
-        <span className="ml-auto flex-none font-mono text-[11px] text-mint-strong">+{tool.added}</span>
-      )}
-      {'file' in tool && tool.removed !== undefined && tool.removed > 0 && (
-        <span className="flex-none font-mono text-[11px] text-ink-tx">−{tool.removed}</span>
-      )}
-    </div>
   )
 }
 
