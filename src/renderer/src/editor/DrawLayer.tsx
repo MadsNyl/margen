@@ -35,7 +35,11 @@ export function usePageScroll(bridge: DocumentBridge | null): ScrollPosition {
   return scroll
 }
 
-export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | null; mode: Mode; frame: RefObject<HTMLDivElement | null> }) {
+/**
+ * `frame` is the Document view's own box, at the page's CSS px. `scale` is how much
+ * the view is scaled down (Fit): this layer isn't, so it scales what it draws instead.
+ */
+export function DrawLayer({ bridge, mode, frame, scale = 1 }: { bridge: DocumentBridge | null; mode: Mode; frame: RefObject<HTMLDivElement | null>; scale?: number }) {
   const draft = useDraft()
   const viewport = useViewport()
   const scroll = usePageScroll(bridge)
@@ -87,6 +91,7 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
   return (
     <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
       <svg data-strokes className="absolute inset-0 size-full" fill="none" stroke={INK} strokeWidth={STROKE_WIDTH} strokeLinecap="round" strokeLinejoin="round">
+        <g transform={`scale(${scale})`}>
         {drawn.map((pending) => {
           const annotation = pending.annotation as DrawAnnotation
           const at = placeDrawing(pending.id, annotation, rects, scroll)
@@ -102,7 +107,8 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
             </g>
           )
         })}
-        <g transform={`translate(${-scroll.x} ${-scroll.y})`}>{mode === 'draw' && live && <path d={pathOf(live.points)} />}</g>
+        <g transform={`translate(${-scroll.x} ${-scroll.y})`}>{mode === 'draw' && live && <path d={pathOf(live.points)} vectorEffect="non-scaling-stroke" />}</g>
+        </g>
       </svg>
       {mode === 'draw' &&
         live?.rects.map((rect, i) => (
@@ -110,7 +116,7 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
             key={i}
             data-live
             className="absolute rounded-[4px] border-[1.5px] border-dashed border-ink bg-ink/6"
-            style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+            style={{ left: rect.x * scale, top: rect.y * scale, width: rect.width * scale, height: rect.height * scale }}
           />
         ))}
     </div>

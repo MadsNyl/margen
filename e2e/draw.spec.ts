@@ -196,10 +196,18 @@ test('a drawing stays on what it caught when the Document reflows: hiding the ch
   await window.getByRole('button', { name: 'Fit to window' }).click()
   await expect.poll(() => inDocument(launched?.app as never, 'innerWidth')).toBe(1440)
   await expect.poll(offset).toBeLessThan(6)
+  // Only the Document is scaled down: its marker keeps its size.
+  const marker = frame.locator('[data-marker="1"]')
+  await expect.poll(async () => Math.round((await marker.boundingBox())?.width ?? 0)).toBe(22)
 
   await window.getByRole('button', { name: 'Fit to window' }).click()
   await window.getByRole('button', { name: 'Show the chat' }).click()
   await expect.poll(offset).toBeLessThan(6)
+
+  // With Fit on again, the reopened comment box keeps its own width too.
+  await window.getByRole('button', { name: 'Fit to window' }).click()
+  await window.getByRole('list', { name: 'Annotations' }).getByRole('button', { name: 'Annotation 1', exact: true }).click()
+  await expect.poll(async () => Math.round((await box.boundingBox())?.width ?? 0)).toBe(340)
 })
 
 test('with the chat hidden, the draft bar sends the collected Annotations', async () => {

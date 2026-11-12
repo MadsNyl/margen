@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { Annotation, Box } from '@shared/agent'
 import { pickKeyOf, type Mode, type ScrollPosition, type TrackedElement } from '@shared/document-bridge'
 import { boundsOf } from '@shared/draw'
@@ -41,11 +41,20 @@ export function PickLayer({
   bridge,
   mode,
   reloads,
+  scale = 1,
+  canvas,
   onKeyGuide,
 }: {
   bridge: DocumentBridge | null
   mode: Mode
   reloads: number
+  /**
+   * How much the Document view is scaled down (Fit). The page reports boxes in its own
+   * CSS px; this layer isn't scaled, so markers and the comment box keep their size.
+   */
+  scale?: number
+  /** The Document view's own box, at the page's CSS px: what a Pick's screenshot is cut from. */
+  canvas: RefObject<HTMLDivElement | null>
   /** Whether the highlight is moving by the arrow keys, for the key guide. */
   onKeyGuide?: (on: boolean) => void
 }) {
@@ -70,12 +79,12 @@ export function PickLayer({
         setRects((now) => ({ ...now, [message.id]: message.rect }))
         const { draft, width } = latest.current
         draft.add(message.id, { kind: 'pick', comment: '', viewportWidth: width, ...message.element })
-        if (layer.current) draft.waitFor(takeCrop(draft, message.id, message.rect, layer.current))
+        if (canvas.current) draft.waitFor(takeCrop(draft, message.id, message.rect, canvas.current))
       } else if (message.type === 'drawing') {
         setRects((now) => ({ ...now, ...Object.fromEntries(message.rects.map((rect, i) => [`${message.id}/${i}`, rect])) }))
       }
     })
-  }, [bridge])
+  }, [bridge, canvas])
 
   useEffect(() => {
     bridge?.send({ type: 'mode', mode })
@@ -124,12 +133,14 @@ export function PickLayer({
   }, [reloads])
 
   const open = draft.annotations.find((p) => p.id === draft.open)
+  const view = (box: Box | null | undefined): Box | null => (box ? scaled(box, scale) : null)
+  const viewRects = Object.fromEntries(Object.entries(rects).map(([id, rect]) => [id, view(rect)]))
 
   return (
     <div ref={layer} className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
       {mode === 'pick' && hover && (
         <Outline
-          rect={hover.rect}
+          rect={scaled(hover.rect, scale)}
           kbd={hover.byKey}
           className={`border-[1.5px] border-ink bg-ink-soft transition-all duration-75 ${hover.byKey ? 'shadow-[0_0_0_4px_rgba(47,123,255,.18)]' : ''}`}
         >
@@ -142,15 +153,20 @@ export function PickLayer({
         </Outline>
       )}
       {glow.map(({ id }) => {
-        const rect = rects[id]
+        const rect = viewRects[id]
         return rect ? <Outline key={id} glow rect={rect} className="glow rounded-[5px] border-2 border-mint-strong" /> : null
       })}
       {[...draft.annotations, ...draft.fading].map((pending) => (
-        <Marker key={pending.id} pending={pending} anchor={anchorOf(pending, rects, scroll)} rects={rects} fading={draft.fading.includes(pending)} />
+        <Marker key={pending.id} pending={pending} anchor={view(anchorOf(pending, rects, scroll))} rects={viewRects} fading={draft.fading.includes(pending)} />
       ))}
-      {open && <CommentBox key={open.id} pending={open} anchor={anchorOf(open, rects, scroll)} />}
+      {open && <CommentBox key={open.id} pending={open} anchor={view(anchorOf(open, rects, scroll))} />}
     </div>
   )
+}
+
+/** A box in the page's CSS px, in the layer's (the Document view scaled by Fit). */
+function scaled(box: Box, scale: number): Box {
+  return scale === 1 ? box : { x: box.x * scale, y: box.y * scale, width: box.width * scale, height: box.height * scale }
 }
 
 /** Adds a screenshot of the picked element's box (in the view's CSS px) to its Annotation, for its thumbnail and the Agent. */

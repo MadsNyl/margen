@@ -131,7 +131,7 @@ export function EditorScreen({ project, document }: { project: Project; document
                 style={fit ? { width: screen.width * scale, height: screen.height * scale } : { width: frameWidth(choice) }}
                 className={`relative mx-auto overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)] ${fit ? '' : 'h-full transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)]'}`}
               >
-                {/* With Fit on, the Document and its overlays are laid out at the whole screen and scaled down together. */}
+                {/* With Fit on, the Document is laid out at the whole screen and scaled down. */}
                 <div
                   ref={canvas}
                   className={fit ? 'absolute top-0 left-0 origin-top-left' : 'relative size-full'}
@@ -146,9 +146,10 @@ export function EditorScreen({ project, document }: { project: Project; document
                       setReloads((n) => n + 1)
                     }}
                   />
-                  <DrawLayer bridge={bridge} mode={mode} frame={canvas} />
-                  <PickLayer bridge={bridge} mode={mode} reloads={reloads} onKeyGuide={setKeyGuide} />
                 </div>
+                {/* Over the view but not scaled with it, so markers and the comment box keep their size. */}
+                <DrawLayer bridge={bridge} mode={mode} frame={canvas} scale={fit ? scale : 1} />
+                <PickLayer bridge={bridge} mode={mode} reloads={reloads} scale={fit ? scale : 1} canvas={canvas} onKeyGuide={setKeyGuide} />
               </div>
             </div>
           </div>
