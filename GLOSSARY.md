@@ -8,6 +8,18 @@ _Avoid_: workspace, repo, context folder
 One HTML file in a Project. A Project can hold many. Margen shows it and annotates it, and the Agent changes it. The user can also fix plain text by hand: double-click it in Browse.
 _Avoid_: page, site, file (when the Document is meant)
 
+**Template**
+A named starting point for a new Document, built into Margen: the first version of its file and how the Agent should work on it. Animation video is the first. A Document started without one is Blank: an empty page the Agent may make into anything.
+_Avoid_: starter, skeleton, boilerplate, preset (a Permission preset is something else)
+
+**Animation video**
+A Document made from the Animation video Template: a page of a fixed frame size whose motion is all HTML and CSS animation on one clock, so it plays like a video and can be exported as one. The user plays and pauses it from the top bar and annotates whatever frame it is paused on.
+_Avoid_: animation, clip, movie
+
+**Voice**
+An open-source speech model the user downloads into Margen and that runs on their own Mac, turning a video's narration into speech.
+_Avoid_: TTS, speech model, voice model
+
 **Agent**
 The local coding agent (Claude Code first, Codex later) that the user's own subscription runs and that edits the Document.
 _Avoid_: AI, bot, model
