@@ -1,6 +1,6 @@
 # Templates, starting with Animation video
 
-Status: in progress
+Status: done
 
 Settled in the grilling session on 2026-11-12. Terms follow `GLOSSARY.md` (Template, Blank, Animation video, Voice); the marker decision is `docs/adr/0004-a-documents-template-is-a-marker-in-its-file.md`.
 
