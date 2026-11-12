@@ -87,4 +87,20 @@ describe('arrow-key Pick', () => {
     }
     expect(press('body', 'ArrowRight')).toBe('header')
   })
+
+  test('⇧→ skips the element and everything inside it, climbing out at the last sibling', () => {
+    expect(press('header', 'NextSibling')).toBe('main')
+    expect(press('nav', 'NextSibling')).toBe('main')
+    expect(press('h1', 'NextSibling')).toBe('nav')
+    expect(press('p1', 'NextSibling')).toBe('section')
+    expect(press('main', 'NextSibling')).toBeNull()
+  })
+
+  test('⇧← goes to the previous visible sibling, or the one before the nearest ancestor that has one', () => {
+    expect(press('main', 'PreviousSibling')).toBe('header')
+    expect(press('section', 'PreviousSibling')).toBe('p1')
+    expect(press('h2', 'PreviousSibling')).toBe('p1')
+    expect(press('a1', 'PreviousSibling')).toBe('h1')
+    expect(press('header', 'PreviousSibling')).toBeNull()
+  })
 })

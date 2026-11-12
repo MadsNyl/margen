@@ -43,6 +43,7 @@ const KEY_GUIDE: [string, string][] = [
   ['↑', 'parent'],
   ['↓', 'child'],
   ['← →', 'previous / next'],
+  ['⇧← ⇧→', 'skip to sibling'],
   ['↵', 'pick'],
   ['esc', 'done'],
 ]

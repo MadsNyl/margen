@@ -30,9 +30,17 @@ export type Mode = 'browse' | 'pick' | 'draw'
 export const MODE_KEYS = ['v', 'p', 'd', 'Escape'] as const
 export type ModeKey = (typeof MODE_KEYS)[number]
 
-/** Arrow-key Pick (13): the arrows move the highlight, ↵ picks. */
-export const PICK_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'] as const
+/** Arrow-key Pick (13): the arrows move the highlight, ⇧← ⇧→ skip to the previous or next sibling, ↵ picks. */
+export const PICK_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PreviousSibling', 'NextSibling', 'Enter'] as const
 export type PickKey = (typeof PICK_KEYS)[number]
+
+/** The Pick key a keydown means, or null. Shift turns ← → into sibling skips and leaves the other keys alone. */
+export function pickKeyOf(event: { key: string; shiftKey: boolean }): PickKey | null {
+  if (event.shiftKey && event.key === 'ArrowLeft') return 'PreviousSibling'
+  if (event.shiftKey && event.key === 'ArrowRight') return 'NextSibling'
+  if (event.shiftKey) return null
+  return (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'] as const).find((key) => key === event.key) ?? null
+}
 
 /** An element the editor follows (a marker, a glow), and how to find it again after a reload. */
 export interface TrackedElement {

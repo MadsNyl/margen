@@ -103,6 +103,23 @@ test('↑ goes to the parent, ↓ to the first child, and ↵ picks the highligh
   await expect(box.getByRole('textbox', { name: 'Comment' })).toBeFocused()
 })
 
+test('⇧→ skips to the next sibling past everything inside, ⇧← goes back a sibling', async () => {
+  const { window, highlight, guide } = await openInPick()
+  const steps: [string, string][] = [
+    ['ArrowRight', 'header#top'],
+    ['Shift+ArrowRight', 'main#main'],
+    ['Shift+ArrowLeft', 'header#top'],
+    ['ArrowDown', 'h1#title'],
+    ['Shift+ArrowRight', 'nav#nav'],
+    ['Shift+ArrowRight', 'main#main'],
+  ]
+  for (const [key, label] of steps) {
+    await window.keyboard.press(key)
+    await expect(highlight).toHaveText(label)
+  }
+  await expect(guide).toContainText('skip to sibling')
+})
+
 test('the arrow keys leave the highlight alone while typing in the comment box or the Composer', async () => {
   const { window, highlight, chat } = await openInPick()
   await window.keyboard.press('ArrowRight')

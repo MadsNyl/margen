@@ -4,7 +4,7 @@ import type { Box, Point } from '@shared/agent'
 import {
   DOCUMENT_BRIDGE_CHANNEL,
   MODE_KEYS,
-  PICK_KEYS,
+  pickKeyOf,
   type FromDocument,
   type Mode,
   type ModeKey,
@@ -123,10 +123,11 @@ window.addEventListener(
   'keydown',
   (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return
-    if (mode === 'pick' && PICK_KEYS.includes(event.key as PickKey) && !editable(event.target)) {
+    const pickKeyPressed = mode === 'pick' && !editable(event.target) ? pickKeyOf(event) : null
+    if (pickKeyPressed) {
       event.preventDefault()
       event.stopImmediatePropagation()
-      pickKey(event.key as PickKey)
+      pickKey(pickKeyPressed)
       return
     }
     const key = event.key === 'Escape' ? 'Escape' : event.key.toLowerCase()
@@ -195,7 +196,7 @@ window.addEventListener('mouseout', (event) => {
   }
 })
 
-/** Arrow-key Pick: ← → walk every visible element in document order, ↑ parent, ↓ first child, ↵ picks. */
+/** Arrow-key Pick: ← → walk every visible element in document order, ⇧← ⇧→ skip by sibling, ↑ parent, ↓ first child, ↵ picks. */
 function pickKey(key: PickKey) {
   if (key === 'Enter') {
     if (hovered?.isConnected) pick(hovered)

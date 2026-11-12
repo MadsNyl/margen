@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { Annotation, Box } from '@shared/agent'
-import { PICK_KEYS, type Mode, type PickKey, type ScrollPosition, type TrackedElement } from '@shared/document-bridge'
+import { pickKeyOf, type Mode, type ScrollPosition, type TrackedElement } from '@shared/document-bridge'
 import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
 import { captureDocument } from './capture'
@@ -94,9 +94,10 @@ export function PickLayer({
     if (!bridge || mode !== 'pick') return
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
-      if (!PICK_KEYS.includes(event.key as PickKey) || (event.key === 'Enter' && !highlighted.current)) return
+      const key = pickKeyOf(event)
+      if (!key || (key === 'Enter' && !highlighted.current)) return
       event.preventDefault()
-      bridge.send({ type: 'key', key: event.key as PickKey })
+      bridge.send({ type: 'key', key })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
