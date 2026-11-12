@@ -20,7 +20,7 @@ export function narrationLengthsTool({ file, audio }: { file: string; audio: Nar
     async run({ texts }) {
       const narration = await readNarration(file)
       const { voice } = narration
-      if (!voice) return { text: 'The video has no Voice yet, so its lines have no spoken length. The user chooses one from the Voice select in the top bar.', error: true }
+      if (!voice) return { text: 'The video has no Voice yet, so its lines have no spoken length. The user chooses one from the Voice select under the video.', error: true }
       try {
         if (texts) {
           const lines: { text: string; seconds: number }[] = []
@@ -41,7 +41,7 @@ export function narrationLengthsTool({ file, audio }: { file: string; audio: Nar
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        return { text: `${message}. The user can download it from the Voice select in the top bar.`, error: true }
+        return { text: `${message}. The user can download it from the Voice select under the video.`, error: true }
       }
     },
   })

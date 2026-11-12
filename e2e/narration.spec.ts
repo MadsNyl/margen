@@ -103,7 +103,7 @@ test('choosing a Voice marks the video, offers its download, and the narration p
   await expect(voice).toHaveText('Testa')
   await expect.poll(() => readFile(join(folder ?? '', 'intro.html'), 'utf8')).toContain(`${MARKER}\n<meta name="margen-voice" content="piper/test">`)
 
-  // Not on this Mac yet: the top bar offers it.
+  // Not on this Mac yet: the time bar offers it.
   await window.getByRole('button', { name: 'Download Testa' }).click()
   await expect(window.getByRole('button', { name: 'Download Testa' })).toBeHidden()
   // Spoken ahead of playing, so it starts on time.
@@ -132,4 +132,27 @@ test('choosing a Voice marks the video, offers its download, and the narration p
   const [again] = await window.evaluate(() => (window as unknown as { started: Started }).started)
   expect(again).toMatchObject({ offset: 0, length: 0.3 })
   expect(Math.abs((again?.delay ?? 0) - (2 - paused))).toBeLessThan(0.2)
+
+  // Each line's start is a tick on the track.
+  const track = window.getByRole('group', { name: 'Time bar' }).getByRole('slider', { name: 'Seek' })
+  await expect(track.locator('[data-line-start]')).toHaveCount(2)
+
+  // Dragging the track while it plays silences the narration; letting go plays on from there, lines and all.
+  await window.getByRole('button', { name: 'Pause' }).click()
+  await window.getByRole('button', { name: 'Play' }).click()
+  await expect.poll(() => window.evaluate(() => (window as unknown as { started: Started }).started.length)).toBe(2)
+  const box = (await track.boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 }
+  const stoppedBefore = await window.evaluate(() => (window as unknown as { stopped: number }).stopped)
+  await window.evaluate(() => ((window as unknown as { started: Started }).started = []))
+  await window.mouse.move(box.x + 2, box.y + box.height / 2)
+  await window.mouse.down()
+  await expect.poll(() => window.evaluate(() => (window as unknown as { stopped: number }).stopped)).toBeGreaterThan(stoppedBefore)
+  await window.mouse.move(box.x + box.width * (0.4 / 2.3), box.y + box.height / 2, { steps: 6 })
+  await expect(timer).toHaveText(/^0:00\.4 /)
+  expect(await window.evaluate(() => (window as unknown as { started: Started }).started)).toEqual([])
+  await window.mouse.up()
+  await expect.poll(() => window.evaluate(() => (window as unknown as { started: Started }).started.length)).toBe(2)
+  const [fromDrag] = await window.evaluate(() => (window as unknown as { started: Started }).started)
+  expect(fromDrag).toMatchObject({ offset: 0, length: 0.2 })
+  expect(fromDrag?.delay).toBeLessThan(0.15)
 })

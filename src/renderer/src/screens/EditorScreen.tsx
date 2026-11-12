@@ -9,7 +9,7 @@ import { AddIcon, ChevronDownIcon, HideChatIcon, OpenExternalIcon, ShowChatIcon 
 import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
-import { PausedTimeProvider, VideoControls, useVideoClock } from '../editor/clock'
+import { PausedTimeProvider, TIME_BAR_ROOM, TimeBar, useVideoClock } from '../editor/clock'
 import { DraftProvider } from '../editor/draft'
 import { ExportButton } from '../editor/export'
 import { VoiceSelect, useNarration } from '../editor/narration'
@@ -51,7 +51,9 @@ export function EditorScreen({ project, document }: { project: Project; document
   const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : SCREENS[choice]
   const measured = useMeasuredViewport(choice, frame, fitted)
   const viewport = video ? { ...measured, width: screen.width } : measured
-  const scale = fitScale(screen, useRoom(stage))
+  const room = useRoom(stage)
+  // An Animation video's time bar sits under its frame, so the frame fits in what's left.
+  const scale = fitScale(screen, video ? { ...room, height: room.height - TIME_BAR_ROOM } : room)
 
   // Pick and Draw work on the paused frame.
   useEffect(() => {
@@ -95,11 +97,7 @@ export function EditorScreen({ project, document }: { project: Project; document
             <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
               {clock ? (
-                <>
-                  <VideoControls clock={clock} />
-                  <VoiceSelect narration={narration} />
-                  <ExportButton ready={clock.state !== undefined} />
-                </>
+                <ExportButton ready={clock.state !== undefined} />
               ) : (
                 <>
                   <FitButton fit={fit} scale={scale} onFit={setFit} />
@@ -151,6 +149,8 @@ export function EditorScreen({ project, document }: { project: Project; document
             {/* Room at the bottom for the floating toolbar, which sits over the stage. */}
             {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
             <div ref={stage} className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
+              {/* An Animation video's frame and the time bar under it, as wide as the frame. */}
+              <div className={clock ? 'mx-auto flex flex-col gap-2.5' : 'contents'} style={clock ? { width: screen.width * scale } : undefined}>
               <div
                 ref={frame}
                 role="region"
@@ -182,6 +182,12 @@ export function EditorScreen({ project, document }: { project: Project; document
                 {/* Over the view but not scaled with it, so markers and the comment box keep their size. */}
                 <DrawLayer bridge={bridge} mode={mode} frame={canvas} scale={fitted ? scale : 1} />
                 <PickLayer bridge={bridge} mode={mode} reloads={reloads} scale={fitted ? scale : 1} canvas={canvas} onKeyGuide={setKeyGuide} />
+              </div>
+              {clock && (
+                <TimeBar clock={clock} marks={narration.narration?.lines.map((line) => line.start) ?? []}>
+                  <VoiceSelect narration={narration} />
+                </TimeBar>
+              )}
               </div>
             </div>
           </div>

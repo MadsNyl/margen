@@ -7,7 +7,7 @@ import { ChevronDownIcon, DownloadIcon, VoiceIcon } from '../components/icons'
 import { errorMessage, host, useHostValue } from '../host'
 import type { DocumentBridge } from './bridge'
 
-// An Animation video's narration in the editor: its Voice, chosen from the top
+// An Animation video's narration in the editor: its Voice, chosen from the time
 // bar (written into the file as `margen-voice`), and its lines spoken with it
 // (main caches them) and played in step with the page's clock. Play starts
 // each line still to come at its time, partway through one the clock is in;
@@ -150,7 +150,7 @@ function usePlayback(bridge: DocumentBridge | null, video: boolean, lines: (Line
 
 const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`
 
-/** The top bar's Voice select: no Voice or one from Settings → Voices, and the download of one not on this Mac. */
+/** The time bar's Voice select: no Voice or one from Settings → Voices, and the download of one not on this Mac. */
 export function VoiceSelect({ narration: { narration, packs, pack } }: { narration: NarrationState }) {
   const { open, setOpen, ref } = useDropdown()
   const [failed, setFailed] = useState<string>()
@@ -211,7 +211,7 @@ export function VoiceSelect({ narration: { narration, packs, pack } }: { narrati
         </button>
       )}
       {open && (
-        <Menu className="top-9 right-0 max-h-[60vh] min-w-[240px] overflow-y-auto">
+        <Menu className="right-0 bottom-9 max-h-[60vh] min-w-[240px] overflow-y-auto">
           <MenuHeading>Voice</MenuHeading>
           <MenuItem current={!voice} onClick={() => choose(null)}>
             No voice
@@ -234,7 +234,7 @@ export function VoiceSelect({ narration: { narration, packs, pack } }: { narrati
       {failed && (
         <div
           role="alert"
-          className="notice-in pointer-events-none absolute top-[calc(100%+14px)] right-0 z-21 flex w-max max-w-[320px] items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-tx2 shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
+          className="notice-in pointer-events-none absolute right-0 bottom-[calc(100%+14px)] z-21 flex w-max max-w-[320px] items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-tx2 shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
         >
           <span className="size-1.5 flex-none rounded-full bg-[#e5484d]" />
           <span className="truncate">{failed}</span>
