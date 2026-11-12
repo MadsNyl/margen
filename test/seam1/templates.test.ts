@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createHost, type Host } from '../../src/main/host'
 import { createFakeAgentProvider, type FakeAgentProvider, type FakeAgentScript } from '../../src/main/agent/fake'
 
@@ -62,6 +62,21 @@ describe('Templates', () => {
     expect(await readFile(join(projectDir, 'intro.html'), 'utf8')).toMatch(/width: 1920px;\s*height: 1080px/)
   })
 
+  test('the rules let the Agent change the Frame size to one of the four when the user asks, and keep it otherwise', async () => {
+    await launch({ documentName: 'intro' })
+    const ended = turnEnded()
+
+    await host.call('project.newDocument', 'An intro, in 9:16 for stories', [], { template: 'animation-video' })
+    await ended
+
+    const instructions = agent.sessions[0]?.instructions ?? ''
+    for (const size of ['16:9 (1920 × 1080 px)', '9:16 (1080 × 1920 px)', '1:1 (1080 × 1080 px)', '4:5 (1080 × 1350 px)']) {
+      expect(instructions).toContain(size)
+    }
+    expect(instructions).toMatch(/only when the user asks/i)
+    expect(instructions).not.toMatch(/keeps the width and height it has in the file/)
+  })
+
   test('a Blank Document starts empty, unmarked, and its Session gets no Template instructions', async () => {
     await launch({ documentName: 'poster' })
     const ended = turnEnded()
@@ -100,6 +115,33 @@ describe('Templates', () => {
       ['cloned.html', true],
       ['plain.html', undefined],
     ])
+  })
+
+  test('a Session whose Document can’t be read for its marker says so and fails the Turn, instead of starting without the rules', async () => {
+    await writeFile(join(projectDir, 'locked.html'), `<!doctype html><html><head><meta name="margen-template" content="animation-video"></head></html>`)
+    await launch()
+    await host.call('document.open', 'locked.html')
+    await chmod(join(projectDir, 'locked.html'), 0o000)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const ended = turnEnded()
+
+    await host.call('session.send', { text: 'Make it longer', annotations: [] })
+    await ended
+
+    const entries = (await host.call('session.current'))?.entries ?? []
+    expect(entries.map((entry) => entry.type)).toEqual(['user', 'error', 'turn-end'])
+    expect(entries[1]).toMatchObject({ type: 'error', message: expect.stringMatching(/Animation video|Template/) })
+    expect(entries[2]).toEqual({ type: 'turn-end', reason: 'failed' })
+    expect(agent.sessions).toEqual([])
+    expect(logged).toHaveBeenCalled()
+    logged.mockRestore()
+
+    // Once it can be read again, the next Turn starts the Session with the rules.
+    await chmod(join(projectDir, 'locked.html'), 0o644)
+    const again = turnEnded()
+    await host.call('session.send', { text: 'Try again', annotations: [] })
+    await again
+    expect(agent.sessions.map((session) => session.instructions?.includes('CSS animations'))).toEqual([true])
   })
 
   test('a Template the host API is given must be a real one', async () => {

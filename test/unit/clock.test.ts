@@ -25,4 +25,10 @@ describe('videoLength', () => {
     expect(videoLength([])).toBe(0)
     expect(videoLength([Infinity])).toBe(0)
   })
+
+  it('runs on to the end of the narration when that is later', () => {
+    expect(videoLength([5000], 6.3)).toBe(6.3)
+    expect(videoLength([5000], 4)).toBe(5)
+    expect(videoLength([], 2.5)).toBe(2.5)
+  })
 })

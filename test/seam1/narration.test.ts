@@ -255,6 +255,18 @@ withFfmpeg('The narration in the export', () => {
     expect(await readdir(join(dataDir, 'narration'))).toHaveLength(2)
   })
 
+  test('narration that runs past the last animation makes the video that long, holding the last frame', async () => {
+    // The last line starts at 1 s and takes 0.3 s with the fake Voice; the animations end at 1 s.
+    await launch({ files: { 'teaser.html': video({ voice: 'piper/test', narration: LINES }) }, frames: frames(1) })
+    await host.call('document.open', 'teaser.html')
+
+    const saved = await host.call('video.export')
+
+    const [picture, sound] = mp4Tracks(await readFile(saved ?? ''))
+    expect(picture?.samples).toBe(39)
+    expect(sound?.duration).toBeCloseTo(1.3, 1)
+  })
+
   test('a video with no Voice or no lines exports silent', async () => {
     await launch({ files: { 'a.html': video({ narration: LINES }), 'b.html': video({ voice: 'piper/test' }) }, frames: frames(1) })
     for (const name of ['a.html', 'b.html']) {

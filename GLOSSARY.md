@@ -29,7 +29,7 @@ The lines an Animation video speaks, each with the time it starts, written in th
 _Avoid_: voiceover, script, captions
 
 **Frame size**
-The fixed width and height of an Animation video (16:9, 9:16, 1:1 or 4:5), chosen when it is made. The export is exactly this size whatever the window is.
+The fixed width and height of an Animation video (16:9, 9:16, 1:1 or 4:5), chosen when it is made and changed only when the user asks for another. The export is exactly this size whatever the window is.
 _Avoid_: resolution, aspect, viewport (the Viewport is something else)
 
 **Agent**

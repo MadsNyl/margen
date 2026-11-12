@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { narrationSchedule } from '@shared/narration'
+import { narrationEnd, narrationSchedule } from '@shared/narration'
 import type { OpenDocument, VideoNarration } from '@shared/host-api'
 import type { VoicePack } from '@shared/voices'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
@@ -23,6 +23,8 @@ export interface Narration {
   packs?: VoicePack[]
   /** The pack holding the video's Voice, if Margen knows the Voice. */
   pack?: VoicePack
+  /** When the last line spoken so far ends, in seconds; 0 with none. */
+  end: number
 }
 
 /** The open video's narration, spoken and played with the clock the page's script reports over `bridge`. */
@@ -53,8 +55,9 @@ export function useNarration(bridge: DocumentBridge | null, video: boolean, docu
   const installed = pack?.state.state === 'installed'
   const audio = useLineAudio(video && installed ? voice : undefined, narration?.lines)
   usePlayback(bridge, video, audio)
+  const end = useMemo(() => narrationEnd(audio), [audio])
 
-  return { ...(narration && { narration }), ...(packs && { packs }), ...(pack && { pack }) }
+  return { ...(narration && { narration }), ...(packs && { packs }), ...(pack && { pack }), end }
 }
 
 interface LineAudio {

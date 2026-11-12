@@ -30,8 +30,7 @@ export function templateSetup(template: MarkedTemplateId, { file, narration }: {
   }
 }
 
-/** The Template a Document's file is marked with, or `undefined` for a Blank one (or a file that can't be read). */
+/** The Template a Document's file is marked with, or `undefined` for a Blank one. Rejects when the file can't be read. */
 export async function documentTemplate(file: string): Promise<MarkedTemplateId | undefined> {
-  const html = await readFile(file, 'utf8').catch(() => '')
-  return templateMarker(html)
+  return templateMarker(await readFile(file, 'utf8'))
 }

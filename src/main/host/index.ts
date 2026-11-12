@@ -11,7 +11,7 @@ import { locateAnnotations } from '../turns'
 import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
 import { exportVideo, type VideoFrames } from '../video/export'
-import { createNarrationAudio, readNarration } from '../narration'
+import { createNarrationAudio, readNarration, type NarrationTrack } from '../narration'
 import { createVoices } from '../voices'
 import { VOICE_CATALOGUE, type VoicePackEntry } from '../voices/catalogue'
 import type { Synthesiser } from '../voices/synthesiser'
@@ -160,7 +160,7 @@ export function createHost({
     if (!output) return null
     const controller = new AbortController()
     exporting = controller
-    let audio: string | undefined
+    let audio: NarrationTrack | undefined
     try {
       // Spoken (or read from the cache) before the first frame, so a missing Voice stops it before it starts.
       audio = await narration.track(file)
@@ -169,7 +169,8 @@ export function createHost({
         ffmpeg,
         frames: await frames(info.url),
         output,
-        ...(audio && { audio }),
+        // The video lasts until the later of its last animation and its last line.
+        ...(audio && { audio: audio.file, length: audio.end }),
         signal: controller.signal,
         onProgress: (frame, total) => events.emit('video.exportProgress', { frame, frames: total }),
       })
@@ -179,7 +180,7 @@ export function createHost({
       throw error
     } finally {
       exporting = null
-      if (audio) await rm(audio, { force: true })
+      if (audio) await rm(audio.file, { force: true })
     }
   }
 

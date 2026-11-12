@@ -17,11 +17,19 @@ export interface VideoClock {
   pause(): void
 }
 
-/** The clock of the Document open at `url` while it's an Animation video (`video`); `null` while it isn't. */
-export function useVideoClock(bridge: DocumentBridge | null, video: boolean, url: string): VideoClock | null {
+/**
+ * The clock of the Document open at `url` while it's an Animation video (`video`); `null` while it isn't.
+ * `narrationEnd` is when its narration ends, spoken with its Voice: the video runs on until then.
+ */
+export function useVideoClock(bridge: DocumentBridge | null, video: boolean, url: string, narrationEnd: number): VideoClock | null {
   const [state, setState] = useState<{ url: string; clock: ClockState }>()
   /** Where the clock last was, kept across the page's reloads. */
   const kept = useRef<{ url: string; time: number } | null>(null)
+
+  // Before the restore below as the page (re)loads, so a time past the last animation but within the narration is kept.
+  useEffect(() => {
+    if (bridge && video) bridge.send({ type: 'clock-narration', end: narrationEnd })
+  }, [bridge, video, narrationEnd])
 
   useEffect(() => {
     if (!bridge || !video) return

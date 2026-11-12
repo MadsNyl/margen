@@ -19,7 +19,7 @@ export interface Frame {
 
 /** Where an export gets its frames: the Document, laid out at its frame size, its clock in Margen's hands. */
 export interface VideoFrames {
-  /** Seconds: when the last animation ends. */
+  /** Seconds: when the last animation ends. Asked for a later frame, it gives the last one. */
   length: number
   /** The video's frame in CSS px; the MP4 is this size. */
   size: { width: number; height: number }
@@ -39,6 +39,8 @@ export interface ExportOptions {
    * narration (ticket 05). Cut, or padded with silence, to the video's length.
    */
   audio?: string
+  /** The video's length in seconds, when it's longer than the frames' (narration that runs past the last animation). */
+  length?: number
   /** After each frame is handed to ffmpeg. */
   onProgress?: (frame: number, frames: number) => void
   /** Stops the export; it then rejects with the signal's reason and leaves no file behind. */
@@ -75,8 +77,8 @@ function ffmpegArgs(first: Frame, frames: number, { size, audio, output }: { siz
 }
 
 /** Exports the video to `output`. Rejects when ffmpeg or a frame fails, and on cancel; no file is left behind then. */
-export async function exportVideo({ ffmpeg, frames, output, audio, onProgress, signal }: ExportOptions): Promise<void> {
-  const total = frameCount(frames.length)
+export async function exportVideo({ ffmpeg, frames, output, audio, length, onProgress, signal }: ExportOptions): Promise<void> {
+  const total = frameCount(Math.max(frames.length, length ?? 0))
   const partial = `${output}.partial`
   let child: ChildProcessByStdio<Writable, null, Readable> | undefined
   let stderr = ''

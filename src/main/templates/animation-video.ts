@@ -41,6 +41,11 @@ export function animationVideoFile(frame: FrameSizeId): string {
 `
 }
 
+const SIZES = Object.entries(FRAME_SIZES).map(([id, { width, height }]) => `${id} (${width} × ${height} px)`)
+
+/** The Frame size: fixed, but the user may ask for another of Margen's. */
+const FRAME = `The Frame size is the .stage's width and height in the file, and it stays as it is unless the user asks for another. Change it only when the user asks for a different size or shape, and then only to one of ${SIZES.slice(0, -1).join(', ')} or ${SIZES.at(-1)}: set the .stage's width and height to it and lay the scenes out again for the new frame. Lay everything out inside the .stage in px; nothing responsive, nothing outside it, no scrolling.`
+
 /** The narration block's format, so Margen can speak it with the video's Voice. */
 const NARRATION = `Narration, if the video has any, is one block in the file:
 <script type="application/json" id="narration">
@@ -58,9 +63,9 @@ export const ANIMATION_VIDEO_RULES: readonly string[] = [
   'All motion is CSS animations on one clock, the page\'s own: @keyframes with animation-delay and animation-duration. Transitions only with a fixed duration and delay. No JavaScript timers or animation loops (setTimeout, setInterval, requestAnimationFrame), no Web Animations started from script, and no motion triggered by hover, focus, clicks or scrolling. Margen pauses and seeks the clock to play, annotate and export the video, so anything that runs on its own time breaks it.',
   'No animation repeats forever (no "infinite"): every animation ends at a set time.',
   'No <video>, <audio>, GIFs or other media that plays on its own time.',
-  'The frame is fixed: the .stage keeps the width and height it has in the file. Lay everything out inside it in px; nothing responsive, nothing outside it, no scrolling.',
+  FRAME,
   'The video is a sequence of scenes, each a <section class="scene"> inside the .stage, timed with animation-delay (its --start) and its length (its --length). Every animation-delay counts from the start of the video, also for the elements inside a scene: build them from the scene\'s start, as in calc(var(--start) + 0.4s).',
-  "The video's length is when the last animation ends. Keep the timeline in the CSS: add, remove or retime scenes by changing their --start and --length and the delays inside them.",
+  "The video's length is when the last animation ends, or the last narration line, if that ends later. Keep the timeline in the CSS: add, remove or retime scenes by changing their --start and --length and the delays inside them.",
   NARRATION,
   LINE_LENGTHS,
 ]

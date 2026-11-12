@@ -87,7 +87,19 @@ export function startDocumentSession({
         if (disposed) return
         add({ type: 'user', turn, ...(checkpoint && { checkpoint }) })
         // The Template's instructions and tools as the file has them when the Agent session starts.
-        const told = session ? undefined : await setup().catch(() => undefined)
+        let told: AgentSetup | undefined
+        try {
+          told = session ? undefined : await setup()
+        } catch (error) {
+          // Not started without them: the Turn fails, and the next one tries again.
+          console.error('No Template setup for this Session:', error)
+          const reason = error instanceof Error ? error.message : String(error)
+          add({ type: 'error', message: `Couldn’t read the Document’s Template, so Claude wasn’t started: ${reason}` })
+          add({ type: 'turn-end', reason: 'failed' })
+          queue.hold()
+          queue.turnEnded()
+          return
+        }
         if (disposed) return
         agentSession(told).send(turn)
       })()

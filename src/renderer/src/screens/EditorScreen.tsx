@@ -44,8 +44,8 @@ export function EditorScreen({ project, document }: { project: Project; document
   const [marker, setMarker] = useState<{ url: string; template?: MarkedTemplateId }>()
   const template = marker?.url === document.url ? marker.template : document.template
   const video = template === 'animation-video'
-  const clock = useVideoClock(bridge, video, document.url)
   const narration = useNarration(bridge, video, document)
+  const clock = useVideoClock(bridge, video, document.url, narration.end)
   // An Animation video always shows its whole frame, fitted to the window.
   const fitted = fit || video
   const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : SCREENS[choice]

@@ -439,6 +439,7 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   else if (message.type === 'clock-play') clock?.play(message.time)
   else if (message.type === 'clock-pause') clock?.pause()
   else if (message.type === 'clock-seek') clock?.seek(message.time, message.id)
+  else if (message.type === 'clock-narration') clock?.narrate(message.end)
   else if (message.type === 'export') exporting = true
   else if (message.type === 'text-edit-failed' && lastEdit) {
     lastEdit.element.textContent = lastEdit.before

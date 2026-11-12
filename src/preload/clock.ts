@@ -12,6 +12,8 @@ export interface Clock {
   play(time?: number): void
   pause(): void
   seek(time: number, id?: string): void
+  /** When the narration ends: the video lasts at least that long. */
+  narrate(end: number): void
 }
 
 /** Takes the page's clock, paused at 0, and reports it with `report` whenever it changes. */
@@ -21,6 +23,7 @@ export function takeClock(report: (clock: ClockState, id?: string) => void): Clo
   let time = 0
   let playing: { from: number; at: number } | null = null
   let loop = 0
+  let narrationEnd = 0
 
   function hold() {
     for (const animation of document.getAnimations()) held.add(animation)
@@ -29,7 +32,10 @@ export function takeClock(report: (clock: ClockState, id?: string) => void): Clo
   }
 
   function length() {
-    return videoLength([...held].map((animation) => Number(animation.effect?.getComputedTiming().endTime ?? 0)))
+    return videoLength(
+      [...held].map((animation) => Number(animation.effect?.getComputedTiming().endTime ?? 0)),
+      narrationEnd,
+    )
   }
 
   function apply() {
@@ -103,6 +109,15 @@ export function takeClock(report: (clock: ClockState, id?: string) => void): Clo
       apply()
       // Answered once the frame has been drawn (with its fonts), so whoever asked can capture it.
       void Promise.resolve(document.fonts?.ready).then(() => requestAnimationFrame(() => requestAnimationFrame(() => send(id))))
+    },
+    narrate(end) {
+      if (end === narrationEnd) return
+      narrationEnd = end
+      // While playing, the next frame says the new length.
+      if (playing) return
+      time = Math.min(time, length())
+      apply()
+      send()
     },
   }
 }

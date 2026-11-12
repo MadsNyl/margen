@@ -50,7 +50,7 @@ async function serveVoice(): Promise<VoicePackEntry> {
 
 const MARKER = '<meta name="margen-template" content="animation-video">'
 
-/** A 4 s video with two narration lines: the fake Voice says each word in a tenth of a second. */
+/** A 2 s video with two narration lines, the last ending at 2.3 s: the fake Voice says each word in a tenth of a second. */
 const VIDEO = `<!doctype html>
 <html>
 <head>
@@ -58,7 +58,7 @@ ${MARKER}
 <style>
   html, body { margin: 0; }
   .stage { position: relative; width: 640px; height: 360px; overflow: hidden; background: #fff; }
-  .scene { position: absolute; inset: 0; visibility: hidden; animation: scene 4s linear 0s; }
+  .scene { position: absolute; inset: 0; visibility: hidden; animation: scene 2s linear 0s; }
   @keyframes scene { from, to { visibility: visible; } }
 </style>
 </head>
@@ -94,6 +94,8 @@ test('choosing a Voice marks the video, offers its download, and the narration p
   await window.getByRole('list', { name: 'Documents' }).getByRole('button', { name: /^intro\.html/ }).click()
   await expect(window.getByRole('region', { name: 'Document view' })).toHaveAttribute('data-ready', 'true')
 
+  const timer = window.getByRole('timer', { name: 'Time' })
+  await expect(timer).toHaveText('0:00.0 / 0:02.0')
   const voice = window.getByRole('button', { name: 'Voice' })
   await expect(voice).toHaveText('No voice')
   await voice.click()
@@ -106,9 +108,10 @@ test('choosing a Voice marks the video, offers its download, and the narration p
   await expect(window.getByRole('button', { name: 'Download Testa' })).toBeHidden()
   // Spoken ahead of playing, so it starts on time.
   await expect.poll(async () => (await spoken()).map((line) => line.text)).toEqual(['Hello there.', 'Three words here.'])
+  // The narration runs past the last animation, and so does the video.
+  await expect(timer).toHaveText('0:00.0 / 0:02.3')
 
   await window.evaluate(RECORD_AUDIO)
-  const timer = window.getByRole('timer', { name: 'Time' })
   await window.getByRole('button', { name: 'Play' }).click()
   await expect.poll(() => window.evaluate(() => (window as unknown as { started: Started }).started.length)).toBe(2)
   const [first, second] = await window.evaluate(() => (window as unknown as { started: Started }).started)

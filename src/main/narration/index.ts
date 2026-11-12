@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { parseNarration, voiceMarker } from '@shared/narration'
+import { narrationEnd, parseNarration, voiceMarker } from '@shared/narration'
 import type { SpokenAudio } from '@shared/voices'
 import type { VideoNarration } from '@shared/host-api'
 import { decodeWav } from '../voices/wav'
@@ -23,10 +23,17 @@ export interface NarrationAudio {
   /** A line spoken with `voice`, from the cache when it's been spoken before. */
   speak(voice: string, text: string): Promise<SpokenAudio>
   /**
-   * The narration of the video in `file` as one WAV written beside the cache, or `undefined` for a silent
-   * video (no Voice or no lines). Rejects when its Voice isn't on this Mac. The caller removes the file.
+   * The narration of the video in `file` as one WAV written beside the cache, and when its last line ends
+   * (seconds), or `undefined` for a silent video (no Voice or no lines). Rejects when its Voice isn't on this Mac.
+   * The caller removes the file.
    */
-  track(file: string): Promise<string | undefined>
+  track(file: string): Promise<NarrationTrack | undefined>
+}
+
+export interface NarrationTrack {
+  file: string
+  /** When the last line ends, in seconds from the start of the video. */
+  end: number
 }
 
 /** The narration as the video's file has it now; a file that can't be read has none. */
@@ -71,14 +78,17 @@ export function createNarrationAudio({ dir, speak: say }: NarrationDeps): Narrat
       const { voice, lines } = await readNarration(file)
       if (!voice || !lines.length) return undefined
       const audio = []
-      for (const line of lines) audio.push({ start: line.start, wav: (await speak(voice, line.text)).wav })
+      for (const line of lines) {
+        const { wav, duration } = await speak(voice, line.text)
+        audio.push({ start: line.start, wav, duration })
+      }
       const track = join(dir, `export-${randomUUID()}.wav`)
       await mkdir(dir, { recursive: true })
       await writeFile(track, mixNarration(audio)).catch(async (error: unknown) => {
         await rm(track, { force: true })
         throw error
       })
-      return track
+      return { file: track, end: narrationEnd(audio) }
     },
   }
 }

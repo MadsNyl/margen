@@ -95,6 +95,11 @@ export function withVoiceMarker(html: string, voice: string | null): string {
   return `${html.slice(0, end)}\n${tag}${html.slice(end)}`
 }
 
+/** When the last of `lines` (each line's start and spoken length) ends, in seconds; 0 with none. `undefined` (not spoken yet) doesn't count. */
+export function narrationEnd(lines: readonly ({ start: number; duration: number } | undefined)[]): number {
+  return Math.max(0, ...lines.map((line) => (line ? line.start + line.duration : 0)))
+}
+
 /** When each line plays, playing the video from `time`: `delay` from now, `offset` into the line's audio. */
 export interface ScheduledLine {
   index: number
