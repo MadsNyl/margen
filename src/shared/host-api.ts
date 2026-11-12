@@ -5,6 +5,7 @@
 
 import type { TextEdit } from './document-bridge'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Attachment, ModelChoice, TurnInput } from './agent'
+import type { SpokenAudio, VoicePack } from './voices'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
 export interface Project {
@@ -217,6 +218,18 @@ export interface HostCalls {
   'update.check': () => UpdateStatus
   /** Restarts into the downloaded version. */
   'update.install': () => void
+  /** Settings → Voices: every download the catalogue offers and where it stands on this Mac. */
+  'voices.list': () => VoicePack[]
+  /**
+   * Downloads a pack into the data directory and unpacks it; progress comes as `voices.changed`.
+   * Resolves once it's installed, rejects when the download fails or its checksum doesn't match.
+   * A download cut off part way resumes where it stopped.
+   */
+  'voices.download': (pack: string) => void
+  /** Removes an installed pack from this Mac. Rejects while it downloads. */
+  'voices.delete': (pack: string) => void
+  /** Speaks the Voice's sample sentence. Rejects when the Voice isn't on this Mac. */
+  'voices.preview': (voice: string) => SpokenAudio
 }
 
 export interface HostEvents {
@@ -244,6 +257,8 @@ export interface HostEvents {
   'model.changed': ModelChoice
   /** The open Document's Queue changed: a message was queued, removed or sent, or it was held or released. */
   'session.queue': QueueView
+  /** Settings → Voices changed: a download progressed, finished or failed, or a pack was deleted. */
+  'voices.changed': VoicePack[]
 }
 
 export type HostCallName = keyof HostCalls

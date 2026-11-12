@@ -15,9 +15,15 @@ files:
   # The Agent SDK's bundled claude binaries: Margen runs the user's own claude (ADR 0002).
   - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
 # dugite's bundled git runs from outside the asar; the hook fetches it for the arch being packed.
+# The Voice addons (sherpa-onnx, piper-phonemize) load dylibs beside them and
+# espeak-ng-data from their folder, so they run from outside the asar too;
+# afterPack drops the other arch's copy.
 asarUnpack:
   - '**/node_modules/dugite/git/**'
+  - '**/node_modules/sherpa-onnx-*/**'
+  - '**/node_modules/piper-phonemize-*/**'
 beforePack: build/dugite-git.mjs
+afterPack: build/voice-addons.mjs
 afterAllArtifactBuild: build/dugite-git-restore.mjs
 
 mac:

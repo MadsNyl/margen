@@ -9,6 +9,8 @@ import { createElectronUpdateSource } from './auto-update'
 import { createHost, type Host } from './host'
 import { bindHostToIpc } from './ipc'
 import { DOCUMENT_SCHEME } from './projects/document'
+import { createUtilityProcessSynthesiser } from './voice-process'
+import { fakeVoicesFromScript } from './voices/fake'
 
 // Electron bootstrap only: windows, security settings and wiring the host API
 // to IPC. Domain logic lives in framework-free modules behind `createHost`.
@@ -27,6 +29,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'session.changed',
   'checkpoints.changed',
   'update.changed',
+  'voices.changed',
 ]
 
 const FIRST_UPDATE_CHECK_MS = 10_000
@@ -175,6 +178,10 @@ void app.whenReady().then(() => {
       if (error) throw new Error(error)
     },
     captureDocument,
+    // `MARGEN_FAKE_VOICES` stands in for sherpa-onnx's releases and the synthesiser in Seam 2 tests.
+    voices: process.env.MARGEN_FAKE_VOICES
+      ? fakeVoicesFromScript(process.env.MARGEN_FAKE_VOICES)
+      : { synthesiser: createUtilityProcessSynthesiser(join(__dirname, 'voice-worker.js')) },
     // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
     projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
     // Unpackaged (dev, Seam 2) `getVersion()` is Electron's own, so read Margen's package.json.

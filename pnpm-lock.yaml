@@ -23,6 +23,12 @@ importers:
       parse5:
         specifier: ^8.1.1
         version: 8.1.1
+      piper-phonemize-node:
+        specifier: 1.5.9
+        version: 1.5.9
+      sherpa-onnx-node:
+        specifier: 2.0.1
+        version: 2.0.1
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -2238,6 +2244,44 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  piper-phonemize-darwin-arm64@1.5.9:
+    resolution: {integrity: sha512-H8ruvVPaiKOuYq/0o0fNGQyp6/YnNik1H0Zrg21b7vtH1GW30vkmEnkDLkWTvUgRSpFDMyGNdVVlubL4RhdZEw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  piper-phonemize-darwin-x64@1.5.9:
+    resolution: {integrity: sha512-95gLmObT+WuNpQcyJip66s2nSOrsQkzsg1FazGmMVeV4JwZQVt8YUPpww6v4oXhqH4j4yd4/TBknvVRGC0ZiTw==}
+    cpu: [x64]
+    os: [darwin]
+
+  piper-phonemize-linux-arm64@1.5.9:
+    resolution: {integrity: sha512-Ex9kOtTPR0t0PzLAEiL6aLc8GbRbVpPk+t5oIgnE8SOZavUOI24WKvRR5C+fdpCAgOVctVMrYYIl6ppLv8C0Lg==}
+    cpu: [arm64]
+    os: [linux]
+
+  piper-phonemize-linux-x64@1.5.9:
+    resolution: {integrity: sha512-e8xcuH1fOhPwd16BmZ6QBrG5C4jB9kWJPBny6EJkUb/9lZ0cgEdiQfIyV9hT2/Tow83vChJefvgRcopbOxzTfA==}
+    cpu: [x64]
+    os: [linux]
+
+  piper-phonemize-node@1.5.9:
+    resolution: {integrity: sha512-IpGK1jqf3LwB47lHSjvu9jz8n9ayVGNc9OnC/gMcIH5gHS+q7Mxw46158bj36mtd4QRKMsF8f5mSEPdtoSP56w==}
+
+  piper-phonemize-win-arm64@1.5.9:
+    resolution: {integrity: sha512-tEZQY+P3VVLoo7AGVgkF6b6RdAm9HgPX7v/9cckhNkyZ5R5dcvrcwLFeZKltAJaVwcrFWZevIXETjBy9FHxtIw==}
+    cpu: [arm64]
+    os: [win32]
+
+  piper-phonemize-win-ia32@1.5.9:
+    resolution: {integrity: sha512-L81GFdKM280Whr8uncHLOiEjQ83VUD+hgWHvF5CCLYYLkWfnrZ4P1FiISvUbMqtREWyzmZKgDKK53uM9BKN5eQ==}
+    cpu: [ia32]
+    os: [win32]
+
+  piper-phonemize-win-x64@1.5.9:
+    resolution: {integrity: sha512-ld6F+SsxPJuzkF+pWKz/NiL/7KRNH3yCAv5CcDQTsvdGGfb9tNexPxsz3jCM1iRqHlCcFcW3CZhDSC5huANHHw==}
+    cpu: [x64]
+    os: [win32]
+
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
@@ -2465,6 +2509,44 @@ packages:
   shebang-regex@3.0.0:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
+
+  sherpa-onnx-darwin-arm64@2.0.1:
+    resolution: {integrity: sha512-agXmbbwiVPUSMViMhWhYAt59iG21ui7x6HxQFU35XzHOfQe9x6Pg9V160Pzak/66x0ePMjixsLUtMaaUrLfCwQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  sherpa-onnx-darwin-x64@2.0.1:
+    resolution: {integrity: sha512-SBnHa3LDOSI/5/rpBHGxKQDFq+yIdxowYY0InLzfojTUx+yGgqu7cYBrRxjzvHOiOKi0O4rmlFVZboyhIqpDgA==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherpa-onnx-linux-arm64@2.0.1:
+    resolution: {integrity: sha512-5CJvLjFYIg23oELCsT7l07fMLT3PdquZ3tqh7KZK3Pzi+c2YiPKRe1DDUxoNdtCaw3ZiS4aQSQPBblB9JStuDA==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherpa-onnx-linux-x64@2.0.1:
+    resolution: {integrity: sha512-w5mRRrIvPvcNWac7rQ8AN/t/cwElPGoRpH+ceCRBV7XfjCIQ9Rcr3Ig/kXcJLNOxgK4bGmef+Y47lIWiesDODw==}
+    cpu: [x64]
+    os: [linux]
+
+  sherpa-onnx-node@2.0.1:
+    resolution: {integrity: sha512-1PSACfQgPXAD7ExwCv1QW09EXTjcNlpZKBqDY+jxSdIzlyOSq0M13SILBoUQUfeJqiTTXnqp6Ha9jjMUQ6efXg==}
+
+  sherpa-onnx-win-arm64@2.0.1:
+    resolution: {integrity: sha512-Mb9iqy2Zp7GC5a99dk5E8EQJsEBnapf+IcwHLVCgtIf5mxYHO9Q8YptnAoOHZOD0Zi+R+MblFyG9qv0Q6tin4Q==}
+    cpu: [arm64]
+    os: [win32]
+
+  sherpa-onnx-win-ia32@2.0.1:
+    resolution: {integrity: sha512-q7qFCA3FK+tYc8pexC9Kzu9WGGoZ9X//UkpxVp6iT4E4W5tPhOEirPyvawS6zgfEW6K/GOISMcYe996Yc7d6iw==}
+    cpu: [ia32]
+    os: [win32]
+
+  sherpa-onnx-win-x64@2.0.1:
+    resolution: {integrity: sha512-7vwdAw9PGEb0JLSpK7UFxAdp1vabBHK9Nhw2jFRBWSFgtslUPHIB0T6syJfRgiUGyCeNW9fJvcFAk2F2u7hBEw==}
+    cpu: [x64]
+    os: [win32]
 
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
@@ -5351,6 +5433,37 @@ snapshots:
 
   picomatch@4.0.7: {}
 
+  piper-phonemize-darwin-arm64@1.5.9:
+    optional: true
+
+  piper-phonemize-darwin-x64@1.5.9:
+    optional: true
+
+  piper-phonemize-linux-arm64@1.5.9:
+    optional: true
+
+  piper-phonemize-linux-x64@1.5.9:
+    optional: true
+
+  piper-phonemize-node@1.5.9:
+    optionalDependencies:
+      piper-phonemize-darwin-arm64: 1.5.9
+      piper-phonemize-darwin-x64: 1.5.9
+      piper-phonemize-linux-arm64: 1.5.9
+      piper-phonemize-linux-x64: 1.5.9
+      piper-phonemize-win-arm64: 1.5.9
+      piper-phonemize-win-ia32: 1.5.9
+      piper-phonemize-win-x64: 1.5.9
+
+  piper-phonemize-win-arm64@1.5.9:
+    optional: true
+
+  piper-phonemize-win-ia32@1.5.9:
+    optional: true
+
+  piper-phonemize-win-x64@1.5.9:
+    optional: true
+
   pkce-challenge@5.0.1: {}
 
   pkijs@3.4.3:
@@ -5641,6 +5754,37 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
+
+  sherpa-onnx-darwin-arm64@2.0.1:
+    optional: true
+
+  sherpa-onnx-darwin-x64@2.0.1:
+    optional: true
+
+  sherpa-onnx-linux-arm64@2.0.1:
+    optional: true
+
+  sherpa-onnx-linux-x64@2.0.1:
+    optional: true
+
+  sherpa-onnx-node@2.0.1:
+    optionalDependencies:
+      sherpa-onnx-darwin-arm64: 2.0.1
+      sherpa-onnx-darwin-x64: 2.0.1
+      sherpa-onnx-linux-arm64: 2.0.1
+      sherpa-onnx-linux-x64: 2.0.1
+      sherpa-onnx-win-arm64: 2.0.1
+      sherpa-onnx-win-ia32: 2.0.1
+      sherpa-onnx-win-x64: 2.0.1
+
+  sherpa-onnx-win-arm64@2.0.1:
+    optional: true
+
+  sherpa-onnx-win-ia32@2.0.1:
+    optional: true
+
+  sherpa-onnx-win-x64@2.0.1:
+    optional: true
 
   side-channel-list@1.0.1:
     dependencies:

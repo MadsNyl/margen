@@ -2,3 +2,8 @@ onlyBuiltDependencies:
   - electron
   - esbuild
   - dugite
+# Both Mac arches of the Voice addons (sherpa-onnx, piper-phonemize), so each
+# arch's build can be packed from one machine; build/voice-addons.mjs drops the other one.
+supportedArchitectures:
+  os: [current, darwin]
+  cpu: [current, arm64, x64]

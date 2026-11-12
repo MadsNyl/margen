@@ -12,6 +12,7 @@ import {
   Cursor01Icon,
   Download04Icon,
   CursorPointer01Icon,
+  Delete02Icon,
   FileCodeIcon,
   FitToScreenIcon,
   Folder01Icon,
@@ -20,9 +21,11 @@ import {
   PanelRightCloseIcon,
   PanelRightOpenIcon,
   PencilEdit01Icon,
+  PlayIcon as PlayGlyph,
   Settings01Icon,
   Shield01Icon,
   SmartPhone01Icon,
+  StopIcon as StopGlyph,
   Tablet01Icon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
@@ -65,6 +68,10 @@ export const HideChatIcon = ({ className }: Props) => <Icon icon={PanelRightClos
 export const ShowChatIcon = ({ className }: Props) => <Icon icon={PanelRightOpenIcon} className={className} />
 export const UpdateIcon = ({ className }: Props) => <Icon icon={Download04Icon} className={className} />
 export const DrawIcon = ({ className }: Props) => <Icon icon={PencilEdit01Icon} className={className} />
+export const DownloadIcon = ({ className = 'size-4' }: Props) => <Icon icon={Download04Icon} className={className} />
+export const DeleteIcon = ({ className = 'size-4' }: Props) => <Icon icon={Delete02Icon} className={className} />
+export const PlayIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={PlayGlyph} className={className} />
+export const StopIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={StopGlyph} className={className} />
 
 /** Claude's spark, white on its terracotta tile, as in the chat panel's header. A brand mark, so not a Hugeicon. */
 export const ClaudeMark = () => (

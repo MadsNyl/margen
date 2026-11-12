@@ -24,7 +24,9 @@
     "dugite": "^3.3.3",
     "electron-updater": "^6.8.11",
     "ignore": "^7.0.14",
-    "parse5": "^8.1.1"
+    "parse5": "^8.1.1",
+    "piper-phonemize-node": "1.5.9",
+    "sherpa-onnx-node": "2.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

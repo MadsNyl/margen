@@ -6,7 +6,8 @@ import type { Plugin } from 'vite'
 
 // Applied to the built app only: the dev server's React refresh needs an inline script.
 // `frame-src margen-doc:` is the one deliberate relaxation: the Document view (a
-// `<webview>`) loads the Document from the margen-doc:// protocol.
+// `<webview>`) loads the Document from the margen-doc:// protocol. `media-src blob:`
+// plays a Voice's speech, which arrives as WAV bytes over the host API.
 const csp: Plugin = {
   name: 'margen-csp',
   apply: 'build',
@@ -16,7 +17,7 @@ const csp: Plugin = {
       attrs: {
         'http-equiv': 'Content-Security-Policy',
         content:
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src margen-doc:",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; font-src 'self' data:; frame-src margen-doc:",
       },
       injectTo: 'head',
     },
@@ -28,6 +29,12 @@ const shared = { '@shared': resolve(__dirname, 'src/shared') }
 export default defineConfig({
   main: {
     resolve: { alias: shared },
+    build: {
+      rollupOptions: {
+        // index: the main process. voice-worker: the Voices utility process (sherpa-onnx).
+        input: { index: resolve(__dirname, 'src/main/index.ts'), 'voice-worker': resolve(__dirname, 'src/main/voice-worker.ts') },
+      },
+    },
   },
   preload: {
     resolve: { alias: shared },

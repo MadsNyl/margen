@@ -10,6 +10,9 @@ import { createPresetStore, isPreset } from '../permissions/preset'
 import { locateAnnotations } from '../turns'
 import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
+import { createVoices } from '../voices'
+import { VOICE_CATALOGUE, type VoicePackEntry } from '../voices/catalogue'
+import type { Synthesiser } from '../voices/synthesiser'
 import { documentFile, resolveDocumentUrl, type DocumentFile } from '../projects/document'
 import { listDocuments } from '../projects/documents'
 import { makeDocumentFile, mentionedDocument } from '../projects/new-document'
@@ -40,6 +43,11 @@ export interface HostDeps {
   version?: string
   /** Screenshots the Document view (a PNG data URL), or `null`. Left out in tests. */
   captureDocument?: () => Promise<string | null>
+  /**
+   * Settings → Voices. `synthesiser` speaks (sherpa-onnx in a utility process in the app);
+   * without one, Voices download but can't speak. `catalogue` is sherpa-onnx's releases unless tests pass their own.
+   */
+  voices?: { catalogue?: VoicePackEntry[]; synthesiser?: Synthesiser }
 }
 
 export interface Host extends HostApi {
@@ -48,6 +56,11 @@ export interface Host extends HostApi {
   /** A link the Document view followed: emits `document.link` when it leads to a Document of the current Project. */
   followLink(url: string): Promise<void>
   dispose(): void
+}
+
+const noSynthesiser: Synthesiser = {
+  synthesise: () => Promise.reject(new Error('Voices can’t speak in this build')),
+  dispose() {},
 }
 
 type Handlers = { [K in HostCallName]: (...args: Parameters<HostCalls[K]>) => Promise<Awaited<ReturnType<HostCalls[K]>>> }
@@ -63,6 +76,7 @@ export function createHost({
   projectsDir = join(homedir(), 'Documents', 'Margen'),
   version = '0.0.0',
   captureDocument = async () => null,
+  voices: voiceDeps = {},
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
@@ -73,6 +87,12 @@ export function createHost({
   let opened: EditorDocument | null = null
   const preset = createPresetStore(dataDir)
   const modelChoice = createModelChoiceStore(dataDir)
+  const voices = createVoices({
+    dir: join(dataDir, 'voices'),
+    catalogue: voiceDeps.catalogue ?? VOICE_CATALOGUE,
+    synthesiser: voiceDeps.synthesiser ?? noSynthesiser,
+    onChange: (packs) => events.emit('voices.changed', packs),
+  })
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -261,6 +281,10 @@ export function createHost({
     'update.status': async () => updater.status(),
     'update.check': () => updater.check(),
     'update.install': async () => updater.install(),
+    'voices.list': () => voices.list(),
+    'voices.download': (pack) => voices.download(pack),
+    'voices.delete': (pack) => voices.delete(pack),
+    'voices.preview': (voice) => voices.preview(voice),
   }
 
   return {
@@ -286,6 +310,7 @@ export function createHost({
     },
     dispose() {
       close()
+      voices.dispose()
       events.clear()
     },
   }

@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AgentStatus } from '@shared/agent'
 import type { PermissionPreset, UpdateStatus } from '@shared/host-api'
-import { host, useHostValue } from '../host'
-import { CloseIcon } from './icons'
+import type { VoicePack } from '@shared/voices'
+import { errorMessage, host, useHostValue } from '../host'
+import { CloseIcon, DeleteIcon, DownloadIcon, PlayIcon, StopIcon } from './icons'
 
 const OpenSettings = createContext<() => void>(() => {})
 
@@ -55,6 +56,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </div>
         <AgentSection />
         <PermissionsSection />
+        <VoicesSection />
         <AboutSection />
       </div>
     </div>
@@ -200,6 +202,145 @@ function PresetOption(props: {
         </ul>
       </span>
     </button>
+  )
+}
+
+/** `132 MB` */
+const megabytes = (bytes: number) => `${Math.max(1, Math.round(bytes / 1e6))} MB`
+
+/** Plays one Voice's preview at a time: `playing` is its id while it's being spoken or played. */
+function usePreview() {
+  const [playing, setPlaying] = useState<string>()
+  const [failed, setFailed] = useState<{ voice: string; message: string }>()
+  const audio = useRef<HTMLAudioElement>(undefined)
+  const stop = () => {
+    audio.current?.pause()
+    if (audio.current) URL.revokeObjectURL(audio.current.src)
+    audio.current = undefined
+    setPlaying(undefined)
+  }
+  useEffect(() => stop, [])
+
+  async function play(voice: string) {
+    stop()
+    setFailed(undefined)
+    setPlaying(voice)
+    try {
+      const { wav } = await host.call('voices.preview', voice)
+      const element = new Audio(URL.createObjectURL(new Blob([wav as Uint8Array<ArrayBuffer>], { type: 'audio/wav' })))
+      audio.current = element
+      element.onended = () => element === audio.current && stop()
+      await element.play()
+    } catch (error) {
+      stop()
+      setFailed({ voice, message: errorMessage(error) })
+    }
+  }
+  return { playing, failed, play, stop }
+}
+
+function VoicesSection() {
+  const packs = useHostValue('voices.list', 'voices.changed')
+  const preview = usePreview()
+  const [failed, setFailed] = useState<{ pack: string; message: string }>()
+  if (!packs?.length) return null
+
+  const run = (pack: string, call: Promise<void>) => {
+    setFailed(undefined)
+    call.catch((error: unknown) => setFailed({ pack, message: errorMessage(error) }))
+  }
+  return (
+    <Section title="Voices">
+      <p className="m-0 mb-1.5 text-[12.5px] leading-[1.45] text-tx2">
+        Voices narrate Animation videos. They run on this Mac; nothing is sent anywhere.
+      </p>
+      {packs.map((pack) => (
+        <VoiceRow
+          key={pack.id}
+          pack={pack}
+          preview={preview}
+          error={(failed?.pack === pack.id && failed.message) || (pack.state.state === 'failed' ? pack.state.message : undefined)}
+          onDownload={() => run(pack.id, host.call('voices.download', pack.id))}
+          onDelete={() => {
+            if (pack.voices.some((voice) => voice.id === preview.playing)) preview.stop()
+            run(pack.id, host.call('voices.delete', pack.id))
+          }}
+        />
+      ))}
+    </Section>
+  )
+}
+
+function VoiceRow(props: {
+  pack: VoicePack
+  preview: ReturnType<typeof usePreview>
+  error?: string
+  onDownload: () => void
+  onDelete: () => void
+}) {
+  const { pack, preview } = props
+  const { state } = pack
+  const languages = [...new Set(pack.voices.map((voice) => voice.language))].join(', ')
+  const about =
+    pack.engine === 'kokoro' ? `Kokoro · ${pack.voices.length} voices, ${languages}` : `Piper · ${languages}`
+  const percent = state.state === 'downloading' ? Math.floor((state.received / pack.size) * 100) : 0
+  const previewError = pack.voices.find((voice) => voice.id === preview.failed?.voice) && preview.failed?.message
+
+  return (
+    <div role="group" aria-label={pack.name} className="border-border py-2 not-last:border-b">
+      <Row
+        title={pack.name}
+        detail={
+          <>
+            {about} · {megabytes(pack.size)} · {pack.licence}
+            {(props.error || previewError) && <span className="block text-[#b3261e]">{props.error || previewError}</span>}
+          </>
+        }
+      >
+        {state.state === 'downloading' ? (
+          <div className="flex w-[120px] flex-none items-center gap-2">
+            <div
+              role="progressbar"
+              aria-label={`${pack.name} download`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+            >
+              <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="w-8 text-right font-mono text-[11px] text-tx2">{percent}%</span>
+          </div>
+        ) : state.state === 'installed' ? (
+          <button className="icon-btn flex-none" title="Delete" aria-label="Delete" onClick={props.onDelete}>
+            <DeleteIcon />
+          </button>
+        ) : (
+          <button className="btn flex-none" onClick={props.onDownload}>
+            <DownloadIcon />
+            {state.state === 'failed' ? 'Try again' : 'Download'}
+          </button>
+        )}
+      </Row>
+      {state.state === 'installed' && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {pack.voices.map((voice) => {
+            const playing = preview.playing === voice.id
+            return (
+              <button
+                key={voice.id}
+                className="sbtn"
+                aria-label={`${playing ? 'Stop' : 'Preview'} ${voice.name}`}
+                onClick={() => (playing ? preview.stop() : void preview.play(voice.id))}
+              >
+                {playing ? <StopIcon /> : <PlayIcon />}
+                {voice.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
