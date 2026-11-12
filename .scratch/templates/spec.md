@@ -24,7 +24,7 @@ A new Document can be started from a **Template**: a named starting point built 
 - Animation video's instructions are rules only, no house style: all motion is CSS animations (and transitions with fixed timing) on one clock, no JS timers, no hover-triggered motion; the frame is fixed at the chosen size; scenes are `<section>`s timed with `animation-delay`; the video's length is when the last animation ends; the narration block's format and the line-length tool. The starting file is the stage at the frame size with one empty scene.
 
 ### Playing and annotating
-- For an Animation video, the editor's top bar has play/pause and a timer (current time / length). No scrub bar.
+- For an Animation video, a **time bar** sits directly under the video frame, as wide as the frame: play/pause, the current time, a scrub track you drag back and forth (and click to jump), the length, and the Voice select with its download on the right. They leave the top bar; Export stays there (changed 2026-11-12, ticket 06).
 - The editor shows the whole frame fitted to the window.
 - Margen drives the clock through the Web Animations API (`document.getAnimations()`): pause all, set `currentTime`. Pick and Draw work on the paused frame; each Annotation records the time along with the Viewport, and the prompt says it ("at 0:12.4").
 - A reload after an edit keeps the paused time, as scroll position is kept.
@@ -34,14 +34,14 @@ A new Document can be started from a **Template**: a named starting point built 
 
 ### Voices and narration
 - **Settings → Voices** lists downloadable Voices: Kokoro-82M (Apache-2.0) and a set of Piper voices (MIT engine), each with size, licence and a preview. They download on demand from sherpa-onnx's model releases into the data directory, and run on-device through **sherpa-onnx** (Node addon) in an Electron utility process. Nothing is sent anywhere.
-- One Voice per video, stored as `<meta name="margen-voice" content="kokoro/af_heart">` and chosen from a Voice select in the top bar. A Voice not on this Mac offers a download. No Voice: the video is silent.
+- One Voice per video, stored as `<meta name="margen-voice" content="kokoro/af_heart">` and chosen from the Voice select in the time bar. A Voice not on this Mac offers a download. No Voice: the video is silent.
 - Narration lives in `<script type="application/json" id="narration">`: a list of lines with a start time and the text. Margen speaks each line with the Voice, caches the audio in the data directory (keyed by Voice and text), plays it in sync, and mixes it into the export.
 - The Agent gets an in-process MCP tool from Margen (Agent SDK) that returns each narration line's spoken length with the video's Voice. This is Margen's first MCP server; later Agent tools go there too.
 
 ## Out of scope
 - User-made Templates, other Templates.
 - Background music, several Voices in one video, captions / speech-to-text.
-- A scrub bar or timeline editor.
+- A timeline editor (tracks, moving scenes or lines by dragging).
 
 ## Tickets
-`issues/01`–`05`; blocking is on each ticket.
+`issues/01`–`06`; blocking is on each ticket.
