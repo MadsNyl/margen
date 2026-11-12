@@ -11,6 +11,7 @@
 // selector after a reload.
 
 import type { Box, ElementDescriptor, Point } from './agent'
+import type { MarkedTemplateId } from './templates'
 
 export const DOCUMENT_BRIDGE_CHANNEL = 'margen:document'
 
@@ -58,10 +59,23 @@ export interface TrackedElement {
   selector: string
 }
 
+/**
+ * An Animation video's clock (`src/shared/clock.ts`), as the page's script holds it.
+ * Times are seconds from the start of the video.
+ */
+export interface ClockState {
+  time: number
+  /** When the last animation ends. */
+  length: number
+  playing: boolean
+  /** The video's frame: the `.stage`'s size in CSS px (or the page's, without one). */
+  frame: { width: number; height: number }
+}
+
 /** From the page's script to the editor. */
 export type FromDocument =
   /** The page's DOM is ready and the script is listening. */
-  | { type: 'ready'; url: string }
+  | { type: 'ready'; url: string; template?: MarkedTemplateId }
   /** The user scrolled the page (throttled). */
   | { type: 'scroll'; scroll: ScrollPosition }
   /** In Pick: the element the highlight is on, or `null` when it's on nothing. `byKey`: moved there with the arrow keys. */
@@ -82,6 +96,11 @@ export type FromDocument =
   | { type: 'drawing'; id: string; targets: ElementDescriptor[]; rects: Box[] }
   /** In Browse: the user double-clicked an element's plain text, changed it and pressed ↵ (or clicked away). */
   | ({ type: 'text-edit' } & TextEdit)
+  /**
+   * On an Animation video: where its clock is. Sent once the script takes the clock (paused at 0),
+   * every frame while playing, on pause, and once a seek's frame has been drawn (with the seek's `id`).
+   */
+  | { type: 'clock'; clock: ClockState; id?: string }
 
 /** From the editor to the page's script. */
 export type ToDocument =
@@ -96,6 +115,11 @@ export type ToDocument =
   | { type: 'text-edit-failed' }
   /** In Pick: an arrow or ↵ pressed in the editor while the page didn't have focus. */
   | { type: 'key'; key: PickKey }
+  /** On an Animation video: play from `time`, or from where it's paused (from 0 once it has ended). */
+  | { type: 'clock-play'; time?: number }
+  | { type: 'clock-pause' }
+  /** On an Animation video: pause at `time` (kept within the video). Answered with `clock`, carrying `id`, once that frame is drawn. */
+  | { type: 'clock-seek'; time: number; id?: string }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isScroll = (value: unknown): value is ScrollPosition =>
@@ -136,7 +160,9 @@ function boxesOf(value: unknown): Box[] | null {
 export function parseFromDocument(value: unknown): FromDocument | null {
   if (!isObject(value)) return null
   const message = value
-  if (message.type === 'ready' && typeof message.url === 'string') return { type: 'ready', url: message.url }
+  if (message.type === 'ready' && typeof message.url === 'string') {
+    return { type: 'ready', url: message.url, ...(message.template === 'animation-video' && { template: message.template }) }
+  }
   if (message.type === 'scroll' && isScroll(message.scroll)) return { type: 'scroll', scroll: { x: message.scroll.x, y: message.scroll.y } }
   if (message.type === 'hover') {
     if (message.target === null) return { type: 'hover', target: null }
@@ -177,6 +203,12 @@ export function parseFromDocument(value: unknown): FromDocument | null {
   if (message.type === 'key' && MODE_KEYS.includes(message.key as ModeKey)) return { type: 'key', key: message.key as ModeKey }
   if (message.type === 'text-edit' && isString(message.selector, 2000) && isString(message.before, TEXT_EDIT_MAX) && isString(message.after, TEXT_EDIT_MAX)) {
     return { type: 'text-edit', selector: message.selector, before: message.before, after: message.after }
+  }
+  if (message.type === 'clock' && isObject(message.clock) && (message.id === undefined || isString(message.id, 100))) {
+    const { time, length, playing, frame } = message.clock
+    if (!isNumber(time) || !isNumber(length) || typeof playing !== 'boolean' || !isObject(frame) || !isNumber(frame.width) || !isNumber(frame.height)) return null
+    const clock = { time, length, playing, frame: { width: frame.width, height: frame.height } }
+    return { type: 'clock', clock, ...(message.id !== undefined && { id: message.id }) }
   }
   return null
 }

@@ -17,6 +17,8 @@ interface AnnotationBase {
   number: number
   comment: string
   viewportWidth: number
+  /** On an Animation video: the time it was paused at, in seconds (`src/shared/clock.ts`). */
+  time?: number
 }
 
 export interface ElementDescriptor {
