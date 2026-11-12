@@ -173,11 +173,19 @@ async function takeCrop(draft: Draft, id: string, rect: Box, view: HTMLElement) 
   draft.update(id, { crop: canvas.toDataURL('image/png') })
 }
 
-/** What the comment box shows an Annotation caught: its element, a drawing's targets, or that a drawing is on empty space. */
-function caught(annotation: Annotation): string[] {
-  if (annotation.kind === 'pick') return [annotationLabel(annotation)]
-  if (annotation.targets.length === 0) return ['nothing underneath · Claude gets the drawing and where it is']
-  return annotation.targets.map((target) => labelOf(target.selector))
+/** More caught elements than this show as one "N elements" chip, with their labels on hover. */
+const CAUGHT_LISTED = 2
+
+/**
+ * What the comment box shows an Annotation caught: its element, a drawing's targets
+ * (or how many, past a couple), or that a drawing is on empty space.
+ */
+function caught(annotation: Annotation): { label: string; title?: string }[] {
+  if (annotation.kind === 'pick') return [{ label: annotationLabel(annotation) }]
+  if (annotation.targets.length === 0) return [{ label: 'nothing underneath · Claude gets the drawing and where it is' }]
+  const labels = annotation.targets.map((target) => labelOf(target.selector))
+  if (labels.length > CAUGHT_LISTED) return [{ label: `${labels.length} elements`, title: labels.join('\n') }]
+  return labels.map((label) => ({ label }))
 }
 
 function Outline({ rect, className, glow, kbd, children }: { rect: Box; className: string; glow?: boolean; kbd?: boolean; children?: ReactNode }) {
@@ -264,8 +272,8 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
         </button>
       </div>
       <ul aria-label="Caught" className="flex flex-wrap gap-[5px] px-3.5 pt-2">
-        {caught(annotation).map((label, i) => (
-          <li key={i} className="rounded-[5px] bg-ink-soft px-[7px] py-0.5 font-mono text-[10px] text-ink-tx">
+        {caught(annotation).map(({ label, title }, i) => (
+          <li key={i} title={title} className="rounded-[5px] bg-ink-soft px-[7px] py-0.5 font-mono text-[10px] text-ink-tx">
             {label}
           </li>
         ))}
@@ -274,7 +282,7 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
         ref={comment}
         autoFocus
         aria-label="Comment"
-        placeholder={annotation.kind === 'pick' ? 'What should change here?' : 'What should Claude do? e.g. "tighten these" or "add this as a NEW stamp"'}
+        placeholder={annotation.kind === 'pick' ? 'What should change here?' : 'What should Claude do?'}
         value={annotation.comment}
         onChange={(event) => draft.setComment(id, event.target.value)}
         onKeyDown={(event) => {
@@ -294,7 +302,7 @@ function CommentBox({ pending, anchor }: { pending: PendingAnnotation; anchor: B
         className="block min-h-[58px] w-full resize-none border-0 bg-transparent px-3.5 py-2.5 text-sm leading-normal outline-0 select-text placeholder:text-tx3"
       />
       <div className="flex items-center gap-1.5 pt-2 pr-2.5 pb-2.5 pl-3.5">
-        <span className="mr-auto text-[11.5px] text-tx3">{annotation.kind === 'pick' ? 'Esc to discard' : 'Keep drawing to add strokes'}</span>
+        <span className="mr-auto text-[11.5px] text-tx3">{annotation.kind === 'pick' && 'Esc to discard'}</span>
         <button className="sbtn" onClick={() => draft.setOpen(null)}>
           Add <kbd>⌘↵</kbd>
         </button>

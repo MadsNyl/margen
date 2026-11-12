@@ -1,7 +1,7 @@
 # Glossary
 
 **Project**
-A folder the user opens in Margen (any folder, such as a website's code or a folder of HTML files) or a new empty one Margen makes. The Agent may read everything in it. Its Documents are the HTML files inside it. Checkpoints belong to it.
+A folder the user opens in Margen (any folder, such as a website's code or a folder of HTML files) or a new empty one Margen makes. The Agent may read everything in it. Its Documents are the HTML files inside it.
 _Avoid_: workspace, repo, context folder
 
 **Document**
@@ -50,7 +50,7 @@ A card in the chat asking whether the Agent may do one thing the Permission pres
 _Avoid_: prompt, permission dialog
 
 **Viewport**
-The width the Document is shown at: Desktop, Tablet, Mobile, or a custom width. Every Annotation records the Viewport it was made in.
+The width the Document is shown at: Desktop, Tablet, Mobile, or a custom width. With Fit on, it is a whole screen of that kind, scaled down to fit the window. Every Annotation records the Viewport it was made in.
 _Avoid_: screen size, breakpoint
 
 **Mode**

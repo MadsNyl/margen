@@ -41,8 +41,12 @@ async function doubleClickText(selector: string) {
     `(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector(${JSON.stringify(selector)})); const r = range.getBoundingClientRect(); return { x: r.right - 4, y: r.y + r.height / 2 } })()`,
   )) as { x: number; y: number }
   const frame = await window.getByRole('region', { name: 'Document view' }).boundingBox()
-  await window.mouse.dblclick((frame?.x ?? 0) + rect.x, (frame?.y ?? 0) + rect.y)
-  await expect.poll(() => inDocument(app, `document.querySelector(${JSON.stringify(selector)}).isContentEditable`)).toBe(true)
+  const editing = () => inDocument(app, `document.querySelector(${JSON.stringify(selector)}).isContentEditable`)
+  // A just-loaded Document view can miss the first input, as in pick.spec: double-click again until it takes.
+  await expect(async () => {
+    if (!(await editing())) await window.mouse.dblclick((frame?.x ?? 0) + rect.x, (frame?.y ?? 0) + rect.y)
+    expect(await editing()).toBe(true)
+  }).toPass({ timeout: 5000 })
 }
 
 const file = () => readFile(join(folder ?? '', 'index.html'), 'utf8')

@@ -11,7 +11,7 @@ test.afterEach(async () => {
   if (folder) await rm(folder, { recursive: true, force: true })
 })
 
-test('Revert to here restores the Project to before the Turn, and the Document reloads', async () => {
+test("Revert to here restores the Document's file to before the Turn, and the Document reloads", async () => {
   folder = await makeFolder({ 'index.html': '<!doctype html><h1>Small</h1>' })
   launched = await launchApp({
     pickFolder: folder,
@@ -43,7 +43,8 @@ test('Revert to here restores the Project to before the Turn, and the Document r
 
   await expect.poll(() => inDocument(app, `document.querySelector('h1').textContent`)).toBe('Small')
   expect(await readFile(join(folder, 'index.html'), 'utf8')).toBe('<!doctype html><h1>Small</h1>')
-  expect(await readdir(folder)).toEqual(['index.html'])
+  // Checkpoints belong to the Document: the other file the Turn wrote stays.
+  expect((await readdir(folder)).sort()).toEqual(['about.html', 'index.html'])
 
   // The list shows it too, with the Checkpoint the revert took first.
   await chat.getByRole('button', { name: 'Sessions & Checkpoints' }).click()

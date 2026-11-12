@@ -4,7 +4,7 @@ import type { OpenDocument, Project } from '@shared/host-api'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
-import { AddIcon, ChevronDownIcon, OpenExternalIcon } from '../components/icons'
+import { AddIcon, ChevronDownIcon, HideChatIcon, OpenExternalIcon, ShowChatIcon } from '../components/icons'
 import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
@@ -15,7 +15,8 @@ import { ModeShortcuts } from '../editor/ModeShortcuts'
 import { NewDocumentDialog } from '../editor/NewDocument'
 import { PickLayer } from '../editor/PickLayer'
 import { Toolbar } from '../editor/Toolbar'
-import { ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport } from '../editor/viewport'
+import { FitButton, ViewportProvider, ViewportSelect, frameWidth, useMeasuredViewport, useRoom } from '../editor/viewport'
+import { SCREENS, fitScale } from '@shared/viewport'
 import { errorMessage, host, useHostValue } from '../host'
 
 const NOTICE_MS = 2200
@@ -28,8 +29,15 @@ export function EditorScreen({ project, document }: { project: Project; document
   const [reloads, setReloads] = useState(0)
   const [choice, setChoice] = useState<ViewportChoice>('desktop')
   const [keyGuide, setKeyGuide] = useState(false)
+  const [fit, setFit] = useState(false)
+  const [chatOpen, setChatOpen] = useState(true)
   const frame = useRef<HTMLDivElement>(null)
-  const viewport = useMeasuredViewport(choice, frame)
+  /** The Document's own box: the frame at actual size, or a whole screen scaled down inside it with Fit on. */
+  const canvas = useRef<HTMLDivElement>(null)
+  const stage = useRef<HTMLDivElement>(null)
+  const viewport = useMeasuredViewport(choice, frame, fit)
+  const screen = SCREENS[choice]
+  const scale = fitScale(screen, useRoom(stage))
 
   useEffect(() => {
     if (!reloaded) return
@@ -66,7 +74,8 @@ export function EditorScreen({ project, document }: { project: Project; document
           <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
             <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
-              <ViewportSelect choice={choice} viewport={viewport} onChoose={setChoice} />
+              <FitButton fit={fit} scale={scale} onFit={setFit} />
+              <ViewportSelect choice={choice} viewport={viewport} fit={fit} onChoose={setChoice} />
               <button
                 className="inline-flex h-7 items-center rounded-[7px] px-[9px] text-tx2 hover:bg-black/4 hover:text-tx"
                 title="Open in browser"
@@ -74,6 +83,15 @@ export function EditorScreen({ project, document }: { project: Project; document
                 onClick={() => void host.call('document.openInBrowser')}
               >
                 <OpenExternalIcon />
+              </button>
+              <button
+                className="inline-flex h-7 items-center rounded-[7px] px-[9px] text-tx2 hover:bg-black/4 hover:text-tx"
+                title={chatOpen ? 'Hide the chat' : 'Show the chat'}
+                aria-label={chatOpen ? 'Hide the chat' : 'Show the chat'}
+                aria-pressed={chatOpen}
+                onClick={() => setChatOpen(!chatOpen)}
+              >
+                {chatOpen ? <HideChatIcon /> : <ShowChatIcon />}
               </button>
             </div>
           </header>
@@ -101,31 +119,42 @@ export function EditorScreen({ project, document }: { project: Project; document
             <Toolbar mode={mode} onMode={setMode} keyGuide={keyGuide} />
             {/* Room at the bottom for the floating toolbar, which sits over the stage. */}
             {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
-            <div className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
+            <div ref={stage} className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">
               <div
                 ref={frame}
                 role="region"
                 aria-label="Document view"
                 data-ready={bridge !== null}
-                style={{ width: frameWidth(choice) }}
-                className="relative mx-auto h-full overflow-hidden transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)] rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)]"
+                data-fit={fit || undefined}
+                style={fit ? { width: screen.width * scale, height: screen.height * scale } : { width: frameWidth(choice) }}
+                className={`relative mx-auto overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)] ${fit ? '' : 'h-full transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)]'}`}
               >
-                <DocumentView
-                  key={document.url}
-                  document={document}
-                  onReady={setBridge}
-                  onReloaded={() => {
-                    setReloaded((n) => n + 1)
-                    setReloads((n) => n + 1)
-                  }}
-                />
-                <DrawLayer bridge={bridge} mode={mode} frame={frame} />
-                <PickLayer bridge={bridge} mode={mode} reloads={reloads} onKeyGuide={setKeyGuide} />
+                {/* With Fit on, the Document and its overlays are laid out at the whole screen and scaled down together. */}
+                <div
+                  ref={canvas}
+                  className={fit ? 'absolute top-0 left-0 origin-top-left' : 'relative size-full'}
+                  style={fit ? { width: screen.width, height: screen.height, transform: `scale(${scale})` } : undefined}
+                >
+                  <DocumentView
+                    key={document.url}
+                    document={document}
+                    onReady={setBridge}
+                    onReloaded={() => {
+                      setReloaded((n) => n + 1)
+                      setReloads((n) => n + 1)
+                    }}
+                  />
+                  <DrawLayer bridge={bridge} mode={mode} frame={canvas} />
+                  <PickLayer bridge={bridge} mode={mode} reloads={reloads} onKeyGuide={setKeyGuide} />
+                </div>
               </div>
             </div>
           </div>
         </main>
-        <ChatPanel key={document.url} document={document.path} />
+        {/* Hidden rather than closed, so the draft, the Queue and a running Turn carry on. */}
+        <div className={chatOpen ? 'contents' : 'hidden'}>
+          <ChatPanel key={document.url} document={document.path} />
+        </div>
       </div>
       </DraftProvider>
       </LeaveGuard>

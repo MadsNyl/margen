@@ -136,3 +136,37 @@ test('the Viewport select shows the live width, fits the window on Desktop and s
   await expect.poll(() => inDocument(app, 'innerWidth')).toBe(820)
   await expect(select).toHaveText(/Tablet.*820px/)
 })
+
+test('Fit lays the Document out at a whole 1440×900 screen scaled to the window, and clicks still land where they look', async () => {
+  const deck = `<!doctype html><html><body style="margin:0"><section id="slide" style="width:100vw;height:100vh;display:grid;place-items:center"><a id="next" href="#2" style="font-size:40px">Next</a></section></body></html>`
+  const { app, window } = await openEditor({ 'index.html': deck }, /^index\.html/)
+  const frame = window.getByRole('region', { name: 'Document view' })
+  const fitButton = window.getByRole('button', { name: 'Fit to window' })
+
+  await fitButton.click()
+  await expect(fitButton).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(() => inDocument(app, '[innerWidth, innerHeight]')).toEqual([1440, 900])
+  await expect(window.getByRole('button', { name: 'Viewport' })).toHaveText(/1440px/)
+  const box = await frame.boundingBox()
+  expect(box && Math.round((box.width / box.height) * 100)).toBe(160)
+  expect(box?.width).toBeLessThan(1440)
+
+  // The link sits in the middle of the scaled screen; clicking there follows it.
+  await window.mouse.click((box?.x ?? 0) + (box?.width ?? 0) / 2, (box?.y ?? 0) + (box?.height ?? 0) / 2)
+  await expect.poll(() => inDocument(app, 'location.hash')).toBe('#2')
+
+  await fitButton.click()
+  await expect.poll(() => inDocument(app, 'innerWidth')).toBe(Math.round((await frame.boundingBox())?.width ?? 0))
+})
+
+test('the chat hides and comes back, keeping its draft', async () => {
+  const { window } = await openEditor({ 'index.html': page('Home') }, /^index\.html/)
+  const chat = window.getByRole('complementary', { name: 'Chat' })
+  await chat.getByRole('textbox').first().fill('Half a thought')
+
+  await window.getByRole('button', { name: 'Hide the chat' }).click()
+  await expect(chat).toBeHidden()
+  await window.getByRole('button', { name: 'Show the chat' }).click()
+  await expect(chat).toBeVisible()
+  await expect(chat.getByRole('textbox').first()).toHaveValue('Half a thought')
+})

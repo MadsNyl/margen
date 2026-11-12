@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type RefObject } from 'react'
-import { VIEWPORTS, viewportOf, type Viewport, type ViewportChoice } from '@shared/viewport'
+import { SCREENS, VIEWPORTS, viewportOf, type Viewport, type ViewportChoice } from '@shared/viewport'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
-import { ChevronDownIcon, DesktopIcon, MobileIcon, TabletIcon } from '../components/icons'
+import { ChevronDownIcon, DesktopIcon, FitIcon, MobileIcon, TabletIcon } from '../components/icons'
 
 const ViewportContext = createContext<Viewport | null>(null)
 
@@ -21,7 +21,7 @@ export function frameWidth(choice: ViewportChoice): string {
 }
 
 /** The Viewport for a choice, following the frame's size as the window resizes. */
-export function useMeasuredViewport(choice: ViewportChoice, frame: RefObject<HTMLElement | null>): Viewport {
+export function useMeasuredViewport(choice: ViewportChoice, frame: RefObject<HTMLElement | null>, fit = false): Viewport {
   const [measured, setMeasured] = useState(0)
 
   useEffect(() => {
@@ -32,7 +32,38 @@ export function useMeasuredViewport(choice: ViewportChoice, frame: RefObject<HTM
     return () => observer.disconnect()
   }, [frame])
 
-  return viewportOf(choice, measured)
+  return viewportOf(choice, measured, fit)
+}
+
+/** The room inside an element (its content box), following it as the window resizes. */
+export function useRoom(element: RefObject<HTMLElement | null>): { width: number; height: number } {
+  const [room, setRoom] = useState({ width: 0, height: 0 })
+  useEffect(() => {
+    const el = element.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setRoom({ width: entry.contentRect.width, height: entry.contentRect.height })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [element])
+  return room
+}
+
+/** Next to the Viewport select: lays the Document out at a whole screen and scales it to fit, or shows it at actual size. */
+export function FitButton({ fit, scale, onFit }: { fit: boolean; scale: number; onFit: (fit: boolean) => void }) {
+  return (
+    <button
+      aria-label="Fit to window"
+      aria-pressed={fit}
+      title={fit ? 'Fitted: a whole screen, scaled to the window. Click for actual size' : 'Fit a whole screen to the window (for slide decks and full-screen pages)'}
+      onClick={() => onFit(!fit)}
+      className={`inline-flex h-[30px] items-center gap-1.5 rounded-full border px-2.5 text-[13px] ${fit ? 'border-ink/30 bg-ink-soft text-ink-tx' : 'border-line bg-white text-tx2 hover:bg-muted hover:text-tx'}`}
+    >
+      <FitIcon />
+      {fit && <span className="text-xs tabular-nums">{Math.round(scale * 100)}%</span>}
+    </button>
+  )
 }
 
 const ICONS = { desktop: DesktopIcon, tablet: TabletIcon, mobile: MobileIcon }
@@ -41,10 +72,12 @@ const ICONS = { desktop: DesktopIcon, tablet: TabletIcon, mobile: MobileIcon }
 export function ViewportSelect({
   choice,
   viewport,
+  fit,
   onChoose,
 }: {
   choice: ViewportChoice
   viewport: Viewport
+  fit: boolean
   onChoose: (choice: ViewportChoice) => void
 }) {
   const { open, setOpen, ref } = useDropdown()
@@ -85,7 +118,7 @@ export function ViewportSelect({
                   {name}
                 </span>
                 <small className="ml-auto text-[11.5px] font-normal text-tx3">
-                  {width === null ? 'fits the window' : `${width}px`}
+                  {fit ? `${SCREENS[key].width}×${SCREENS[key].height}` : width === null ? 'fits the window' : `${width}px`}
                 </small>
               </MenuItem>
             )
