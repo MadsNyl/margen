@@ -1,6 +1,6 @@
 import type { ApprovalDecision, TurnInput } from '@shared/agent'
 import type { QueueView, SessionEntry, SessionView } from '@shared/host-api'
-import type { AgentProvider, AgentSession } from '../agent/provider'
+import type { AgentProvider, AgentSession, StartSessionOptions } from '../agent/provider'
 import type { PermissionPolicy } from '../permissions'
 import { createTurnQueue } from '../turns/queue'
 
@@ -31,6 +31,9 @@ export interface DocumentSession {
   dispose(): void
 }
 
+/** What a Template gives the Agent for a Session on its Document. */
+export type AgentSetup = Pick<StartSessionOptions, 'instructions' | 'tools'>
+
 export interface DocumentSessionOptions {
   agent: AgentProvider
   projectDir: string
@@ -44,8 +47,8 @@ export interface DocumentSessionOptions {
   permissions: PermissionPolicy
   /** Resumes this Agent session instead of starting a new one. */
   resumeId?: string
-  /** The Template's instructions for the Agent, read when the Agent session starts (on the first Turn); `undefined` for a Blank Document. */
-  instructions?(): Promise<string | undefined>
+  /** The Template's instructions and tools for the Agent, read when the Agent session starts (on the first Turn); none for a Blank Document. */
+  setup?(): Promise<AgentSetup>
   /** Runs before each Turn reaches the Agent: takes its Checkpoint and resolves with the id, or `undefined` if none was taken. */
   beforeTurn?(turn: TurnInput): Promise<string | undefined>
   onEntry(entry: SessionEntry, index: number): void
@@ -61,7 +64,7 @@ export function startDocumentSession({
   entries: stored = [],
   permissions,
   resumeId,
-  instructions = async () => undefined,
+  setup = async () => ({}),
   beforeTurn = async () => undefined,
   onEntry,
   onQueue,
@@ -83,8 +86,8 @@ export function startDocumentSession({
         })
         if (disposed) return
         add({ type: 'user', turn, ...(checkpoint && { checkpoint }) })
-        // The Template's instructions as the file has them when the Agent session starts.
-        const told = session ? undefined : await instructions().catch(() => undefined)
+        // The Template's instructions and tools as the file has them when the Agent session starts.
+        const told = session ? undefined : await setup().catch(() => undefined)
         if (disposed) return
         agentSession(told).send(turn)
       })()
@@ -116,10 +119,18 @@ export function startDocumentSession({
     }
   }
 
-  /** The Agent session, started on the first Turn, told the Template's instructions if there are any. */
-  function agentSession(told?: string): AgentSession {
+  /** The Agent session, started on the first Turn, with the Template's instructions and tools if there are any. */
+  function agentSession(told: AgentSetup = {}): AgentSession {
     if (!session) {
-      session = agent.startSession({ projectDir, document, permissions, ...(resumeId && { resumeId }), ...(told && { instructions: told }) })
+      const { instructions, tools } = told
+      session = agent.startSession({
+        projectDir,
+        document,
+        permissions,
+        ...(resumeId && { resumeId }),
+        ...(instructions && { instructions }),
+        ...(tools?.length && { tools }),
+      })
       void pump(session)
     }
     return session

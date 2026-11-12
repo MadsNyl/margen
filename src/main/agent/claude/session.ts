@@ -5,7 +5,9 @@ import { approvalRequest, editorPolicy, type ToolRequest } from '../../permissio
 import { buildPrompt, type PromptPart } from '../../turns/prompt'
 import { createChannel } from '../channel'
 import type { AgentSession, StartSessionOptions } from '../provider'
+import { MARGEN_SERVER } from '../tools'
 import { createMessageMapper } from './messages'
+import { margenServer, margenTool } from './tools'
 import type { ClaudeRun, ClaudeSystem } from './system'
 
 // One Claude Code session: a long-lived `query()` fed one user message per
@@ -34,7 +36,7 @@ const ASK_BEFORE_SHELL: HookCallbackMatcher = {
 export function startClaudeSession(
   system: ClaudeSystem,
   detect: () => Promise<AgentStatus>,
-  { projectDir, document, model, effort, resumeId, instructions, permissions = editorPolicy(projectDir) }: StartSessionOptions,
+  { projectDir, document, model, effort, resumeId, instructions, tools = [], permissions = editorPolicy(projectDir) }: StartSessionOptions,
 ): AgentSession {
   const id = resumeId ?? randomUUID()
   const events = createChannel<AgentEvent>()
@@ -103,6 +105,8 @@ export function startClaudeSession(
         hooks: { PreToolUse: [ASK_BEFORE_SHELL] },
         // Left out, the SDK runs with an empty system prompt; a Template's instructions take its place.
         ...(instructions && { systemPrompt: instructions }),
+        // Margen's own tools, from a server of this run's own.
+        ...(tools.length && { mcpServers: { [MARGEN_SERVER]: margenServer(tools) } }),
         ...(settings.model && { model: settings.model }),
         ...(settings.effort && { effort: settings.effort }),
         ...(known ? { resume: id } : { sessionId: id }),
@@ -211,6 +215,8 @@ function content(prompt: PromptPart[]): SDKUserMessage['message']['content'] {
 
 /** A Claude Code tool call, as the permission policy sees it. */
 function toolRequest(toolName: string, input: Record<string, unknown>, projectDir: string): ToolRequest {
+  const margen = margenTool(toolName)
+  if (margen !== undefined) return { kind: 'margen', name: margen }
   const path = [input.file_path, input.notebook_path, input.path].find((p): p is string => typeof p === 'string') ?? projectDir
   switch (toolName) {
     case 'Read':

@@ -33,6 +33,7 @@ import {
   StopIcon as StopGlyph,
   Tablet01Icon,
   Tick02Icon,
+  VoiceIcon as VoiceGlyph,
 } from '@hugeicons/core-free-icons'
 import type { TemplateId } from '@shared/templates'
 
@@ -87,6 +88,7 @@ export const DrawIcon = ({ className }: Props) => <Icon icon={PencilEdit01Icon} 
 export const ExportIcon = ({ className = 'size-[15px]' }: Props) => <Icon icon={FileExportIcon} className={className} />
 export const DownloadIcon = ({ className = 'size-4' }: Props) => <Icon icon={Download04Icon} className={className} />
 export const DeleteIcon = ({ className = 'size-4' }: Props) => <Icon icon={Delete02Icon} className={className} />
+export const VoiceIcon = ({ className }: Props) => <Icon icon={VoiceGlyph} className={className} />
 export const StopIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={StopGlyph} className={className} />
 
 /** Claude's spark, white on its terracotta tile, as in the chat panel's header. A brand mark, so not a Hugeicon. */

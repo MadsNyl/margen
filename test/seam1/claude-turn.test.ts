@@ -7,6 +7,8 @@ import type { AgentEvent } from '../../src/shared/agent'
 import { createClaudeCodeProvider } from '../../src/main/agent/claude'
 import type { ClaudeRun, ClaudeSystem } from '../../src/main/agent/claude/system'
 import type { AgentSession } from '../../src/main/agent/provider'
+import { defineTool } from '../../src/main/agent/tools'
+import { z } from 'zod'
 
 // The Claude Code provider's Turns, against a pretend Mac whose Agent SDK
 // `query()` plays back scripted SDK messages, shaped as the user's real
@@ -300,6 +302,61 @@ describe('a Turn with Claude Code', () => {
     await untilTurnEnd(plain)
 
     expect(runs.map((run) => run.options.systemPrompt)).toEqual(['All motion is CSS animations.', 'All motion is CSS animations.', undefined])
+  })
+
+  test("Margen's tools are served to every claude the Session runs from one in-process MCP server, and run without asking", async () => {
+    const measured: unknown[] = []
+    const tools = [
+      defineTool({
+        name: 'narration_lengths',
+        description: 'How long each line takes to say.',
+        input: { texts: z.array(z.string()).optional() },
+        run: async (input) => (measured.push(input), { text: '{"lines":[{"seconds":1.2}]}' }),
+      }),
+    ]
+    let permission: unknown
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* ({ canUseTool }) {
+          yield toolUse('toolu_1', 'mcp__margen__narration_lengths', {})
+          permission = await canUseTool('mcp__margen__narration_lengths', {}, 'toolu_1')
+          yield toolResult('toolu_1', [{ type: 'text', text: '{"lines":[{"seconds":1.2}]}' }])
+          yield success
+        },
+        done,
+        done,
+      ],
+    })
+    // The Editor preset asks about tools it doesn't know; Margen's own don't ask.
+    const session = provider.startSession({ projectDir, tools })
+    session.send(ask)
+    const events = await untilTurnEnd(session)
+    session.send({ ...ask, model: 'opus' })
+    await untilTurnEnd(session)
+    const plain = provider.startSession({ projectDir })
+    plain.send(ask)
+    await untilTurnEnd(plain)
+
+    expect(permission).toMatchObject({ behavior: 'allow' })
+    expect(events.filter((e) => e.type === 'approval-request')).toEqual([])
+    expect(events).toContainEqual({ type: 'tool', id: 'toolu_1', status: 'running', tool: 'other', name: 'narration_lengths', detail: '' })
+    const [first, restarted, without] = runs.map((run) => run.options.mcpServers?.margen)
+    expect(first).toMatchObject({ type: 'sdk', name: 'margen' })
+    // A server connects to one claude: each run gets its own.
+    expect(restarted).toMatchObject({ type: 'sdk', name: 'margen' })
+    expect(restarted).not.toBe(first)
+    expect(without).toBeUndefined()
+
+    // What claude does with it: list the tools, then call one.
+    const rpc = await connectMcp(first)
+    const listed = (await rpc('tools/list', {})) as { tools: { name: string; description: string; inputSchema: { properties: object } }[] }
+    expect(listed.tools.map((t) => [t.name, t.description, Object.keys(t.inputSchema.properties)])).toEqual([
+      ['narration_lengths', 'How long each line takes to say.', ['texts']],
+    ])
+    expect(await rpc('tools/call', { name: 'narration_lengths', arguments: { texts: ['Hi.'] } })).toMatchObject({
+      content: [{ type: 'text', text: '{"lines":[{"seconds":1.2}]}' }],
+    })
+    expect(measured).toEqual([{ texts: ['Hi.'] }])
   })
 
   test('the Turns of a Session go to one running claude, and a resumed Session continues the same one', async () => {
@@ -873,3 +930,28 @@ describe('a Turn with Annotations', () => {
     ])
   })
 })
+
+/** Talks MCP's JSON-RPC to an in-process server the way `claude` does through the SDK: initialize, then requests. */
+async function connectMcp(server: unknown): Promise<(method: string, params: object) => Promise<unknown>> {
+  type Message = { id?: number; result?: unknown; error?: unknown }
+  const { instance } = server as { instance: { connect(transport: object): Promise<void> } }
+  const pending = new Map<number, (message: Message) => void>()
+  const transport: { onmessage?: (message: object) => void; start(): Promise<void>; close(): Promise<void>; send(message: Message): Promise<void> } = {
+    start: async () => {},
+    close: async () => {},
+    send: async (message) => {
+      if (message.id !== undefined) pending.get(message.id)?.(message)
+    },
+  }
+  await instance.connect(transport)
+  let next = 1
+  const rpc = (method: string, params: object) =>
+    new Promise<unknown>((resolve, reject) => {
+      const id = next++
+      pending.set(id, (message) => (message.error ? reject(new Error(JSON.stringify(message.error))) : resolve(message.result)))
+      transport.onmessage?.({ jsonrpc: '2.0', id, method, params })
+    })
+  await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'claude', version: '2.1.287' } })
+  transport.onmessage?.({ jsonrpc: '2.0', method: 'notifications/initialized' })
+  return rpc
+}

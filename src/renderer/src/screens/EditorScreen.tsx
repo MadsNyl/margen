@@ -12,6 +12,7 @@ import type { DocumentBridge } from '../editor/bridge'
 import { PausedTimeProvider, VideoControls, useVideoClock } from '../editor/clock'
 import { DraftProvider } from '../editor/draft'
 import { ExportButton } from '../editor/export'
+import { VoiceSelect, useNarration } from '../editor/narration'
 import { DrawLayer } from '../editor/DrawLayer'
 import { HiddenChatBar } from '../editor/HiddenChatBar'
 import { LeaveGuard, useLeave } from '../editor/leave'
@@ -44,6 +45,7 @@ export function EditorScreen({ project, document }: { project: Project; document
   const template = marker?.url === document.url ? marker.template : document.template
   const video = template === 'animation-video'
   const clock = useVideoClock(bridge, video, document.url)
+  const narration = useNarration(bridge, video, document)
   // An Animation video always shows its whole frame, fitted to the window.
   const fitted = fit || video
   const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : SCREENS[choice]
@@ -95,6 +97,7 @@ export function EditorScreen({ project, document }: { project: Project; document
               {clock ? (
                 <>
                   <VideoControls clock={clock} />
+                  <VoiceSelect narration={narration} />
                   <ExportButton ready={clock.state !== undefined} />
                 </>
               ) : (

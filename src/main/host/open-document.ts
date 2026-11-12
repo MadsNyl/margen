@@ -8,11 +8,12 @@ import { documentUrl, watchDocument } from '../projects/document'
 import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
 import { openSessionStore } from '../sessions/store'
-import { documentTemplate, templateInstructions } from '../templates'
+import type { NarrationAudio } from '../narration'
+import { documentTemplate, templateSetup } from '../templates'
 
 // The Document open in the editor: its margen-doc:// URL and reload watch,
 // and its Sessions, wired to the host's events, with a Checkpoint taken before
-// every Turn, and the Template's instructions for each Session on a marked
+// every Turn, and the Template's instructions and tools for each Session on a marked
 // Document. `createHost` holds at most one and closes it before the next.
 
 export interface EditorDocument {
@@ -39,6 +40,8 @@ export interface EditorDocumentOptions {
   /** The open Project's Checkpoints, or `null` once it's closed: no Checkpoint is taken then. */
   checkpoints(): CheckpointStore | null
   preset(): Promise<PermissionPreset>
+  /** Narration speech, for the Animation video's line-length tool. */
+  narration: NarrationAudio
   /** Whether the user attached this file with the file picker, so the Agent may read it without asking. */
   attached(path: string): boolean
   emit<K extends HostEventName>(event: K, payload: HostEvents[K]): void
@@ -55,6 +58,7 @@ export function openEditorDocument({
   preset,
   attached,
   emit,
+  narration,
 }: EditorDocumentOptions): EditorDocument {
   const file = join(project.path, path)
   const stopWatching = watchDocument(project.path, path, () => emit('document.updated', { path }))
@@ -65,9 +69,9 @@ export function openEditorDocument({
     document: path,
     permissions: withAttachments(presetPolicy(project.path, preset), project.path, attached),
     // Read from the marker each time a Session starts, so it follows the file as it is.
-    instructions: async () => {
+    setup: async () => {
       const marked = await documentTemplate(file)
-      return marked && templateInstructions(marked)
+      return marked ? templateSetup(marked, { file, narration }) : {}
     },
     beforeTurn: async (turn) => {
       const store = checkpoints()

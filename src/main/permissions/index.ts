@@ -12,6 +12,8 @@ export type ToolRequest =
   | { kind: 'web' }
   | { kind: 'shell'; command: string }
   | { kind: 'other'; name: string }
+  /** One of Margen's own tools (`agent/tools.ts`): they only read and measure, so they never ask. */
+  | { kind: 'margen'; name: string }
 
 export type PermissionDecision = 'allow' | 'ask'
 
@@ -28,6 +30,7 @@ export function editorPolicy(projectDir: string): PermissionPolicy {
       case 'write':
         return inProject(projectDir, request.path) === null ? 'ask' : 'allow'
       case 'web':
+      case 'margen':
         return 'allow'
       default:
         return 'ask'
@@ -57,6 +60,7 @@ export function approvalRequest(id: string, request: ToolRequest): Extract<Agent
     case 'web':
       return { type: 'approval-request', id, kind: 'other', detail: 'Web' }
     case 'other':
+    case 'margen':
       return { type: 'approval-request', id, kind: 'other', detail: request.name }
   }
 }

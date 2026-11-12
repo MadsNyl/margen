@@ -50,7 +50,8 @@ export function templateMarker(html: string): MarkedTemplateId | undefined {
   return undefined
 }
 
-function attribute(tag: string, name: string): string | undefined {
+/** An attribute's value in one start tag (`<meta name="…">`), with either kind of quote or none. */
+export function attribute(tag: string, name: string): string | undefined {
   const match = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag)
   return match ? (match[1] ?? match[2] ?? match[3]) : undefined
 }

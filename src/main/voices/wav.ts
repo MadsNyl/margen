@@ -21,3 +21,29 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array
   samples.forEach((sample, i) => view.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 0x7fff), true))
   return wav
 }
+
+/** A mono 16-bit PCM WAV file (as `encodeWav` writes it) as samples in [-1, 1]. */
+export function decodeWav(wav: Uint8Array): { samples: Float32Array; sampleRate: number } {
+  const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength)
+  const text = (at: number) => String.fromCharCode(...wav.subarray(at, at + 4))
+  if (wav.length < 12 || text(0) !== 'RIFF' || text(8) !== 'WAVE') throw new Error('Not a WAV file')
+  let sampleRate: number | undefined
+  for (let at = 12; at + 8 <= wav.length; ) {
+    const size = view.getUint32(at + 4, true)
+    const body = at + 8
+    if (text(at) === 'fmt ') {
+      if (view.getUint16(body, true) !== 1 || view.getUint16(body + 2, true) !== 1 || view.getUint16(body + 14, true) !== 16) {
+        throw new Error('Only mono 16-bit PCM WAV files are read')
+      }
+      sampleRate = view.getUint32(body + 4, true)
+    } else if (text(at) === 'data') {
+      if (sampleRate === undefined) break
+      const count = Math.floor(Math.min(size, wav.length - body) / 2)
+      const samples = new Float32Array(count)
+      for (let i = 0; i < count; i++) samples[i] = view.getInt16(body + i * 2, true) / 0x7fff
+      return { samples, sampleRate }
+    }
+    at = body + size + (size % 2)
+  }
+  throw new Error('Not a WAV file')
+}

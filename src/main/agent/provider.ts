@@ -1,5 +1,6 @@
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Effort, TurnInput } from '@shared/agent'
 import type { PermissionPolicy } from '../permissions'
+import type { AgentTool } from './tools'
 
 // Hides which Agent is running (Claude Code in v1, Codex in 1.1).
 // Shape from the spec: Implementation Decisions, Agent integration.
@@ -14,6 +15,8 @@ export interface StartSessionOptions {
   resumeId?: string
   /** The Template's instructions when the Document is marked with one: the Agent follows them for the whole Session. */
   instructions?: string
+  /** Margen's own tools the Agent may call in this Session (`./tools.ts`); they run without asking. */
+  tools?: AgentTool[]
   /** Decides which tool calls run without asking. Defaults to the Editor preset, `editorPolicy(projectDir)`. */
   permissions?: PermissionPolicy
 }

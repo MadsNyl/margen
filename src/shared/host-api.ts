@@ -6,6 +6,7 @@
 import type { TextEdit } from './document-bridge'
 import type { TemplateChoice, MarkedTemplateId } from './templates'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, Attachment, ModelChoice, TurnInput } from './agent'
+import type { Narration } from './narration'
 import type { SpokenAudio, VoicePack } from './voices'
 
 /** A folder opened in Margen. `path` is absolute; `name` is the folder's name. */
@@ -244,6 +245,20 @@ export interface HostCalls {
   'video.export': () => string | null
   /** Stops the running export; nothing is left at the chosen path. */
   'video.cancelExport': () => void
+  /** The open Animation video's narration as its file has it: its Voice (`margen-voice`) and the lines of its narration block. */
+  'video.narration': () => VideoNarration
+  /**
+   * Sets the open Animation video's Voice: writes the `margen-voice` marker into its file (after a Checkpoint),
+   * or removes it for `null`. The Voice need not be on this Mac yet. Rejects while a Turn runs.
+   */
+  'video.setVoice': (voice: string | null) => void
+  /** One narration line spoken with `voice`, from the data directory's cache once it's been spoken. Rejects when the Voice isn't on this Mac. */
+  'video.speakLine': (voice: string, text: string) => SpokenAudio
+}
+
+/** An Animation video's narration. Without a `voice` the video is silent. */
+export interface VideoNarration extends Narration {
+  voice?: string
 }
 
 export interface HostEvents {

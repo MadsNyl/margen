@@ -51,7 +51,9 @@ const NARRATION = `Narration, if the video has any, is one block in the file:
 </script>
 A list of lines in the order they're spoken. "start" is when the line begins, in seconds from the start of the video; "text" is what is said, as plain words (no markup). Keep lines from overlapping: a line should end before the next one starts. Margen speaks the lines with the video's Voice; don't add <audio> for them.`
 
-/** Ticket 05 adds a rule here for the line-length tool. */
+/** Margen's line-length tool (`narration/tool.ts`), as Claude Code names it. */
+const LINE_LENGTHS = `Margen gives you a tool, mcp__margen__narration_lengths, that says how long each narration line takes to say with the video's Voice. Call it after writing or changing the narration (it reads the file as saved) and time the scenes and the next lines' starts to what it says, so each line ends before the next starts and before the scene it belongs to ends. Pass "texts" to measure lines before you write them. Without a Voice chosen it can't measure; then leave about 0.4 s per word.`
+
 export const ANIMATION_VIDEO_RULES: readonly string[] = [
   'All motion is CSS animations on one clock, the page\'s own: @keyframes with animation-delay and animation-duration. Transitions only with a fixed duration and delay. No JavaScript timers or animation loops (setTimeout, setInterval, requestAnimationFrame), no Web Animations started from script, and no motion triggered by hover, focus, clicks or scrolling. Margen pauses and seeks the clock to play, annotate and export the video, so anything that runs on its own time breaks it.',
   'No animation repeats forever (no "infinite"): every animation ends at a set time.',
@@ -60,6 +62,7 @@ export const ANIMATION_VIDEO_RULES: readonly string[] = [
   'The video is a sequence of scenes, each a <section class="scene"> inside the .stage, timed with animation-delay (its --start) and its length (its --length). Every animation-delay counts from the start of the video, also for the elements inside a scene: build them from the scene\'s start, as in calc(var(--start) + 0.4s).',
   "The video's length is when the last animation ends. Keep the timeline in the CSS: add, remove or retime scenes by changing their --start and --length and the delays inside them.",
   NARRATION,
+  LINE_LENGTHS,
 ]
 
 export function animationVideoInstructions(): string {

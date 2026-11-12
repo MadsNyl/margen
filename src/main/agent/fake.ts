@@ -2,9 +2,11 @@ import { writeFileSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { AgentEvent, AgentSetupResult, AgentStatus, ApprovalDecision, ToolEvent, TurnInput } from '@shared/agent'
+import { z } from 'zod'
 import { approvalRequest, editorPolicy, type ToolRequest } from '../permissions'
 import { createChannel } from './channel'
 import type { AgentProvider, AgentSession, StartSessionOptions } from './provider'
+import type { AgentToolResult } from './tools'
 
 // A stand-in Agent for Seam 1 and Seam 2 tests. Each `send` plays back the
 // next scripted Turn; a turn-end is added when the script doesn't end with one.
@@ -15,6 +17,8 @@ import type { AgentProvider, AgentSession, StartSessionOptions } from './provide
 // cancelled meanwhile. A Turn with an error step ends with turn-end "failed". A
 // `permission` step asks the Session's policy about a tool request, as a real
 // Agent does; only an "ask" becomes an approval-request (and pauses the Turn).
+// A `call` step calls one of Margen's own tools the Session was given, as a
+// real Agent calls them over MCP, and shows as an `other` tool by its name.
 
 export type FakeStep =
   | Exclude<AgentEvent, ToolEvent>
@@ -25,6 +29,8 @@ export type FakeStep =
   | { type: 'wait'; ms: number }
   /** A tool call that goes through the permission policy first; `id` becomes the approval-request's. */
   | { type: 'permission'; id: string; request: ToolRequest }
+  /** Calls Margen's tool `tool` from `StartSessionOptions.tools` with `input`; the result goes in `toolCalls`. */
+  | { type: 'call'; tool: string; input?: Record<string, unknown> }
 
 export interface FakeSetupStep {
   result: 'done' | 'failed'
@@ -52,6 +58,8 @@ export interface FakeAgentProvider extends AgentProvider {
   approvals: { id: string; decision: ApprovalDecision }[]
   /** The options of every Session started, in order. */
   sessions: StartSessionOptions[]
+  /** Every `call` step played, with what the tool answered. */
+  toolCalls: { tool: string; input: Record<string, unknown>; result: AgentToolResult }[]
 }
 
 const fallbackTurn: FakeStep[] = [{ type: 'text', text: 'OK.' }]
@@ -62,6 +70,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
   const sent: TurnInput[] = []
   const approvals: FakeAgentProvider['approvals'] = []
   const sessions: StartSessionOptions[] = []
+  const toolCalls: FakeAgentProvider['toolCalls'] = []
 
   function startSession(options: StartSessionOptions): AgentSession {
     const { projectDir, resumeId, permissions = editorPolicy(projectDir) } = options
@@ -102,6 +111,21 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
             channel.push(request)
             await unlessInterrupted(new Promise<void>((resolve) => pendingApprovals.set(request.id, resolve)))
           }
+          continue
+        }
+        if (step.type === 'call') {
+          const { tool: name, input = {} } = step
+          const id = `call-${toolCalls.length + 1}`
+          channel.push({ type: 'tool', id, status: 'running', tool: 'other', name, detail: '' })
+          const tool = options.tools?.find((t) => t.name === name)
+          const args = tool && z.object(tool.input).safeParse(input)
+          const result: AgentToolResult = !tool
+            ? { text: `No such tool: ${name}`, error: true }
+            : args?.success
+              ? ((await Promise.race([tool.run(args.data), stopped])) ?? { text: 'Interrupted', error: true })
+              : { text: `Invalid input: ${args?.error.message}`, error: true }
+          toolCalls.push({ tool: name, input, result })
+          channel.push({ type: 'tool', id, status: result.error ? 'failed' : 'done', tool: 'other', name, detail: '' })
           continue
         }
         if (step.type === 'tool') {
@@ -170,6 +194,7 @@ export function createFakeAgentProvider(script: FakeAgentScript = {}): FakeAgent
     sent,
     approvals,
     sessions,
+    toolCalls,
     detect: async () => status,
     install: () => setup(script.install, { installed: true, version: script.install?.version ?? status.version ?? 'fake' }),
     signIn() {

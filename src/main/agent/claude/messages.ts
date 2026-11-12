@@ -1,6 +1,7 @@
 import { tmpdir } from 'node:os'
 import type { AgentEvent, ToolEvent } from '@shared/agent'
 import { inProject } from '../../projects/inside'
+import { margenTool } from './tools'
 
 // Turns the messages `claude` sends through the Agent SDK into AgentEvents.
 // Messages are read defensively: the user's `claude` may be older or newer
@@ -57,7 +58,8 @@ export function createMessageMapper(projectDir: string): MessageMapper {
       case 'WebSearch':
         return { type: 'tool', id, tool: 'web', name, detail: str(input.query) ?? '' }
       default:
-        return { type: 'tool', id, tool: 'other', name, detail: '' }
+        // Margen's own tools by their own name, without Claude Code's `mcp__margen__`.
+        return { type: 'tool', id, tool: 'other', name: margenTool(name) ?? name, detail: '' }
     }
   }
 

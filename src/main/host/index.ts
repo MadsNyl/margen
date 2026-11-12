@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, extname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -11,6 +11,7 @@ import { locateAnnotations } from '../turns'
 import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
 import { exportVideo, type VideoFrames } from '../video/export'
+import { createNarrationAudio, readNarration } from '../narration'
 import { createVoices } from '../voices'
 import { VOICE_CATALOGUE, type VoicePackEntry } from '../voices/catalogue'
 import type { Synthesiser } from '../voices/synthesiser'
@@ -21,6 +22,7 @@ import { makeProjectFolder } from '../projects/new-project'
 import { applyTextEdit } from '../projects/text-edit'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
+import { withVoiceMarker } from '@shared/narration'
 import { isTemplateChoice, type TemplateChoice } from '@shared/templates'
 import { documentTemplate, startingFile } from '../templates'
 import { createEmitter } from './emitter'
@@ -105,6 +107,7 @@ export function createHost({
     synthesiser: voiceDeps.synthesiser ?? noSynthesiser,
     onChange: (packs) => events.emit('voices.changed', packs),
   })
+  const narration = createNarrationAudio({ dir: join(dataDir, 'narration'), speak: voices.speak })
 
   async function open(folder: string): Promise<Project> {
     const path = resolve(folder)
@@ -137,6 +140,7 @@ export function createHost({
       preset: preset.get,
       attached: (file) => picked.has(file),
       emit: events.emit,
+      narration,
     })
     events.emit('document.opened', opened.info)
     return opened.info
@@ -156,11 +160,16 @@ export function createHost({
     if (!output) return null
     const controller = new AbortController()
     exporting = controller
+    let audio: string | undefined
     try {
+      // Spoken (or read from the cache) before the first frame, so a missing Voice stops it before it starts.
+      audio = await narration.track(file)
+      if (controller.signal.aborted) return null
       await exportVideo({
         ffmpeg,
         frames: await frames(info.url),
         output,
+        ...(audio && { audio }),
         signal: controller.signal,
         onProgress: (frame, total) => events.emit('video.exportProgress', { frame, frames: total }),
       })
@@ -170,7 +179,31 @@ export function createHost({
       throw error
     } finally {
       exporting = null
+      if (audio) await rm(audio, { force: true })
     }
+  }
+
+  /** The open Document, when it's an Animation video as its file is now. */
+  async function requireVideo(): Promise<EditorDocument> {
+    const document = requireDocument()
+    if ((await documentTemplate(document.file)) !== 'animation-video') throw new Error('Only an Animation video has a Voice')
+    return document
+  }
+
+  async function setVoice(voice: string | null): Promise<void> {
+    const { file, session, info } = await requireVideo()
+    if (voice !== null && !(await voices.list()).some((pack) => pack.voices.some((v) => v.id === voice))) throw new Error(`Not a Voice: ${String(voice)}`)
+    if (session().running()) throw new Error('Claude is working on the Document. Choose the Voice once the Turn is done.')
+    const html = await readFile(file, 'utf8')
+    const changed = withVoiceMarker(html, voice)
+    if (changed === html) return
+    const store = checkpoints
+    if (store) {
+      await store.take({ reason: 'edit', document: info.path, text: `Voice → ${voice ?? 'none'}` })
+      events.emit('checkpoints.changed', await store.list(info.path))
+    }
+    // The reload watch sees the write and reloads the Document view, keeping its time.
+    await writeFile(file, changed)
   }
 
   function closeDocument() {
@@ -336,6 +369,12 @@ export function createHost({
     'voices.preview': (voice) => voices.preview(voice),
     'video.export': exportOpenVideo,
     'video.cancelExport': async () => exporting?.abort(),
+    'video.narration': async () => readNarration((await requireVideo()).file),
+    'video.setVoice': setVoice,
+    'video.speakLine': (voice, text) => {
+      if (typeof voice !== 'string' || typeof text !== 'string') return Promise.reject(new Error('A line needs a Voice and its text'))
+      return narration.speak(voice, text)
+    },
   }
 
   return {
