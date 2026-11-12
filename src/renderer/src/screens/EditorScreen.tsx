@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Mode } from '@shared/document-bridge'
 import type { OpenDocument, Project } from '@shared/host-api'
+import type { MarkedTemplateId } from '@shared/templates'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
@@ -8,6 +9,7 @@ import { AddIcon, ChevronDownIcon, HideChatIcon, OpenExternalIcon, ShowChatIcon 
 import { ChatPanel } from '../editor/ChatPanel'
 import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
+import { PausedTimeProvider, VideoControls, useVideoClock } from '../editor/clock'
 import { DraftProvider } from '../editor/draft'
 import { DrawLayer } from '../editor/DrawLayer'
 import { HiddenChatBar } from '../editor/HiddenChatBar'
@@ -36,9 +38,22 @@ export function EditorScreen({ project, document }: { project: Project; document
   /** The Document's own box: the frame at actual size, or a whole screen scaled down inside it with Fit on. */
   const canvas = useRef<HTMLDivElement>(null)
   const stage = useRef<HTMLDivElement>(null)
-  const viewport = useMeasuredViewport(choice, frame, fit)
-  const screen = SCREENS[choice]
+  // The marker as the page last loaded it says, so a reload that adds or removes it shows or hides the video controls.
+  const [marker, setMarker] = useState<{ url: string; template?: MarkedTemplateId }>()
+  const template = marker?.url === document.url ? marker.template : document.template
+  const video = template === 'animation-video'
+  const clock = useVideoClock(bridge, video, document.url)
+  // An Animation video always shows its whole frame, fitted to the window.
+  const fitted = fit || video
+  const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : SCREENS[choice]
+  const measured = useMeasuredViewport(choice, frame, fitted)
+  const viewport = video ? { ...measured, width: screen.width } : measured
   const scale = fitScale(screen, useRoom(stage))
+
+  // Pick and Draw work on the paused frame.
+  useEffect(() => {
+    if (video && mode !== 'browse') bridge?.send({ type: 'clock-pause' })
+  }, [bridge, video, mode])
 
   useEffect(() => {
     if (!reloaded) return
@@ -67,6 +82,7 @@ export function EditorScreen({ project, document }: { project: Project; document
 
   return (
     <ViewportProvider value={viewport}>
+      <PausedTimeProvider value={clock?.state?.time}>
       <LeaveGuard>
       <DraftProvider document={document.path}>
       <ModeShortcuts bridge={bridge} mode={mode} onMode={setMode} />
@@ -75,8 +91,14 @@ export function EditorScreen({ project, document }: { project: Project; document
           <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
             <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
-              <FitButton fit={fit} scale={scale} onFit={setFit} />
-              <ViewportSelect choice={choice} viewport={viewport} fit={fit} onChoose={setChoice} />
+              {clock ? (
+                <VideoControls clock={clock} />
+              ) : (
+                <>
+                  <FitButton fit={fit} scale={scale} onFit={setFit} />
+                  <ViewportSelect choice={choice} viewport={viewport} fit={fit} onChoose={setChoice} />
+                </>
+              )}
               <button
                 className="inline-flex h-7 items-center rounded-[7px] px-[9px] text-tx2 hover:bg-black/4 hover:text-tx"
                 title="Open in browser"
@@ -104,7 +126,7 @@ export function EditorScreen({ project, document }: { project: Project; document
                 className="notice-in pointer-events-none absolute top-3.5 left-1/2 z-21 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] text-[#185a36] shadow-[0_4px_16px_-4px_rgba(0,0,0,.15)]"
               >
                 <span className="size-1.5 rounded-full bg-mint-strong" />
-                Reloaded · scroll kept
+                Reloaded · {video ? 'time' : 'scroll'} kept
               </div>
             )}
             {editFailed && (
@@ -127,20 +149,23 @@ export function EditorScreen({ project, document }: { project: Project; document
                 role="region"
                 aria-label="Document view"
                 data-ready={bridge !== null}
-                data-fit={fit || undefined}
-                style={fit ? { width: screen.width * scale, height: screen.height * scale } : { width: frameWidth(choice) }}
-                className={`relative mx-auto overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)] ${fit ? '' : 'h-full transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)]'}`}
+                data-fit={fitted || undefined}
+                style={fitted ? { width: screen.width * scale, height: screen.height * scale } : { width: frameWidth(choice) }}
+                className={`relative mx-auto overflow-hidden rounded-[10px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,.06),0_24px_60px_-24px_rgba(0,0,0,.25)] ${fitted ? '' : 'h-full transition-[width] duration-[450ms] ease-[cubic-bezier(.6,.1,.2,1)]'}`}
               >
                 {/* With Fit on, the Document is laid out at the whole screen and scaled down. */}
                 <div
                   ref={canvas}
-                  className={fit ? 'absolute top-0 left-0 origin-top-left' : 'relative size-full'}
-                  style={fit ? { width: screen.width, height: screen.height, transform: `scale(${scale})` } : undefined}
+                  className={fitted ? 'absolute top-0 left-0 origin-top-left' : 'relative size-full'}
+                  style={fitted ? { width: screen.width, height: screen.height, transform: `scale(${scale})` } : undefined}
                 >
                   <DocumentView
                     key={document.url}
                     document={document}
-                    onReady={setBridge}
+                    onReady={(ready, template) => {
+                      setBridge(ready)
+                      if (ready) setMarker({ url: document.url, template })
+                    }}
                     onReloaded={() => {
                       setReloaded((n) => n + 1)
                       setReloads((n) => n + 1)
@@ -148,8 +173,8 @@ export function EditorScreen({ project, document }: { project: Project; document
                   />
                 </div>
                 {/* Over the view but not scaled with it, so markers and the comment box keep their size. */}
-                <DrawLayer bridge={bridge} mode={mode} frame={canvas} scale={fit ? scale : 1} />
-                <PickLayer bridge={bridge} mode={mode} reloads={reloads} scale={fit ? scale : 1} canvas={canvas} onKeyGuide={setKeyGuide} />
+                <DrawLayer bridge={bridge} mode={mode} frame={canvas} scale={fitted ? scale : 1} />
+                <PickLayer bridge={bridge} mode={mode} reloads={reloads} scale={fitted ? scale : 1} canvas={canvas} onKeyGuide={setKeyGuide} />
               </div>
             </div>
           </div>
@@ -161,6 +186,7 @@ export function EditorScreen({ project, document }: { project: Project; document
       </div>
       </DraftProvider>
       </LeaveGuard>
+      </PausedTimeProvider>
     </ViewportProvider>
   )
 }

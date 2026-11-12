@@ -730,6 +730,38 @@ describe('a Turn with Annotations', () => {
       ].join('\n'),
     ])
   })
+  test('an Annotation made on a paused Animation video says the time it was paused at', async () => {
+    const { provider, runs } = pretendMac({
+      turns: [
+        async function* () {
+          yield success
+        },
+      ],
+    })
+    const session = provider.startSession({ projectDir, document: 'intro.html' })
+    session.send({
+      text: '',
+      annotations: [
+        { kind: 'pick', number: 1, comment: 'Later', viewportWidth: 1920, time: 12.43, selector: 'main > h1', tag: 'h1', html: '<h1>Hi</h1>' },
+        {
+          kind: 'draw',
+          number: 2,
+          comment: '',
+          viewportWidth: 1920,
+          time: 0,
+          strokes: [[{ x: 0, y: 0 }, { x: 10, y: 10 }]],
+          boundingBox: { x: 0, y: 0, width: 10, height: 10 },
+          targets: [],
+        },
+      ],
+    })
+    await untilTurnEnd(session)
+
+    const text = runs[0]?.prompts[0]?.message.content as string
+    expect(text).toContain('[1] Pick: Later\n  element: <h1> at `main > h1`\n  seen at a Viewport 1920px wide, at 0:12.4 in the video\n')
+    expect(text).toContain('  seen at a Viewport 1920px wide, at 0:00.0 in the video\n  nothing underneath the strokes')
+  })
+
   test("a Pick's screenshot of its element goes along as an image, numbered with the drawings'", async () => {
     const { provider, runs } = pretendMac({
       turns: [

@@ -8,6 +8,7 @@ import { usePageScroll } from './DrawLayer'
 import { placeBox, placeDrawing } from './follow'
 import { annotationLabel, labelOf, useDraft, type Draft, type PendingAnnotation } from './draft'
 import { useViewport } from './viewport'
+import { usePausedTime } from './clock'
 import { CloseIcon } from '../components/icons'
 
 // The layer over the Document view: the Pick highlight, a marker for each
@@ -64,9 +65,10 @@ export function PickLayer({
   const [hover, setHover] = useState<{ selector: string; rect: Box; byKey?: boolean } | null>(null)
   const [rects, setRects] = useState<Record<string, Box | null>>({})
   const [glow, setGlow] = useState<TrackedElement[]>([])
-  const latest = useRef({ draft, width: viewport.width })
+  const time = usePausedTime()
+  const latest = useRef({ draft, width: viewport.width, time })
   useEffect(() => {
-    latest.current = { draft, width: viewport.width }
+    latest.current = { draft, width: viewport.width, time }
   })
   const layer = useRef<HTMLDivElement>(null)
 
@@ -77,8 +79,8 @@ export function PickLayer({
       else if (message.type === 'rects') setRects(message.rects)
       else if (message.type === 'pick') {
         setRects((now) => ({ ...now, [message.id]: message.rect }))
-        const { draft, width } = latest.current
-        draft.add(message.id, { kind: 'pick', comment: '', viewportWidth: width, ...message.element })
+        const { draft, width, time } = latest.current
+        draft.add(message.id, { kind: 'pick', comment: '', viewportWidth: width, ...(time !== undefined && { time }), ...message.element })
         if (canvas.current) draft.waitFor(takeCrop(draft, message.id, message.rect, canvas.current))
       } else if (message.type === 'drawing') {
         setRects((now) => ({ ...now, ...Object.fromEntries(message.rects.map((rect, i) => [`${message.id}/${i}`, rect])) }))

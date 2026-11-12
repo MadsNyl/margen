@@ -1,4 +1,5 @@
 import type { Annotation, ElementDescriptor, TurnInput } from '@shared/agent'
+import { formatTime } from '@shared/clock'
 
 // Turns what the user sent (text and Annotations) into the prompt for the Agent:
 // the text, then each Annotation by number with its comment and descriptors.
@@ -39,7 +40,7 @@ function describeAnnotation(annotation: Annotation, document: string | undefined
   const kind = annotation.kind === 'pick' ? 'Pick' : 'Drawing'
   const comment = annotation.comment.trim()
   const head = `[${annotation.number}] ${kind}${comment ? `: ${comment}` : ' (no comment)'}`
-  const seen = `  seen at a Viewport ${annotation.viewportWidth}px wide`
+  const seen = `  seen at a Viewport ${annotation.viewportWidth}px wide${annotation.time === undefined ? '' : `, at ${formatTime(annotation.time)} in the video`}`
   if (annotation.kind === 'pick') {
     const [element, ...details] = describeElement(annotation, document, '  ')
     const picture = images.length ? [`  image ${images[0]}: the element as it looked`] : []

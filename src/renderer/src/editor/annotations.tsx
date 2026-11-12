@@ -1,4 +1,5 @@
 import type { Annotation } from '@shared/agent'
+import { formatTime } from '@shared/clock'
 import { annotationLabel, useDraft } from './draft'
 import { CloseIcon } from '../components/icons'
 
@@ -47,6 +48,7 @@ export function AnnotationRows({ annotations }: { annotations: Annotation[] }) {
             <b className="block truncate font-mono text-[10px] font-normal text-ink-tx">
               {annotation.kind === 'draw' && 'drawing · '}
               {annotationLabel(annotation)} · {annotation.viewportWidth}px
+              {annotation.time !== undefined && ` · at ${formatTime(annotation.time)}`}
             </b>
             {annotation.comment || (annotation.kind === 'pick' ? '(no comment)' : '(drawing)')}
           </span>

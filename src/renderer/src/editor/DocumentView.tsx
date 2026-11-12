@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { DOCUMENT_PARTITION, type ScrollPosition } from '@shared/document-bridge'
 import type { OpenDocument } from '@shared/host-api'
+import type { MarkedTemplateId } from '@shared/templates'
 import { host } from '../host'
 import { connectDocument, type DocumentBridge, type WebviewElement } from './bridge'
 
@@ -16,8 +17,8 @@ export function DocumentView({
   onReloaded,
 }: {
   document: OpenDocument
-  /** Margen's script in the page is listening (`false` while the page loads). Hands over the bridge to it. */
-  onReady: (bridge: DocumentBridge | null) => void
+  /** Margen's script in the page is listening (`null` while the page loads). Hands over the bridge to it, and the Template the page's marker names. */
+  onReady: (bridge: DocumentBridge | null, template?: MarkedTemplateId) => void
   onReloaded: () => void
 }) {
   const container = useRef<HTMLDivElement>(null)
@@ -42,7 +43,7 @@ export function DocumentView({
         if (reloading && scroll) bridge.send({ type: 'restore-scroll', scroll })
         if (reloading) callbacks.current.onReloaded()
         reloading = false
-        callbacks.current.onReady(bridge)
+        callbacks.current.onReady(bridge, message.template)
       }
     })
     const offUpdated = host.on('document.updated', ({ path }) => {

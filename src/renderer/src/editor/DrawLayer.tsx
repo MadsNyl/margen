@@ -7,6 +7,7 @@ import { captureDocument } from './capture'
 import { useDraft, type Draft } from './draft'
 import { placeDrawing, unionOf } from './follow'
 import { useViewport } from './viewport'
+import { usePausedTime } from './clock'
 
 // Draw: the strokes over the Document view and the live highlight of what the
 // stroke being drawn catches. The page's script follows the pointer (so the
@@ -44,9 +45,10 @@ export function DrawLayer({ bridge, mode, frame, scale = 1 }: { bridge: Document
   const viewport = useViewport()
   const scroll = usePageScroll(bridge)
   const [live, setLive] = useState<{ points: Point[]; rects: Box[] } | null>(null)
-  const latest = useRef({ draft, width: viewport.width, scroll })
+  const time = usePausedTime()
+  const latest = useRef({ draft, width: viewport.width, scroll, time })
   useEffect(() => {
-    latest.current = { draft, width: viewport.width, scroll }
+    latest.current = { draft, width: viewport.width, scroll, time }
   })
   /** Strokes sent to the script to resolve, by drawing; a drawing waits here until it's answered. */
   const resolving = useRef(new Map<string, Point[][]>())
@@ -79,7 +81,10 @@ export function DrawLayer({ bridge, mode, frame, scale = 1 }: { bridge: Document
         const targetsBox = caught ? { ...caught, x: caught.x + scroll.x, y: caught.y + scroll.y } : undefined
         const change = { strokes, targets: message.targets, boundingBox: boundsOf(strokes.flat()), ...(targetsBox && { targetsBox }) }
         if (draft.annotations.some((p) => p.id === message.id)) draft.update(message.id, change)
-        else draft.add(message.id, { kind: 'draw', comment: '', viewportWidth: latest.current.width, ...change })
+        else {
+          const { width, time } = latest.current
+          draft.add(message.id, { kind: 'draw', comment: '', viewportWidth: width, ...(time !== undefined && { time }), ...change })
+        }
         draft.waitFor(takeScreenshots(draft, message.id, strokes, latest.current.scroll, frame.current))
       }
     })

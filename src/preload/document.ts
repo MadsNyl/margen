@@ -14,7 +14,9 @@ import {
   type TrackedElement,
 } from '@shared/document-bridge'
 import { resolveDrawing, resolveStroke, type Layout } from '@shared/draw'
+import { templateMarker } from '@shared/templates'
 import { arrowTarget, type ArrowKey } from './arrows'
+import { takeClock, type Clock } from './clock'
 import { describeElement, findElement, rectOf, selectorOf } from './elements'
 
 // Margen's script inside the Document view. It is the `<webview>`'s preload, so it
@@ -431,10 +433,21 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   else if (message.type === 'track') track(message.elements)
   else if (message.type === 'resolve') resolve(message.id, message.strokes)
   else if (message.type === 'key' && mode === 'pick') pickKey(message.key)
+  else if (message.type === 'clock-play') clock?.play(message.time)
+  else if (message.type === 'clock-pause') clock?.pause()
+  else if (message.type === 'clock-seek') clock?.seek(message.time, message.id)
   else if (message.type === 'text-edit-failed' && lastEdit) {
     lastEdit.element.textContent = lastEdit.before
     lastEdit = null
   }
 })
 
-window.addEventListener('DOMContentLoaded', () => send({ type: 'ready', url: location.href }))
+// An Animation video's clock is Margen's (`./clock.ts`): taken as soon as the page is
+// there, so nothing plays on its own. The editor seeks it back to where it was after a reload.
+let clock: Clock | null = null
+
+window.addEventListener('DOMContentLoaded', () => {
+  const template = templateMarker(document.head?.outerHTML ?? '')
+  send({ type: 'ready', url: location.href, ...(template && { template }) })
+  if (template === 'animation-video') clock = takeClock((state, id) => send({ type: 'clock', clock: state, ...(id !== undefined && { id }) }))
+})
