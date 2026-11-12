@@ -55,6 +55,8 @@ export interface DrawAnnotation extends AnnotationBase {
   boundingBox: Box
   /** The elements the strokes caught, up to five. */
   targets: ElementDescriptor[]
+  /** The box around those elements when drawn, in page coordinates: the editor keeps the strokes on them as the Document reflows. */
+  targetsBox?: Box
   /** PNG data URLs: the Viewport with strokes drawn in, and the strokes alone. */
   screenshot?: string
   crop?: string

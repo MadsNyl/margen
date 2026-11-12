@@ -5,6 +5,7 @@ import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
 import { captureDocument } from './capture'
 import { usePageScroll } from './DrawLayer'
+import { placeBox, placeDrawing } from './follow'
 import { annotationLabel, labelOf, useDraft, type Draft, type PendingAnnotation } from './draft'
 import { useViewport } from './viewport'
 import { CloseIcon } from '../components/icons'
@@ -29,8 +30,8 @@ function tracked({ id, annotation }: PendingAnnotation): TrackedElement[] {
 /** Where an Annotation is in the view: its element's box, or for a drawing its strokes' box (kept in page coordinates). */
 function anchorOf({ id, annotation }: PendingAnnotation, rects: Record<string, Box | null>, scroll: ScrollPosition): Box | null {
   if (annotation.kind === 'pick') return rects[id] ?? null
-  const { x, y, width, height } = boundsOf(annotation.strokes.flat())
-  return { x: x - scroll.x, y: y - scroll.y, width, height }
+  // Moved with the elements the drawing caught, as its strokes are (follow.ts).
+  return placeBox(boundsOf(annotation.strokes.flat()), placeDrawing(id, annotation, rects, scroll))
 }
 
 const typing = (target: EventTarget | null) =>

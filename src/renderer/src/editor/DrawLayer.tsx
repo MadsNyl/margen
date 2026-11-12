@@ -5,6 +5,7 @@ import { boundsOf } from '@shared/draw'
 import type { DocumentBridge } from './bridge'
 import { captureDocument } from './capture'
 import { useDraft, type Draft } from './draft'
+import { placeDrawing, unionOf } from './follow'
 import { useViewport } from './viewport'
 
 // Draw: the strokes over the Document view and the live highlight of what the
@@ -69,7 +70,10 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
         const strokes = resolving.current.get(message.id)
         if (!strokes) return
         resolving.current.delete(message.id)
-        const change = { strokes, targets: message.targets, boundingBox: boundsOf(strokes.flat()) }
+        const { scroll } = latest.current
+        const caught = unionOf(message.rects)
+        const targetsBox = caught ? { ...caught, x: caught.x + scroll.x, y: caught.y + scroll.y } : undefined
+        const change = { strokes, targets: message.targets, boundingBox: boundsOf(strokes.flat()), ...(targetsBox && { targetsBox }) }
         if (draft.annotations.some((p) => p.id === message.id)) draft.update(message.id, change)
         else draft.add(message.id, { kind: 'draw', comment: '', viewportWidth: latest.current.width, ...change })
         draft.waitFor(takeScreenshots(draft, message.id, strokes, latest.current.scroll, frame.current))
@@ -78,20 +82,27 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
   }, [bridge, frame])
 
   const drawn = [...draft.annotations, ...draft.fading].filter((p) => p.annotation.kind === 'draw')
+  const rects = useFollowedRects(bridge)
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
       <svg data-strokes className="absolute inset-0 size-full" fill="none" stroke={INK} strokeWidth={STROKE_WIDTH} strokeLinecap="round" strokeLinejoin="round">
-        <g transform={`translate(${-scroll.x} ${-scroll.y})`}>
-          {drawn.map((pending) => (
-            <g key={pending.id} className={draft.fading.includes(pending) ? 'opacity-0 transition-opacity duration-600' : ''}>
-              {(pending.annotation as DrawAnnotation).strokes.map((points, i) => (
-                <path key={i} d={pathOf(points)} />
+        {drawn.map((pending) => {
+          const annotation = pending.annotation as DrawAnnotation
+          const at = placeDrawing(pending.id, annotation, rects, scroll)
+          return (
+            <g
+              key={pending.id}
+              transform={`matrix(${at.scaleX} 0 0 ${at.scaleY} ${at.x} ${at.y})`}
+              className={draft.fading.includes(pending) ? 'opacity-0 transition-opacity duration-600' : ''}
+            >
+              {annotation.strokes.map((points, i) => (
+                <path key={i} d={pathOf(points)} vectorEffect="non-scaling-stroke" />
               ))}
             </g>
-          ))}
-          {mode === 'draw' && live && <path d={pathOf(live.points)} />}
-        </g>
+          )
+        })}
+        <g transform={`translate(${-scroll.x} ${-scroll.y})`}>{mode === 'draw' && live && <path d={pathOf(live.points)} />}</g>
       </svg>
       {mode === 'draw' &&
         live?.rects.map((rect, i) => (
@@ -104,6 +115,20 @@ export function DrawLayer({ bridge, mode, frame }: { bridge: DocumentBridge | nu
         ))}
     </div>
   )
+}
+
+/** The followed elements' boxes in view coordinates, as the page's script reports them. */
+export function useFollowedRects(bridge: DocumentBridge | null): Record<string, Box | null> {
+  const [rects, setRects] = useState<Record<string, Box | null>>({})
+  useEffect(
+    () =>
+      bridge?.on((message) => {
+        if (message.type === 'rects') setRects(message.rects)
+        else if (message.type === 'drawing') setRects((now) => ({ ...now, ...Object.fromEntries(message.rects.map((rect, i) => [`${message.id}/${i}`, rect])) }))
+      }),
+    [bridge],
+  )
+  return rects
 }
 
 /** A smooth path through the points, as the prototype draws strokes. */

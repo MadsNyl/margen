@@ -10,6 +10,7 @@ import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
 import { DraftProvider } from '../editor/draft'
 import { DrawLayer } from '../editor/DrawLayer'
+import { HiddenChatBar } from '../editor/HiddenChatBar'
 import { LeaveGuard, useLeave } from '../editor/leave'
 import { ModeShortcuts } from '../editor/ModeShortcuts'
 import { NewDocumentDialog } from '../editor/NewDocument'
@@ -117,6 +118,7 @@ export function EditorScreen({ project, document }: { project: Project; document
               </div>
             )}
             <Toolbar mode={mode} onMode={setMode} keyGuide={keyGuide} />
+            {!chatOpen && <HiddenChatBar document={document.path} onShowChat={() => setChatOpen(true)} />}
             {/* Room at the bottom for the floating toolbar, which sits over the stage. */}
             {/* A fixed Viewport wider than the window scrolls sideways rather than shrinking. */}
             <div ref={stage} className="stage-dots relative min-h-0 flex-1 overflow-x-auto border-t border-border px-9 pt-[34px] pb-24">

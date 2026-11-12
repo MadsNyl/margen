@@ -162,3 +162,65 @@ test('drawing on empty space resolves to nothing, and is still sent with where i
   expect(drawing.boundingBox.width).toBeGreaterThan(50)
   expect(drawing.screenshot).toMatch(/^data:image\/png;base64,/)
 })
+
+test('a drawing stays on what it caught when the Document reflows: hiding the chat, Fit, and back', async () => {
+  const { window, frame } = await openEditor()
+  const card = '.card:nth-child(2)'
+  const box = window.getByRole('dialog', { name: 'Annotation 1' })
+  await expect(async () => {
+    await circle(await rectOf(card), 14)
+    await expect(box).toBeVisible({ timeout: 1000 })
+  }).toPass()
+  await expect(box.getByRole('list', { name: 'Caught' }).getByRole('listitem')).toHaveText([/div\.card/])
+  await box.getByRole('textbox', { name: 'Comment' }).fill('This one')
+  await box.getByRole('textbox', { name: 'Comment' }).press('Meta+Enter')
+  await expect(box).toBeHidden()
+
+  /** How far the middle of the strokes is from the middle of the card, in the window. */
+  const offset = async () => {
+    const strokes = await frame.locator('[data-strokes] g').first().boundingBox()
+    const view = await frame.boundingBox()
+    const scale = (await frame.getAttribute('data-fit')) ? (view?.width ?? 0) / 1440 : 1
+    const rect = await rectOf(card)
+    const cardX = (view?.x ?? 0) + (rect.x + rect.width / 2) * scale
+    const cardY = (view?.y ?? 0) + (rect.y + rect.height / 2) * scale
+    return Math.hypot((strokes?.x ?? 0) + (strokes?.width ?? 0) / 2 - cardX, (strokes?.y ?? 0) + (strokes?.height ?? 0) / 2 - cardY)
+  }
+  await expect.poll(offset).toBeLessThan(6)
+  const before = (await rectOf(card)).x
+
+  await window.getByRole('button', { name: 'Hide the chat' }).click()
+  await expect.poll(async () => (await rectOf(card)).x).toBeGreaterThan(before + 50)
+  await expect.poll(offset).toBeLessThan(6)
+
+  await window.getByRole('button', { name: 'Fit to window' }).click()
+  await expect.poll(() => inDocument(launched?.app as never, 'innerWidth')).toBe(1440)
+  await expect.poll(offset).toBeLessThan(6)
+
+  await window.getByRole('button', { name: 'Fit to window' }).click()
+  await window.getByRole('button', { name: 'Show the chat' }).click()
+  await expect.poll(offset).toBeLessThan(6)
+})
+
+test('with the chat hidden, the draft bar sends the collected Annotations', async () => {
+  const { window, sentTurns } = await openEditor()
+  const box = window.getByRole('dialog', { name: 'Annotation 1' })
+  await expect(async () => {
+    await circle(await rectOf('.grid'), 16)
+    await expect(box).toBeVisible({ timeout: 1000 })
+  }).toPass()
+  await box.getByRole('textbox', { name: 'Comment' }).fill('Tighten these')
+  await box.getByRole('textbox', { name: 'Comment' }).press('Meta+Enter')
+
+  await window.getByRole('button', { name: 'Hide the chat' }).click()
+  const bar = window.getByRole('region', { name: 'Draft' })
+  await expect(bar).toContainText('1 Annotation')
+  await bar.getByRole('button', { name: 'Send' }).click()
+
+  await expect.poll(async () => (await sentTurns()).length).toBe(1)
+  expect((await sentTurns())[0]?.annotations[0]).toMatchObject({ kind: 'draw', comment: 'Tighten these' })
+  // Nothing left to send and no Turn running: the bar goes, and the top bar brings the chat back.
+  await expect(bar).toBeHidden()
+  await window.getByRole('button', { name: 'Show the chat' }).click()
+  await expect(window.getByRole('complementary', { name: 'Chat' })).toBeVisible()
+})
