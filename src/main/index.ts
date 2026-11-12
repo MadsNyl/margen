@@ -9,6 +9,7 @@ import { createElectronUpdateSource } from './auto-update'
 import { createHost, type Host } from './host'
 import { bindHostToIpc } from './ipc'
 import { DOCUMENT_SCHEME } from './projects/document'
+import { openVideoFrames } from './video-frames'
 import { createUtilityProcessSynthesiser } from './voice-process'
 import { fakeVoicesFromScript } from './voices/fake'
 
@@ -30,6 +31,7 @@ const FORWARDED_EVENTS: HostEventName[] = [
   'checkpoints.changed',
   'update.changed',
   'voices.changed',
+  'video.exportProgress',
 ]
 
 const FIRST_UPDATE_CHECK_MS = 10_000
@@ -60,6 +62,19 @@ async function pickFiles(): Promise<string[]> {
   const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
   return result.canceled ? [] : result.filePaths
 }
+
+/** The Save dialog for an export. `MARGEN_SAVE_FILE=<path>` stands in for it in Seam 2 tests. */
+async function pickSaveFile(defaultPath: string): Promise<string | undefined> {
+  if (process.env.MARGEN_SAVE_FILE) return process.env.MARGEN_SAVE_FILE
+  const window = BrowserWindow.getFocusedWindow()
+  const options: Electron.SaveDialogOptions = { defaultPath, buttonLabel: 'Export', filters: [{ name: 'MPEG-4 video', extensions: ['mp4'] }] }
+  const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
+  return result.canceled ? undefined : result.filePath
+}
+
+/** The ffmpeg `build/ffmpeg.mjs` builds: shipped in the app's Resources, from vendor/ in dev and tests. */
+const ffmpegPath = () =>
+  app.isPackaged ? join(process.resourcesPath, 'ffmpeg', 'ffmpeg') : join(__dirname, '../../vendor/ffmpeg', process.arch, 'ffmpeg')
 
 /** Only http(s) links are handed to the browser: `shell.openExternal` would also open files and other apps' schemes. */
 const isWebUrl = (url: string) => /^https?:/i.test(url)
@@ -172,6 +187,8 @@ void app.whenReady().then(() => {
     updates,
     pickFolder,
     pickFiles,
+    pickSaveFile,
+    video: { ffmpeg: ffmpegPath(), frames: (url) => openVideoFrames(url, join(__dirname, '../preload/document.js')) },
     openExternal: (url) => shell.openExternal(url),
     showFolder: async (path) => {
       const error = await shell.openPath(path)

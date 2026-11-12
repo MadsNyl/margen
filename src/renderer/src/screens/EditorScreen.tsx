@@ -11,6 +11,7 @@ import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
 import { PausedTimeProvider, VideoControls, useVideoClock } from '../editor/clock'
 import { DraftProvider } from '../editor/draft'
+import { ExportButton } from '../editor/export'
 import { DrawLayer } from '../editor/DrawLayer'
 import { HiddenChatBar } from '../editor/HiddenChatBar'
 import { LeaveGuard, useLeave } from '../editor/leave'
@@ -92,7 +93,10 @@ export function EditorScreen({ project, document }: { project: Project; document
             <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
               {clock ? (
-                <VideoControls clock={clock} />
+                <>
+                  <VideoControls clock={clock} />
+                  <ExportButton ready={clock.state !== undefined} />
+                </>
               ) : (
                 <>
                   <FitButton fit={fit} scale={scale} onFit={setFit} />

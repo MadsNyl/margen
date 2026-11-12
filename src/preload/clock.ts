@@ -101,8 +101,8 @@ export function takeClock(report: (clock: ClockState, id?: string) => void): Clo
       const end = length()
       time = Math.max(0, end > 0 ? Math.min(to, end) : to)
       apply()
-      // Answered once the frame has been drawn, so whoever asked can capture it.
-      requestAnimationFrame(() => requestAnimationFrame(() => send(id)))
+      // Answered once the frame has been drawn (with its fonts), so whoever asked can capture it.
+      void Promise.resolve(document.fonts?.ready).then(() => requestAnimationFrame(() => requestAnimationFrame(() => send(id))))
     },
   }
 }

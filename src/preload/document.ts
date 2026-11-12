@@ -28,7 +28,10 @@ const SCROLL_REPORT_MS = 100
 /** How long a restored scroll position is held while late layout (images, fonts) settles. */
 const RESTORE_HOLD_MS = 2500
 
-const send = (message: FromDocument) => ipcRenderer.sendToHost(DOCUMENT_BRIDGE_CHANNEL, message)
+/** In the offscreen window an export runs in, there's no editor: messages go to the main process. */
+let exporting = false
+const send = (message: FromDocument) =>
+  exporting ? ipcRenderer.send(DOCUMENT_BRIDGE_CHANNEL, message) : ipcRenderer.sendToHost(DOCUMENT_BRIDGE_CHANNEL, message)
 const position = (): ScrollPosition => ({ x: window.scrollX, y: window.scrollY })
 
 // While a scroll position is being restored, the page's own scroll events are ours, not the user's.
@@ -436,6 +439,7 @@ ipcRenderer.on(DOCUMENT_BRIDGE_CHANNEL, (_event, message: ToDocument) => {
   else if (message.type === 'clock-play') clock?.play(message.time)
   else if (message.type === 'clock-pause') clock?.pause()
   else if (message.type === 'clock-seek') clock?.seek(message.time, message.id)
+  else if (message.type === 'export') exporting = true
   else if (message.type === 'text-edit-failed' && lastEdit) {
     lastEdit.element.textContent = lastEdit.before
     lastEdit = null

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join, relative, resolve, sep } from 'node:path'
+import { basename, extname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Attachment } from '@shared/agent'
 import type { HostApi, HostCallName, HostCalls, HostEventName, HostEvents, OpenDocument, Project } from '@shared/host-api'
@@ -10,6 +10,7 @@ import { createPresetStore, isPreset } from '../permissions/preset'
 import { locateAnnotations } from '../turns'
 import { createModelChoiceStore, isModelChoice } from '../turns/model'
 import { createUpdater, type UpdateSource } from '../updates'
+import { exportVideo, type VideoFrames } from '../video/export'
 import { createVoices } from '../voices'
 import { VOICE_CATALOGUE, type VoicePackEntry } from '../voices/catalogue'
 import type { Synthesiser } from '../voices/synthesiser'
@@ -50,6 +51,13 @@ export interface HostDeps {
    * without one, Voices download but can't speak. `catalogue` is sherpa-onnx's releases unless tests pass their own.
    */
   voices?: { catalogue?: VoicePackEntry[]; synthesiser?: Synthesiser }
+  /**
+   * Exporting an Animation video: the ffmpeg binary, and `frames`, which lays out the Document
+   * at `url` at its frame size and steps its clock (an offscreen window in the app). Without both, export rejects.
+   */
+  video?: { ffmpeg?: string; frames?: (url: string) => Promise<VideoFrames> }
+  /** The native Save dialog, opening at `defaultPath`; resolves `undefined` when cancelled. Tests and e2e pass their own. */
+  pickSaveFile?: (defaultPath: string) => Promise<string | undefined>
 }
 
 export interface Host extends HostApi {
@@ -79,6 +87,8 @@ export function createHost({
   version = '0.0.0',
   captureDocument = async () => null,
   voices: voiceDeps = {},
+  video = {},
+  pickSaveFile = async () => undefined,
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
   const updater = createUpdater(updates, (status) => events.emit('update.changed', status))
@@ -132,7 +142,39 @@ export function createHost({
     return opened.info
   }
 
+  /** The running export, to cancel. */
+  let exporting: AbortController | null = null
+
+  async function exportOpenVideo(): Promise<string | null> {
+    const { file, info } = requireDocument()
+    const { project } = requireProject()
+    if ((await documentTemplate(file)) !== 'animation-video') throw new Error('Only an Animation video exports to MP4')
+    if (exporting) throw new Error('An export is already running')
+    const { ffmpeg, frames } = video
+    if (!ffmpeg || !frames) throw new Error('Export isn’t available in this build')
+    const output = await pickSaveFile(join(project.path, `${basename(info.path, extname(info.path))}.mp4`))
+    if (!output) return null
+    const controller = new AbortController()
+    exporting = controller
+    try {
+      await exportVideo({
+        ffmpeg,
+        frames: await frames(info.url),
+        output,
+        signal: controller.signal,
+        onProgress: (frame, total) => events.emit('video.exportProgress', { frame, frames: total }),
+      })
+      return output
+    } catch (error) {
+      if (controller.signal.aborted) return null
+      throw error
+    } finally {
+      exporting = null
+    }
+  }
+
   function closeDocument() {
+    exporting?.abort()
     if (!opened) return
     opened.close()
     opened = null
@@ -292,6 +334,8 @@ export function createHost({
     'voices.download': (pack) => voices.download(pack),
     'voices.delete': (pack) => voices.delete(pack),
     'voices.preview': (voice) => voices.preview(voice),
+    'video.export': exportOpenVideo,
+    'video.cancelExport': async () => exporting?.abort(),
   }
 
   return {

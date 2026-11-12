@@ -236,6 +236,14 @@ export interface HostCalls {
   'voices.delete': (pack: string) => void
   /** Speaks the Voice's sample sentence. Rejects when the Voice isn't on this Mac. */
   'voices.preview': (voice: string) => SpokenAudio
+  /**
+   * Exports the open Animation video to an H.264 MP4, at its frame size and 30 fps, after a Save
+   * dialog opening in the Project folder. Progress comes as `video.exportProgress`. Resolves with
+   * where it was saved, or `null` when the dialog or the export was cancelled; rejects when it fails.
+   */
+  'video.export': () => string | null
+  /** Stops the running export; nothing is left at the chosen path. */
+  'video.cancelExport': () => void
 }
 
 export interface HostEvents {
@@ -265,6 +273,8 @@ export interface HostEvents {
   'session.queue': QueueView
   /** Settings → Voices changed: a download progressed, finished or failed, or a pack was deleted. */
   'voices.changed': VoicePack[]
+  /** The running export has handed `frame` of the video's `frames` to the encoder. */
+  'video.exportProgress': { frame: number; frames: number }
 }
 
 export type HostCallName = keyof HostCalls

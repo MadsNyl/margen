@@ -15,6 +15,7 @@ import {
   CursorPointer01Icon,
   Delete02Icon,
   File01Icon,
+  FileExportIcon,
   FileCodeIcon,
   Film01Icon,
   FitToScreenIcon,
@@ -83,6 +84,7 @@ export const UpdateIcon = ({ className }: Props) => <Icon icon={Download04Icon} 
 export const PlayIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={PlayHugeIcon} className={className} strokeWidth={2} />
 export const PauseIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={PauseHugeIcon} className={className} strokeWidth={2} />
 export const DrawIcon = ({ className }: Props) => <Icon icon={PencilEdit01Icon} className={className} />
+export const ExportIcon = ({ className = 'size-[15px]' }: Props) => <Icon icon={FileExportIcon} className={className} />
 export const DownloadIcon = ({ className = 'size-4' }: Props) => <Icon icon={Download04Icon} className={className} />
 export const DeleteIcon = ({ className = 'size-4' }: Props) => <Icon icon={Delete02Icon} className={className} />
 export const StopIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={StopGlyph} className={className} />

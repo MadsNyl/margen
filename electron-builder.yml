@@ -22,7 +22,12 @@ asarUnpack:
   - '**/node_modules/dugite/git/**'
   - '**/node_modules/sherpa-onnx-*/**'
   - '**/node_modules/piper-phonemize-*/**'
-beforePack: build/dugite-git.mjs
+# ffmpeg (build/ffmpeg.mjs, LGPL) runs from Resources/ffmpeg/, outside the asar, with its licence beside it.
+extraResources:
+  - from: vendor/ffmpeg/${arch}
+    to: ffmpeg
+    filter: [ffmpeg, COPYING.LGPLv2.1, README.txt]
+beforePack: build/before-pack.mjs
 afterPack: build/voice-addons.mjs
 afterAllArtifactBuild: build/dugite-git-restore.mjs
 

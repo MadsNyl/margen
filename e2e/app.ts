@@ -20,6 +20,8 @@ export interface LaunchOptions {
   preset?: PermissionPreset
   /** The Voices Settings offers, served by the test; none when left out. The synthesiser is always the fake. */
   voices?: VoicePackEntry[]
+  /** Where the Save dialog for an export says to save. */
+  saveFile?: string
 }
 
 export interface LaunchedApp {
@@ -36,7 +38,7 @@ export interface LaunchedApp {
 }
 
 /** Launches the built app with a fresh data directory and the fake AgentProvider. */
-export async function launchApp({ recents, agent = {}, pickFolder, pickFiles, preset, voices = [] }: LaunchOptions = {}): Promise<LaunchedApp> {
+export async function launchApp({ recents, agent = {}, pickFolder, pickFiles, preset, voices = [], saveFile }: LaunchOptions = {}): Promise<LaunchedApp> {
   const dataDir = await mkdtemp(join(tmpdir(), 'margen-e2e-'))
   if (recents) await writeFile(join(dataDir, 'recents.json'), JSON.stringify(recents))
   if (preset) await writeFile(join(dataDir, 'permissions.json'), JSON.stringify({ preset }))
@@ -61,6 +63,7 @@ export async function launchApp({ recents, agent = {}, pickFolder, pickFiles, pr
       MARGEN_FAKE_VOICES: voicesScript,
       ...(pickFolder && { MARGEN_PICK_FOLDER: pickFolder }),
       ...(pickFiles && { MARGEN_PICK_FILES: JSON.stringify(pickFiles) }),
+      ...(saveFile && { MARGEN_SAVE_FILE: saveFile }),
     } as Record<string, string>,
   })
   const window = await app.firstWindow()

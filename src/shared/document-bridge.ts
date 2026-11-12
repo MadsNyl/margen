@@ -120,6 +120,11 @@ export type ToDocument =
   | { type: 'clock-pause' }
   /** On an Animation video: pause at `time` (kept within the video). Answered with `clock`, carrying `id`, once that frame is drawn. */
   | { type: 'clock-seek'; time: number; id?: string }
+  /**
+   * From the main process to the offscreen copy of the page it exports (`src/main/video-frames.ts`),
+   * which has no editor: from now on the script sends its messages to the main process instead.
+   */
+  | { type: 'export' }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 const isScroll = (value: unknown): value is ScrollPosition =>
