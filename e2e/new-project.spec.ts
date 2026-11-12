@@ -28,7 +28,7 @@ test('New project asks for a name, makes the folder and opens its empty Project 
 
   await window.getByRole('button', { name: 'Back to Start' }).click()
   const recent = window.getByRole('list', { name: 'Recent projects' })
-  await expect(recent.getByRole('button', { name: /^summer-menu.*0 HTML files/ })).toBeVisible()
+  await expect(recent.getByRole('button', { name: /^summer-menu.*0 Documents/ })).toBeVisible()
 })
 
 test('⌘N starts naming a Project, Escape cancels, the Create button makes it, and ⌘N works from the Project page too', async () => {

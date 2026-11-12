@@ -76,7 +76,7 @@ export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (
                       coverId={project.name}
                       badge={<SmallFolderIcon />}
                       name={project.name}
-                      meta={`${project.missing ? 'Folder not found' : plural(project.htmlFiles, 'HTML file')} · ${project.path}`}
+                      meta={`${project.missing ? 'Folder not found' : plural(project.htmlFiles, 'Document')} · ${project.path}`}
                       disabled={project.missing}
                       onClick={() => void host.call('projects.open', project.path).catch(() => {})}
                     />

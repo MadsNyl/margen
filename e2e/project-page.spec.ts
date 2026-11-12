@@ -30,7 +30,7 @@ test('opens a folder and lists its HTML files as Documents, live', async () => {
   await expect(documents.getByRole('button')).toHaveCount(2)
   await expect(documents.getByRole('button', { name: /^index\.html/ })).toBeVisible()
   await expect(documents.getByRole('button', { name: /^christmas\.html\s*campaigns\// })).toBeVisible()
-  await expect(window.getByText('2 HTML files')).toBeVisible()
+  await expect(window.getByText('2 Documents')).toBeVisible()
   await expect(window.getByText('node_modules is hidden')).toBeVisible()
 
   await writeFile(join(folder, 'menu.html'), '')
@@ -38,7 +38,7 @@ test('opens a folder and lists its HTML files as Documents, live', async () => {
 
   await window.getByRole('button', { name: 'Back to Start' }).click()
   const recent = window.getByRole('list', { name: 'Recent projects' })
-  await expect(recent.getByRole('button', { name: new RegExp(`^${name}.*3 HTML files`) })).toBeVisible()
+  await expect(recent.getByRole('button', { name: new RegExp(`^${name}.*3 Documents`) })).toBeVisible()
 })
 
 test('⌘O opens a folder, a recent Project opens in a click, and a missing one says so', async () => {

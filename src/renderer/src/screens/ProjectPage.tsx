@@ -50,7 +50,7 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
   if (documents.length === 0) {
     return (
       <>
-        <FilesHeader title="HTML files" project={project} />
+        <FilesHeader title="Documents" project={project} />
         <section className="ocean">
           <h3>Nothing here yet</h3>
           <p>Describe the first page above, and Claude will make it.</p>
@@ -61,7 +61,7 @@ function Documents({ project, list: { documents, hidden } }: { project: Project;
   return (
     <>
       <FilesHeader
-        title={plural(documents.length, 'HTML file')}
+        title={plural(documents.length, 'Document')}
         project={project}
         note={hidden.length ? `${joinList(hidden)} ${hidden.length === 1 ? 'is' : 'are'} hidden` : undefined}
       />
