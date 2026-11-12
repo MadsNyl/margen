@@ -20,6 +20,8 @@ import { makeProjectFolder } from '../projects/new-project'
 import { applyTextEdit } from '../projects/text-edit'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
+import { isTemplateChoice, type TemplateChoice } from '@shared/templates'
+import { documentTemplate, startingFile } from '../templates'
 import { createEmitter } from './emitter'
 import { openEditorDocument, type EditorDocument } from './open-document'
 
@@ -111,6 +113,8 @@ export function createHost({
     const project = current
     const info = project && (await listDocuments(project.path)).documents.find((doc) => doc.path === path)
     if (!project || !info) throw new Error(`Not a Document of the open Project: ${path}`)
+    const template = await documentTemplate(join(project.path, path))
+    if (project !== current) throw new Error(`Not a Document of the open Project: ${path}`)
     closeDocument()
     opened = openEditorDocument({
       dataDir,
@@ -118,6 +122,7 @@ export function createHost({
       project,
       path,
       name: info.name,
+      ...(template && { template }),
       checkpoints: () => checkpoints,
       preset: preset.get,
       attached: (file) => picked.has(file),
@@ -165,10 +170,10 @@ export function createHost({
     return line.length > 60 ? `${line.slice(0, 59)}…` : line
   }
 
-  /** The Agent names the new Document; if it can't, the description's first words do. */
-  async function newDocumentFile(projectDir: string, description: string): Promise<string> {
+  /** The Agent names the new Document; if it can't, the description's first words do. It starts as `template`'s file. */
+  async function newDocumentFile(projectDir: string, description: string, template: TemplateChoice = { template: 'blank' }): Promise<string> {
     const name = await agent.nameDocument(description).catch(() => undefined)
-    return makeDocumentFile(projectDir, description, name)
+    return makeDocumentFile(projectDir, description, name, startingFile(template))
   }
 
   /** Opens the Document and starts its Session with the message. */
@@ -248,8 +253,10 @@ export function createHost({
       )
       return startDocument(mentioned ?? (await newDocumentFile(project.path, text)), text)
     },
-    'project.newDocument': async (text, attachments) =>
-      startDocument(await newDocumentFile(requireProject().project.path, text), text, attachments),
+    'project.newDocument': async (text, attachments, template) => {
+      if (template !== undefined && !isTemplateChoice(template)) throw new Error(`Not a Template: ${JSON.stringify(template)}`)
+      return startDocument(await newDocumentFile(requireProject().project.path, text, template), text, attachments)
+    },
     'files.pick': async () => {
       const paths = await pickFiles()
       for (const path of paths) picked.add(path)

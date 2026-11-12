@@ -141,6 +141,10 @@ async function untilTurnEnd(session: AgentSession, onEvent?: (event: AgentEvent)
 
 const ask = { text: 'Make the heading bigger', annotations: [] }
 
+const done = async function* () {
+  yield success
+}
+
 describe('a Turn with Claude Code', () => {
   test("streams thinking, the file reads and edits with lines added and removed, and the reply", async () => {
     const file = join(realProjectDir, 'index.html')
@@ -281,6 +285,21 @@ describe('a Turn with Claude Code', () => {
     expect(options.env).toMatchObject({ PATH: '/Users/me/.nvm/bin:/usr/bin:/bin', HOME: '/Users/me' })
     expect(options.resume).toBeUndefined()
     expect(prompts).toEqual([{ type: 'user', parent_tool_use_id: null, message: { role: 'user', content: ask.text } }])
+  })
+
+  test("a Template's instructions are the system prompt of every claude the Session runs; a Session without them sets none", async () => {
+    const { provider, runs } = pretendMac({ turns: [done, done, done] })
+    const session = provider.startSession({ projectDir, instructions: 'All motion is CSS animations.' })
+    session.send(ask)
+    await untilTurnEnd(session)
+    // Another model restarts claude; the instructions go along.
+    session.send({ ...ask, model: 'opus' })
+    await untilTurnEnd(session)
+    const plain = provider.startSession({ projectDir })
+    plain.send(ask)
+    await untilTurnEnd(plain)
+
+    expect(runs.map((run) => run.options.systemPrompt)).toEqual(['All motion is CSS animations.', 'All motion is CSS animations.', undefined])
   })
 
   test('the Turns of a Session go to one running claude, and a resumed Session continues the same one', async () => {
@@ -557,9 +576,6 @@ describe('interrupting and failing', () => {
 })
 
 describe('model and effort', () => {
-  const done = async function* () {
-    yield success
-  }
 
   test("a Turn's model and effort reach claude; without them claude uses its own default", async () => {
     const { provider, runs } = pretendMac({ turns: [done] })

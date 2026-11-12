@@ -44,6 +44,8 @@ export interface DocumentSessionOptions {
   permissions: PermissionPolicy
   /** Resumes this Agent session instead of starting a new one. */
   resumeId?: string
+  /** The Template's instructions for the Agent, read when the Agent session starts (on the first Turn); `undefined` for a Blank Document. */
+  instructions?(): Promise<string | undefined>
   /** Runs before each Turn reaches the Agent: takes its Checkpoint and resolves with the id, or `undefined` if none was taken. */
   beforeTurn?(turn: TurnInput): Promise<string | undefined>
   onEntry(entry: SessionEntry, index: number): void
@@ -59,6 +61,7 @@ export function startDocumentSession({
   entries: stored = [],
   permissions,
   resumeId,
+  instructions = async () => undefined,
   beforeTurn = async () => undefined,
   onEntry,
   onQueue,
@@ -80,7 +83,10 @@ export function startDocumentSession({
         })
         if (disposed) return
         add({ type: 'user', turn, ...(checkpoint && { checkpoint }) })
-        agentSession().send(turn)
+        // The Template's instructions as the file has them when the Agent session starts.
+        const told = session ? undefined : await instructions().catch(() => undefined)
+        if (disposed) return
+        agentSession(told).send(turn)
       })()
     },
     onChange: () => !disposed && onQueue(queueView()),
@@ -110,9 +116,10 @@ export function startDocumentSession({
     }
   }
 
-  function agentSession(): AgentSession {
+  /** The Agent session, started on the first Turn, told the Template's instructions if there are any. */
+  function agentSession(told?: string): AgentSession {
     if (!session) {
-      session = agent.startSession({ projectDir, document, permissions, ...(resumeId && { resumeId }) })
+      session = agent.startSession({ projectDir, document, permissions, ...(resumeId && { resumeId }), ...(told && { instructions: told }) })
       void pump(session)
     }
     return session

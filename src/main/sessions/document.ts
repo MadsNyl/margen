@@ -27,6 +27,8 @@ export interface DocumentSessionsOptions {
   projectDir: string
   document: string
   permissions: PermissionPolicy
+  /** The Template's instructions for each Session as it starts: see `DocumentSessionOptions`. */
+  instructions?: DocumentSessionOptions['instructions']
   /** Takes the Checkpoint before each Turn: see `DocumentSessionOptions`. */
   beforeTurn?: DocumentSessionOptions['beforeTurn']
   onEntry(session: string, entry: SessionEntry, index: number): void

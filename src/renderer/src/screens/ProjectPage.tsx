@@ -1,13 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DocumentInfo, DocumentList, Project } from '@shared/host-api'
+import { TEMPLATES, type TemplateInfo } from '@shared/templates'
 import { Brand } from '../components/Brand'
 import { ItemRow } from '../components/Cover'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
+import { TemplateChip, useMentions } from '../components/Mentions'
 import { useOpenSettings } from '../components/Settings'
 import { UpdateButton } from '../components/UpdateButton'
-import { ArrowUpIcon, ChevronDownIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon } from '../components/icons'
+import { ArrowUpIcon, ChevronDownIcon, HtmlFileIcon, MicIcon, SettingsIcon, SmallFolderIcon, TemplateIcon } from '../components/icons'
 import { editedAgo, joinList, plural } from '../format'
 import { host, useHostValue } from '../host'
+import { NewDocumentDialog } from '../editor/NewDocument'
 
 export function ProjectPage({ project }: { project: Project }) {
   const list = useHostValue('documents.list', 'documents.changed')
@@ -37,6 +40,7 @@ export function ProjectPage({ project }: { project: Project }) {
           <ProjectSwitcher project={project} />
           <BuildTitle />
           <ChatBar documents={list?.documents ?? []} />
+          <TemplateCards />
         </div>
         <div className="mx-auto w-[min(1000px,100%)] px-8 pt-16 pb-10">
           {list && <Documents project={project} list={list} />}
@@ -182,62 +186,28 @@ function BuildTitle() {
   )
 }
 
-/** The `@word` the caret is in, if any: where it starts and what follows the `@`. */
-function mentionAt(text: string, caret: number): { start: number; query: string } | null {
-  const match = /(?:^|\s)@(\S*)$/.exec(text.slice(0, caret))
-  if (!match) return null
-  const query = match[1] ?? ''
-  return { start: caret - query.length - 1, query }
-}
-
 /**
  * The Project page's chat bar. A description makes a new Document; `@` offers the
- * Project's Documents, and a message naming one goes to that Document's Session.
+ * Project's Documents and the Templates. A message naming a Document goes to that
+ * Document's Session; one with a Template chip makes a new Document from it.
  */
 function ChatBar({ documents }: { documents: DocumentInfo[] }) {
   const [text, setText] = useState('')
-  const [caret, setCaret] = useState(0)
-  const [active, setActive] = useState(0)
-  const [dismissed, setDismissed] = useState(false)
+  const [template, setTemplate] = useState<TemplateInfo | null>(null)
   const [sending, setSending] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  // Where to put the caret once a chosen Document's path is in the bar.
-  const placeCaret = useRef<number | null>(null)
-
-  useLayoutEffect(() => {
-    if (placeCaret.current === null) return
-    input.current?.setSelectionRange(placeCaret.current, placeCaret.current)
-    placeCaret.current = null
-  }, [text])
-
-  const mention = dismissed ? null : mentionAt(text, caret)
-  const query = mention?.query.toLowerCase() ?? ''
-  const options = mention ? documents.filter((doc) => doc.path.toLowerCase().includes(query)) : []
-  const picking = options.length > 0
-  const highlighted = Math.min(active, options.length - 1)
-
-  function edit(value: string, at: number) {
-    setText(value)
-    setCaret(at)
-    setActive(0)
-    setDismissed(false)
-  }
-
-  function choose(doc: DocumentInfo) {
-    if (!mention) return
-    const before = `${text.slice(0, mention.start)}@${doc.path} `
-    const value = before + text.slice(caret).replace(/^\S*\s?/, '')
-    placeCaret.current = before.length
-    edit(value, before.length)
-  }
+  const mentions = useMentions({ id: 'chat-bar-mentions', text, setText, documents, onTemplate: setTemplate, field: input })
 
   function send() {
     const message = text.trim()
     if (!message || sending) return
     setSending(true)
-    host
-      .call('project.send', message)
-      .then(() => edit('', 0))
+    const sent = template ? host.call('project.newDocument', message, [], { template: template.id }) : host.call('project.send', message)
+    sent
+      .then(() => {
+        setText('')
+        setTemplate(null)
+      })
       .catch(() => {})
       .finally(() => setSending(false))
   }
@@ -250,33 +220,30 @@ function ChatBar({ documents }: { documents: DocumentInfo[] }) {
         send()
       }}
     >
+      {template && (
+        <span className="-ml-2.5 mr-1.5">
+          <TemplateChip
+            template={template}
+            onRemove={() => {
+              setTemplate(null)
+              input.current?.focus()
+            }}
+          />
+        </span>
+      )}
       <input
         ref={input}
-        className="h-full flex-1 border-0 bg-transparent text-[14.5px] outline-0 placeholder:text-tx3"
-        placeholder="Describe a new page, or @ a file to change it…"
+        className="h-full min-w-0 flex-1 border-0 bg-transparent text-[14.5px] outline-0 placeholder:text-tx3"
+        placeholder={template ? `Describe the ${template.name.toLowerCase()}…` : 'Describe a new page, or @ a file to change it…'}
         aria-label="Describe a new page"
-        aria-controls={picking ? 'chat-bar-documents' : undefined}
-        aria-activedescendant={picking ? `chat-bar-document-${highlighted}` : undefined}
         autoComplete="off"
         autoFocus
         value={text}
-        onChange={(event) => edit(event.target.value, event.target.selectionStart ?? event.target.value.length)}
-        onSelect={(event) => setCaret(event.currentTarget.selectionStart ?? 0)}
-        onBlur={() => setDismissed(true)}
-        onFocus={() => setDismissed(false)}
+        {...mentions.fieldProps}
         onKeyDown={(event) => {
-          if (!picking) return
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault()
-            const step = event.key === 'ArrowDown' ? 1 : -1
-            setActive((highlighted + step + options.length) % options.length)
-          } else if (event.key === 'Enter' || event.key === 'Tab') {
-            event.preventDefault()
-            const doc = options[highlighted]
-            if (doc) choose(doc)
-          } else if (event.key === 'Escape') {
-            setDismissed(true)
-          }
+          if (mentions.onKeyDown(event)) return
+          const { selectionStart, selectionEnd } = event.currentTarget
+          if (event.key === 'Backspace' && template && selectionStart === 0 && selectionEnd === 0) setTemplate(null)
         }}
       />
       <button type="button" className="icon-btn rounded-full" title="Voice" aria-label="Voice">
@@ -290,35 +257,37 @@ function ChatBar({ documents }: { documents: DocumentInfo[] }) {
       >
         <ArrowUpIcon />
       </button>
-      {picking && (
-        <ul
-          id="chat-bar-documents"
-          role="listbox"
-          aria-label="Documents"
-          className="absolute top-[58px] left-3 z-20 m-0 max-h-64 w-72 list-none overflow-y-auto rounded-xl border border-line bg-white p-1 shadow-[0_12px_32px_-10px_rgba(0,0,0,.2)]"
-        >
-          {options.map((doc, index) => (
-            <li
-              key={doc.path}
-              id={`chat-bar-document-${index}`}
-              role="option"
-              aria-selected={index === highlighted}
-              className={`flex h-8 cursor-default items-center gap-2 rounded-lg px-2.5 text-[13px] ${index === highlighted ? 'bg-muted' : ''}`}
-              // Only a mouse that really moves: the list opening under a still cursor mustn't undo ↑/↓.
-              onMouseMove={(event) => {
-                if (event.movementX || event.movementY) setActive(index)
-              }}
-              // Keeps focus in the bar, so the click doesn't close the picker first.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => choose(doc)}
-            >
-              <HtmlFileIcon />
-              <span className="truncate">{doc.name}</span>
-              {doc.dir && <small className="ml-auto flex-none text-[11px] text-tx3">{doc.dir}</small>}
-            </li>
-          ))}
-        </ul>
-      )}
+      {mentions.popover && <div className="absolute top-[58px] left-3 z-20">{mentions.popover}</div>}
     </form>
+  )
+}
+
+/** The row of Template cards between the chat bar and the Documents: each opens a dialog that makes a Document from it. */
+function TemplateCards() {
+  const [chosen, setChosen] = useState<TemplateInfo | null>(null)
+  return (
+    <>
+      <ul aria-label="Templates" className="m-0 mt-6 flex w-full max-w-[620px] list-none gap-3 p-0">
+        {TEMPLATES.map((template) => (
+          <li key={template.id} className="min-w-0 flex-1">
+            <button
+              className="group flex w-full items-center gap-3 rounded-2xl border border-line bg-white/75 p-2.5 text-left shadow-[0_1px_3px_rgba(0,0,0,.04)] transition hover:border-border hover:bg-white hover:shadow-[0_4px_14px_-6px_rgba(0,0,0,.14)]"
+              onClick={() => setChosen(template)}
+            >
+              <span
+                className={`grid h-11 w-14 flex-none place-items-center rounded-[10px] ${template.id === 'animation-video' ? 'bg-violet-soft text-violet-tx' : 'bg-muted text-tx2'}`}
+              >
+                <TemplateIcon template={template.id} className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13.5px] font-medium">{template.name}</span>
+                <small className="block truncate text-[12px] text-tx3">{template.description}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {chosen && <NewDocumentDialog template={chosen} onClose={() => setChosen(null)} />}
+    </>
   )
 }

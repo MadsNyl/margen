@@ -1,5 +1,6 @@
 import { join, resolve } from 'node:path'
 import type { HostEventName, HostEvents, OpenDocument, PermissionPreset, Project } from '@shared/host-api'
+import type { MarkedTemplateId } from '@shared/templates'
 import type { AgentProvider } from '../agent/provider'
 import type { CheckpointStore } from '../checkpoints'
 import { presetPolicy, type PermissionPolicy } from '../permissions'
@@ -7,10 +8,12 @@ import { documentUrl, watchDocument } from '../projects/document'
 import type { DocumentSession } from '../sessions'
 import { documentSessions, type DocumentSessions } from '../sessions/document'
 import { openSessionStore } from '../sessions/store'
+import { documentTemplate, templateInstructions } from '../templates'
 
 // The Document open in the editor: its margen-doc:// URL and reload watch,
 // and its Sessions, wired to the host's events, with a Checkpoint taken before
-// every Turn. `createHost` holds at most one and closes it before the next.
+// every Turn, and the Template's instructions for each Session on a marked
+// Document. `createHost` holds at most one and closes it before the next.
 
 export interface EditorDocument {
   /** What `document.open` and `document.current` give the renderer. */
@@ -31,6 +34,8 @@ export interface EditorDocumentOptions {
   /** The Document, relative to the Project with `/` separators, and its file name. */
   path: string
   name: string
+  /** The Template the file was marked with when it was opened, for its controls in the editor. */
+  template?: MarkedTemplateId
   /** The open Project's Checkpoints, or `null` once it's closed: no Checkpoint is taken then. */
   checkpoints(): CheckpointStore | null
   preset(): Promise<PermissionPreset>
@@ -39,7 +44,19 @@ export interface EditorDocumentOptions {
   emit<K extends HostEventName>(event: K, payload: HostEvents[K]): void
 }
 
-export function openEditorDocument({ dataDir, agent, project, path, name, checkpoints, preset, attached, emit }: EditorDocumentOptions): EditorDocument {
+export function openEditorDocument({
+  dataDir,
+  agent,
+  project,
+  path,
+  name,
+  template,
+  checkpoints,
+  preset,
+  attached,
+  emit,
+}: EditorDocumentOptions): EditorDocument {
+  const file = join(project.path, path)
   const stopWatching = watchDocument(project.path, path, () => emit('document.updated', { path }))
   const sessions: DocumentSessions = documentSessions({
     store: openSessionStore(dataDir, project.path),
@@ -47,6 +64,11 @@ export function openEditorDocument({ dataDir, agent, project, path, name, checkp
     projectDir: project.path,
     document: path,
     permissions: withAttachments(presetPolicy(project.path, preset), project.path, attached),
+    // Read from the marker each time a Session starts, so it follows the file as it is.
+    instructions: async () => {
+      const marked = await documentTemplate(file)
+      return marked && templateInstructions(marked)
+    },
     beforeTurn: async (turn) => {
       const store = checkpoints()
       if (!store) return undefined
@@ -64,8 +86,8 @@ export function openEditorDocument({ dataDir, agent, project, path, name, checkp
   })
 
   return {
-    info: { path, name, url: documentUrl(project.path, path) },
-    file: join(project.path, path),
+    info: { path, name, url: documentUrl(project.path, path), ...(template && { template }) },
+    file,
     session: () => sessions.current(),
     sessions,
     close() {

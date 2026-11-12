@@ -2,6 +2,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowDown01Icon,
+  ArrowLeft01Icon,
   ArrowRight01Icon,
   ArrowRight02Icon,
   ArrowUp02Icon,
@@ -13,7 +14,9 @@ import {
   Download04Icon,
   CursorPointer01Icon,
   Delete02Icon,
+  File01Icon,
   FileCodeIcon,
+  Film01Icon,
   FitToScreenIcon,
   Folder01Icon,
   LinkSquare02Icon,
@@ -29,6 +32,7 @@ import {
   Tablet01Icon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
+import type { TemplateId } from '@shared/templates'
 
 // Every icon in the app is a Hugeicons stroke icon, at one stroke width.
 // Sizes are Tailwind size classes; the icon takes the text colour.
@@ -56,6 +60,14 @@ export const MobileIcon = ({ className }: Props) => <Icon icon={SmartPhone01Icon
 export const ChevronDownIcon = ({ className = 'size-3.5 text-tx3' }: Props) => <Icon icon={ArrowDown01Icon} className={className} strokeWidth={2} />
 /** A disclosure's caret, pointing right while closed. */
 export const ChevronRightIcon = ({ className = 'size-3' }: Props) => <Icon icon={ArrowRight01Icon} className={className} strokeWidth={2} />
+/** Going back up, as in the `@` popover's folders. */
+export const ChevronLeftIcon = ({ className = 'size-3' }: Props) => <Icon icon={ArrowLeft01Icon} className={className} strokeWidth={2} />
+/** The Blank Template. */
+export const BlankFileIcon = ({ className }: Props) => <Icon icon={File01Icon} className={className} />
+/** The Animation video Template. */
+export const VideoIcon = ({ className }: Props) => <Icon icon={Film01Icon} className={className} />
+export const TemplateIcon = ({ template, className }: Props & { template: TemplateId }) =>
+  template === 'animation-video' ? <VideoIcon className={className} /> : <BlankFileIcon className={className} />
 export const CloseIcon = ({ className = 'size-4' }: Props) => <Icon icon={Cancel01Icon} className={className} />
 export const CheckIcon = ({ className = 'size-3.5' }: Props) => <Icon icon={Tick02Icon} className={className} strokeWidth={2} />
 export const AddIcon = ({ className = 'size-4' }: Props) => <Icon icon={Add01Icon} className={className} />

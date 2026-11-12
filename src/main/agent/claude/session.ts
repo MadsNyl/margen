@@ -34,7 +34,7 @@ const ASK_BEFORE_SHELL: HookCallbackMatcher = {
 export function startClaudeSession(
   system: ClaudeSystem,
   detect: () => Promise<AgentStatus>,
-  { projectDir, document, model, effort, resumeId, permissions = editorPolicy(projectDir) }: StartSessionOptions,
+  { projectDir, document, model, effort, resumeId, instructions, permissions = editorPolicy(projectDir) }: StartSessionOptions,
 ): AgentSession {
   const id = resumeId ?? randomUUID()
   const events = createChannel<AgentEvent>()
@@ -101,6 +101,8 @@ export function startClaudeSession(
         includePartialMessages: true,
         canUseTool,
         hooks: { PreToolUse: [ASK_BEFORE_SHELL] },
+        // Left out, the SDK runs with an empty system prompt; a Template's instructions take its place.
+        ...(instructions && { systemPrompt: instructions }),
         ...(settings.model && { model: settings.model }),
         ...(settings.effort && { effort: settings.effort }),
         ...(known ? { resume: id } : { sessionId: id }),
