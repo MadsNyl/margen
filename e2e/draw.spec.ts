@@ -14,13 +14,13 @@ test.afterEach(async ({}, testInfo) => {
   if (folder) await rm(folder, { recursive: true, force: true })
 })
 
-/** A menu page: a heading, a section with a grid of three cards, then empty space. */
+/** A menu page: a heading, a section with a grid of three cards, then empty space, all short enough that the space shows in a small window (CI's is 1024×677). */
 const page = `<!doctype html>
 <html>
   <body style="margin: 0; padding: 40px; font: 16px sans-serif">
     <main>
       <h1>Søster</h1>
-      <section class="menu" style="padding: 60px 0">
+      <section class="menu" style="padding: 24px 0">
         <h2>Menu</h2>
         <div class="grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px">
           <div class="card" style="height: 110px; background: #f3efe6">Bun</div>
