@@ -52,7 +52,7 @@ export function StartScreen({ naming, onNaming }: { naming: boolean; onNaming: (
               hint="Name it, then describe what to make"
               onClick={() => onNaming(true)}
             >
-              An empty folder in <span className="font-mono text-[11.5px]">~/Documents/Margen</span>, ready for its
+              An empty folder in <span className="font-mono text-[11.5px]">~/Margen</span>, ready for its
               first page.
             </Choice>
           </div>
@@ -165,7 +165,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
       <p className="m-0 border-t border-line px-5 py-2.5 text-[12px] text-tx3">
         {error ?? (
           <>
-            A new folder in <span className="font-mono text-[11px]">~/Documents/Margen</span>
+            A new folder in <span className="font-mono text-[11px]">~/Margen</span>
           </>
         )}
       </p>

@@ -21,7 +21,7 @@ test('the Animation video card makes a video at the chosen frame size and opens 
   await window.getByRole('button', { name: /Open a folder/ }).click()
 
   const cards = window.getByRole('list', { name: 'Templates' })
-  await expect(cards.getByRole('button')).toHaveText([/^Blank/, /^Animation video/])
+  await expect(cards.getByRole('button')).toHaveText([/^Blank/, /^Animation video/, /^Poster/, /^Slides/])
   await cards.getByRole('button', { name: /Animation video/ }).click()
 
   const dialog = window.getByRole('dialog', { name: 'Animation video' })
@@ -55,7 +55,7 @@ test('@ opens the Templates folder, and an @Animation video chip makes a 16:9 vi
   await expect(picker.getByRole('option')).toHaveText(['Documents', 'Templates'])
   await bar.press('ArrowDown')
   await bar.press('ArrowRight')
-  await expect(picker.getByRole('option')).toHaveText(['Blank', 'Animation video'])
+  await expect(picker.getByRole('option')).toHaveText(['Blank', 'Animation video', 'Poster', 'Slides'])
   await bar.press('Backspace')
   await expect(picker.getByRole('option')).toHaveText(['Documents', 'Templates'])
   await expect(bar).toHaveValue('@')

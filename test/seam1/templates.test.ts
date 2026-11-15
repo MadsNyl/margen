@@ -77,6 +77,44 @@ describe('Templates', () => {
     expect(instructions).not.toMatch(/keeps the width and height it has in the file/)
   })
 
+  test('a Poster starts as one marked A4 sheet that is the poster itself, and its Session gets the rules', async () => {
+    await launch({ documentName: 'bake-sale' })
+    const ended = turnEnded()
+
+    const opened = await host.call('project.newDocument', 'A poster for the bake sale', [], { template: 'poster' })
+    await ended
+
+    expect(opened).toMatchObject({ path: 'bake-sale.html', template: 'poster' })
+    const html = await readFile(join(projectDir, 'bake-sale.html'), 'utf8')
+    expect(html).toContain('<meta name="margen-template" content="poster">')
+    expect(html).toMatch(/width: 210mm;\s*height: 297mm/)
+    expect(html).toContain('@page { size: A4; margin: 0; }')
+    const instructions = agent.sessions[0]?.instructions ?? ''
+    expect(instructions).toMatch(/whole page/)
+    expect(instructions).toMatch(/Never put a smaller poster/)
+  })
+
+  test('Slides start as a marked deck of one numbered slide stepped through with the keys, and the Session gets the rules', async () => {
+    await launch({ documentName: 'pitch' })
+    const ended = turnEnded()
+
+    const opened = await host.call('project.newDocument', 'A pitch deck', [], { template: 'slides' })
+    await ended
+
+    expect(opened).toMatchObject({ path: 'pitch.html', template: 'slides' })
+    const html = await readFile(join(projectDir, 'pitch.html'), 'utf8')
+    expect(html).toContain('<meta name="margen-template" content="slides">')
+    expect(html.match(/<section class="slide/g)).toHaveLength(1)
+    expect(html).toContain('content: counter(slide)')
+    expect(html).toContain('break-after: page')
+    expect(html).toMatch(/'ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'/)
+    expect(html).not.toMatch(/<button/)
+    const instructions = agent.sessions[0]?.instructions ?? ''
+    expect(instructions).toMatch(/fills the whole window/)
+    expect(instructions).toMatch(/one slide per page/)
+    expect(instructions).toMatch(/Don't add Previous\/Next buttons/)
+  })
+
   test('a Blank Document starts empty, unmarked, and its Session gets no Template instructions', async () => {
     await launch({ documentName: 'poster' })
     const ended = turnEnded()

@@ -1,16 +1,26 @@
 import { useEffect, useState } from 'react'
-import { CloseIcon, ExportIcon } from '../components/icons'
+import { Menu, MenuItem, useDropdown } from '../components/Menu'
+import { ChevronDownIcon, CloseIcon, ExportIcon, PdfIcon, VideoIcon } from '../components/icons'
 import { errorMessage, host } from '../host'
 
-// An Animation video's Export in the top bar. Main asks where to save it, then
-// steps the video frame by frame in a window of its own and encodes the MP4, so
-// the editor's view and its paused time are left as they are.
+// Export in the top bar, a menu of what the Document's Template exports to: an
+// Animation video to MP4, a Poster or Slides to PDF. Main asks where to save it,
+// then makes the file from the Document loaded again in a window of its own (an
+// MP4 frame by frame), so the editor's view and its paused time are left as they are.
+
+/** What a Document exports to. */
+export type ExportFormat = 'mp4' | 'pdf'
+
+const FORMATS = {
+  mp4: { label: 'MP4 video', Icon: VideoIcon, call: 'video.export' },
+  pdf: { label: 'PDF', Icon: PdfIcon, call: 'document.exportPdf' },
+} as const
 
 const NOTICE_MS = 4000
 
 type Export =
   | { state: 'idle' }
-  /** The Save dialog is open. */
+  /** The Save dialog is open, or (a PDF) it's printing. */
   | { state: 'asking' }
   | { state: 'exporting'; frame: number; frames: number }
   | { state: 'saved'; path: string }
@@ -18,9 +28,10 @@ type Export =
 
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path
 
-/** `ready`: the page's clock has reported, so there's a video to export. */
-export function ExportButton({ ready }: { ready: boolean }) {
+/** `ready`: the page can be exported (an Animation video's clock has reported). */
+export function ExportMenu({ formats, ready }: { formats: readonly ExportFormat[]; ready: boolean }) {
   const [run, setRun] = useState<Export>({ state: 'idle' })
+  const { open, setOpen, ref } = useDropdown()
 
   useEffect(
     () => host.on('video.exportProgress', ({ frame, frames }) => setRun((now) => (now.state === 'asking' || now.state === 'exporting' ? { state: 'exporting', frame, frames } : now))),
@@ -32,9 +43,10 @@ export function ExportButton({ ready }: { ready: boolean }) {
     return () => clearTimeout(timer)
   }, [run])
 
-  function start() {
+  function start(format: ExportFormat) {
+    setOpen(false)
     setRun({ state: 'asking' })
-    host.call('video.export').then(
+    host.call(FORMATS[format].call).then(
       (path) => setRun(path ? { state: 'saved', path } : { state: 'idle' }),
       (error: unknown) => setRun({ state: 'failed', message: errorMessage(error) }),
     )
@@ -70,15 +82,32 @@ export function ExportButton({ ready }: { ready: boolean }) {
 
   return (
     <>
-      <button
-        className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-[9px] text-[13px] text-tx2 hover:bg-black/4 hover:text-tx disabled:text-tx3 disabled:hover:bg-transparent"
-        title="Export to MP4"
-        disabled={!ready || run.state === 'asking'}
-        onClick={start}
-      >
-        <ExportIcon />
-        Export
-      </button>
+      <div ref={ref} className="relative">
+        <button
+          className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-[9px] text-[13px] text-tx2 hover:bg-black/4 hover:text-tx disabled:text-tx3 disabled:hover:bg-transparent"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          disabled={!ready || run.state === 'asking'}
+          onClick={() => setOpen(!open)}
+        >
+          <ExportIcon />
+          {run.state === 'asking' ? 'Exporting…' : 'Export'}
+          <ChevronDownIcon />
+        </button>
+        {open && (
+          <Menu className="top-9 right-0 w-44">
+            {formats.map((format) => {
+              const { label, Icon } = FORMATS[format]
+              return (
+                <MenuItem key={format} onClick={() => start(format)}>
+                  <Icon className="size-4 text-tx2" />
+                  {label}
+                </MenuItem>
+              )
+            })}
+          </Menu>
+        )}
+      </div>
       {(run.state === 'saved' || run.state === 'failed') && (
         <div
           role={run.state === 'saved' ? 'status' : 'alert'}

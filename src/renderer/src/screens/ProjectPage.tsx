@@ -267,9 +267,9 @@ function TemplateCards() {
   const [chosen, setChosen] = useState<TemplateInfo | null>(null)
   return (
     <>
-      <ul aria-label="Templates" className="m-0 mt-6 flex w-full max-w-[620px] list-none gap-3 p-0">
+      <ul aria-label="Templates" className="m-0 mt-6 grid w-full max-w-[620px] list-none grid-cols-2 gap-3 p-0">
         {TEMPLATES.map((template) => (
-          <li key={template.id} className="min-w-0 flex-1">
+          <li key={template.id} className="min-w-0">
             <button
               className="group flex w-full items-center gap-3 rounded-2xl border border-line bg-white/75 p-2.5 text-left shadow-[0_1px_3px_rgba(0,0,0,.04)] transition hover:border-border hover:bg-white hover:shadow-[0_4px_14px_-6px_rgba(0,0,0,.14)]"
               onClick={() => setChosen(template)}

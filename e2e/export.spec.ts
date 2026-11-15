@@ -41,6 +41,7 @@ test('Export saves the Animation video as an MP4 at its frame size, a frame per 
   await expect(timer).toHaveText('0:00.0 / 0:01.5')
 
   await window.getByRole('button', { name: 'Export' }).click()
+  await window.getByRole('menuitem', { name: 'MP4 video' }).click()
 
   await expect(window.getByRole('status').filter({ hasText: 'Exported clip.mp4' })).toBeVisible({ timeout: 30_000 })
   const [track, ...others] = mp4Tracks(await readFile(saveFile))

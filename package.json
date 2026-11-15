@@ -1,6 +1,6 @@
 {
   "name": "margen",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.1",
   "private": true,
   "description": "A desktop editor for HTML that runs on your own Claude Code.",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "e2e": "electron-vite build && playwright test",
     "postinstall": "node build/ffmpeg.mjs",
-    "dist:local": "electron-vite build && electron-builder --mac dmg --publish never -c.mac.identity=null -c.mac.notarize=false",
+    "dist:local": "electron-vite build && electron-builder --mac dmg --publish never -c.mac.identity=- -c.mac.notarize=false -c.mac.hardenedRuntime=false",
     "release": "electron-vite build && electron-builder --mac --publish always"
   },
   "dependencies": {

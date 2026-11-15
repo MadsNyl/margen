@@ -11,7 +11,7 @@ let host: Host
 
 beforeEach(async () => {
   dataDir = await mkdtemp(join(tmpdir(), 'margen-data-'))
-  // Stands in for ~/Documents/Margen; it doesn't exist until the first Project is made.
+  // Stands in for ~/Margen; it doesn't exist until the first Project is made.
   projectsDir = join(await mkdtemp(join(tmpdir(), 'margen-documents-')), 'Margen')
   host = createHost({ dataDir, agent: createFakeAgentProvider(), projectsDir })
 })

@@ -9,12 +9,20 @@ One HTML file in a Project. A Project can hold many. Margen shows it and annotat
 _Avoid_: page, site, file (when the Document is meant)
 
 **Template**
-A named starting point for a new Document, built into Margen: the first version of its file and how the Agent should work on it. Animation video is the first. A Document started without one is Blank: an empty page the Agent may make into anything.
+A named starting point for a new Document, built into Margen: the first version of its file and how the Agent should work on it: Animation video, Poster and Slides. A Document started without one is Blank: an empty page the Agent may make into anything.
 _Avoid_: starter, skeleton, boilerplate, preset (a Permission preset is something else)
 
 **Animation video**
 A Document made from the Animation video Template: a page of a fixed frame size whose motion is all HTML and CSS animation on one clock, so it plays like a video and can be exported as one. The user plays and pauses it from the top bar and annotates whatever frame it is paused on.
 _Avoid_: animation, clip, movie
+
+**Poster**
+A Document made from the Poster Template: one A4 sheet that is the poster itself, edge to edge, never a smaller poster on a backdrop. The editor shows the whole sheet fitted to the window, and it exports to PDF as one A4 page.
+_Avoid_: flyer, page (when the Poster is meant)
+
+**Slides**
+A Document made from the Slides Template: a deck where each slide fills the whole window and shows its number, stepped through with the arrow keys, Space and Enter rather than buttons. The editor shows it at 16:9, fitted; it exports to PDF one slide per page.
+_Avoid_: presentation, deck (in the UI), slideshow
 
 **Voice**
 An open-source speech model the user downloads into Margen and that runs on their own Mac, turning a video's narration into speech.

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApprovalDecision } from '@shared/agent'
 import type { PermissionPreset } from '@shared/host-api'
-import { AddIcon, ArrowUpIcon, CheckIcon, ClaudeMark, HistoryIcon, ShieldIcon } from '../components/icons'
+import { AddIcon, ArrowUpIcon, CheckIcon, HistoryIcon, ShieldIcon } from '../components/icons'
 import { useOpenSettings } from '../components/Settings'
 import { host, useHostValue } from '../host'
 import { Activity, type Step } from './Activity'
@@ -49,11 +49,7 @@ export function ChatPanel({ document }: { document: string }) {
   return (
     <aside aria-label="Chat" className="relative mx-2 mb-2 flex w-[370px] min-h-0 flex-none flex-col">
       <div className="flex h-11 flex-none items-center gap-2 pr-1 pl-2">
-        <span className="inline-flex items-center gap-2 text-[13.5px] font-medium">
-          <ClaudeMark />
-          Claude Code
-        </span>
-        {session && <span className="truncate text-[12.5px] whitespace-nowrap text-tx3">· Session {session.number}</span>}
+        {session && <span className="truncate text-[13.5px] font-medium whitespace-nowrap">Session {session.number}</span>}
         <div className="ml-auto flex">
           <HeaderButton label="New session" onClick={() => leave(() => host.call('session.new').catch(() => {}))}>
             <AddIcon />

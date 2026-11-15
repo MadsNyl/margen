@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Mode } from '@shared/document-bridge'
 import type { OpenDocument, Project } from '@shared/host-api'
-import { isVideoTemplate, type MarkedTemplateId } from '@shared/templates'
+import { isVideoTemplate, templatePage, type MarkedTemplateId } from '@shared/templates'
 import type { ViewportChoice } from '@shared/viewport'
 import { Brand } from '../components/Brand'
 import { Menu, MenuItem, useDropdown } from '../components/Menu'
@@ -11,7 +11,7 @@ import { DocumentView } from '../editor/DocumentView'
 import type { DocumentBridge } from '../editor/bridge'
 import { PausedTimeProvider, TIME_BAR_ROOM, TimeBar, useVideoClock } from '../editor/clock'
 import { DraftProvider } from '../editor/draft'
-import { ExportButton } from '../editor/export'
+import { ExportMenu } from '../editor/export'
 import { VoiceSelect, useNarration } from '../editor/narration'
 import { DrawLayer } from '../editor/DrawLayer'
 import { HiddenChatBar } from '../editor/HiddenChatBar'
@@ -44,13 +44,15 @@ export function EditorScreen({ project, document }: { project: Project; document
   const [marker, setMarker] = useState<{ url: string; template?: MarkedTemplateId }>()
   const template = marker?.url === document.url ? marker.template : document.template
   const video = isVideoTemplate(template)
+  const page = templatePage(template)
   const narration = useNarration(bridge, video, document)
   const clock = useVideoClock(bridge, video, document.url, narration.end)
-  // An Animation video always shows its whole frame, fitted to the window.
-  const fitted = fit || video
-  const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : SCREENS[choice]
+  // An Animation video always shows its whole frame, a Poster or Slides its whole page, fitted to the window.
+  const fixed = video || page !== undefined
+  const fitted = fit || fixed
+  const screen = video ? (clock?.state?.frame ?? SCREENS.desktop) : (page ?? SCREENS[choice])
   const measured = useMeasuredViewport(choice, frame, fitted)
-  const viewport = video ? { ...measured, width: screen.width } : measured
+  const viewport = fixed ? { ...measured, width: screen.width } : measured
   const room = useRoom(stage)
   // An Animation video's time bar sits under its frame, so the frame fits in what's left.
   const scale = fitScale(screen, video ? { ...room, height: room.height - TIME_BAR_ROOM } : room)
@@ -97,7 +99,9 @@ export function EditorScreen({ project, document }: { project: Project; document
             <Breadcrumb project={project} document={document} />
             <div className="flex items-center gap-1">
               {clock ? (
-                <ExportButton ready={clock.state !== undefined} />
+                <ExportMenu formats={['mp4']} ready={clock.state !== undefined} />
+              ) : page ? (
+                <ExportMenu formats={['pdf']} ready />
               ) : (
                 <>
                   <FitButton fit={fit} scale={scale} onFit={setFit} />

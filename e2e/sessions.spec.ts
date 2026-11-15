@@ -43,7 +43,7 @@ test("switching Documents switches the chat to that Document's Session", async (
 
   await switchTo('about.html')
   await expect(log).not.toContainText('Home ask')
-  await expect(chat.getByText('· Session 1', { exact: true })).toBeVisible()
+  await expect(chat.getByText('Session 1', { exact: true }).filter({ visible: true })).toBeVisible()
   await send('About ask', 'About reply.')
 
   await switchTo('index.html')
@@ -59,7 +59,7 @@ test('New session starts an empty chat, and the history drawer resumes the earli
   await send('First ask', 'One.')
 
   await chat.getByRole('button', { name: 'New session' }).click()
-  await expect(chat.getByText('· Session 2', { exact: true })).toBeVisible()
+  await expect(chat.getByText('Session 2', { exact: true }).filter({ visible: true })).toBeVisible()
   await expect(log).not.toContainText('First ask')
   await send('Second ask', 'Two.')
 
@@ -70,7 +70,7 @@ test('New session starts an empty chat, and the history drawer resumes the earli
   await sessions.nth(1).click()
 
   await expect(drawer).toBeHidden()
-  await expect(chat.getByText('· Session 1', { exact: true })).toBeVisible()
+  await expect(chat.getByText('Session 1', { exact: true }).filter({ visible: true })).toBeVisible()
   await expect(log).toContainText('First ask')
   await expect(log).toContainText('One.')
   await expect(log).not.toContainText('Second ask')
@@ -111,7 +111,7 @@ test('switching Documents or Sessions while a Turn runs asks first: Cancel keeps
   await start('Second ask', 'Busy again')
   await chat.getByRole('button', { name: 'New session' }).click()
   await ask.getByRole('button', { name: 'Stop and switch' }).click()
-  await expect(chat.getByText('· Session 2', { exact: true })).toBeVisible()
+  await expect(chat.getByText('Session 2', { exact: true }).filter({ visible: true })).toBeVisible()
   await chat.getByRole('button', { name: 'Sessions & Checkpoints' }).click()
   await chat.getByRole('list', { name: 'Sessions' }).getByRole('button', { name: /Session 1/ }).click()
   await expect(log).toContainText('Second ask')

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell, type WebContents } from 'electron'
 import { DOCUMENT_PARTITION } from '@shared/document-bridge'
@@ -10,6 +10,7 @@ import { createHost, type Host } from './host'
 import { bindHostToIpc } from './ipc'
 import { DOCUMENT_SCHEME } from './projects/document'
 import { openVideoFrames } from './video-frames'
+import { printPdf } from './print-pdf'
 import { VIDEOTOOLBOX_H264 } from './video/videotoolbox'
 import { createUtilityProcessSynthesiser } from './voice-process'
 import { fakeVoicesFromScript } from './voices/fake'
@@ -64,11 +65,18 @@ async function pickFiles(): Promise<string[]> {
   return result.canceled ? [] : result.filePaths
 }
 
+/** What an export's Save dialog offers, by the extension of the file it suggests. */
+const SAVE_FILTERS: Record<string, Electron.FileFilter> = {
+  '.mp4': { name: 'MPEG-4 video', extensions: ['mp4'] },
+  '.pdf': { name: 'PDF', extensions: ['pdf'] },
+}
+
 /** The Save dialog for an export. `MARGEN_SAVE_FILE=<path>` stands in for it in Seam 2 tests. */
 async function pickSaveFile(defaultPath: string): Promise<string | undefined> {
   if (process.env.MARGEN_SAVE_FILE) return process.env.MARGEN_SAVE_FILE
   const window = BrowserWindow.getFocusedWindow()
-  const options: Electron.SaveDialogOptions = { defaultPath, buttonLabel: 'Export', filters: [{ name: 'MPEG-4 video', extensions: ['mp4'] }] }
+  const filter = SAVE_FILTERS[extname(defaultPath)]
+  const options: Electron.SaveDialogOptions = { defaultPath, buttonLabel: 'Export', filters: filter ? [filter] : [] }
   const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
   return result.canceled ? undefined : result.filePath
 }
@@ -183,6 +191,8 @@ function createWindow(host: Host): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+  // A packaged build has its icon in the bundle; a dev run would show Electron's.
+  if (!app.isPackaged) app.dock?.setIcon(join(__dirname, '../../build/icon.png'))
   // Only a packaged build has a release feed; dev runs and tests get no updates.
   const updates = app.isPackaged ? createElectronUpdateSource(process.env) : undefined
   const host = createHost({
@@ -192,6 +202,7 @@ void app.whenReady().then(() => {
     pickFolder,
     pickFiles,
     pickSaveFile,
+    printPdf,
     video: { ffmpeg: ffmpegPath(), ...videoEncoder(), frames: (url) => openVideoFrames(url, join(__dirname, '../preload/document.js')) },
     openExternal: (url) => shell.openExternal(url),
     showFolder: async (path) => {
@@ -203,8 +214,8 @@ void app.whenReady().then(() => {
     voices: process.env.MARGEN_FAKE_VOICES
       ? fakeVoicesFromScript(process.env.MARGEN_FAKE_VOICES)
       : { synthesiser: createUtilityProcessSynthesiser(join(__dirname, 'voice-worker.js')) },
-    // `MARGEN_PROJECTS_DIR` stands in for ~/Documents/Margen in Seam 2 tests.
-    projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('documents'), 'Margen'),
+    // `MARGEN_PROJECTS_DIR` stands in for ~/Margen in Seam 2 tests.
+    projectsDir: process.env.MARGEN_PROJECTS_DIR ?? join(app.getPath('home'), 'Margen'),
     // Unpackaged (dev, Seam 2) `getVersion()` is Electron's own, so read Margen's package.json.
     version: app.isPackaged ? app.getVersion() : JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8')).version,
   })

@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-// New Projects are empty folders under one base directory (~/Documents/Margen
+// New Projects are empty folders under one base directory (~/Margen
 // in the app, a temp folder in tests), named after a slug of what the user typed.
 
 /** Keeps folder names readable, and well under the file system's limit. */

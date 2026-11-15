@@ -18,7 +18,7 @@ pnpm start      # runs the built app
 pnpm dist:local # an unsigned .dmg for your Mac's architecture, in dist/
 ```
 
-The unsigned build opens with a Gatekeeper warning (right-click, Open). Only release builds are signed and notarized.
+The unsigned build is ad-hoc signed, so macOS asks before opening it the first time (see Installing an unsigned release).
 
 ## Tests
 
@@ -33,7 +33,7 @@ pnpm lint
 MARGEN_CLAUDE_CONTRACT=1 pnpm vitest run test/contract   # MARGEN_CLAUDE_MODEL=haiku by default
 ```
 
-Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal; its `query` plays back scripted Agent SDK messages. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`), a fake Agent script (`MARGEN_FAKE_AGENT`), a temporary stand-in for `~/Documents/Margen` where New project makes its folders (`MARGEN_PROJECTS_DIR`) and, when asked, the folder the folder picker returns (`MARGEN_PICK_FOLDER`).
+Seam 1 tests call `createHost()` directly with a temporary data directory and a scripted fake AgentProvider, so they need no window and no `claude`. The Claude Code adapter is tested the same way, with a pretend `ClaudeSystem` (`src/main/agent/claude/system.ts`) standing in for `claude`, the login shell, the installer and Terminal; its `query` plays back scripted Agent SDK messages. Seam 2 tests launch the built app through `e2e/app.ts`, which gives each test a fresh data directory (`MARGEN_DATA_DIR`), a fake Agent script (`MARGEN_FAKE_AGENT`), a temporary stand-in for `~/Margen` where New project makes its folders (`MARGEN_PROJECTS_DIR`) and, when asked, the folder the folder picker returns (`MARGEN_PICK_FOLDER`).
 
 If Electron starts as plain Node (`app` is undefined), your shell has `ELECTRON_RUN_AS_NODE=1`, which happens inside terminals of other Electron apps. Run `unset ELECTRON_RUN_AS_NODE` first. The e2e helper strips it for you.
 
@@ -42,9 +42,17 @@ If Electron starts as plain Node (`app` is undefined), your shell has `ELECTRON_
 `.github/workflows/release.yml` builds, signs and notarizes the `.dmg` (arm64 and x64) on a macOS runner and publishes it to GitHub Releases. To release:
 
 1. Set `version` in `package.json` (say `0.1.0`), commit, and push.
-2. Tag that commit `v0.1.0` and push the tag. The workflow refuses a tag that doesn't match the version, runs every check, and stops before building if a signing secret is missing.
+2. Tag that commit `v0.1.0` and push the tag. The workflow refuses a tag that doesn't match the version, runs every check, and stops before building if only some of the signing secrets are set.
+
+With none of the secrets set, it publishes an unsigned build: ad-hoc signed, not notarized, and without the hardened runtime. It runs, but macOS asks before opening it, and auto-update can't install into it.
+
+A version with a suffix (`0.1.0-rc.1`, tag `v0.1.0-rc.1`) is published as a GitHub pre-release: downloadable, but not "latest", so installed apps don't update to it.
 
 The packaging config is `electron-builder.yml`; the publish target (owner and repo) comes from `repository` in `package.json`. It also defines a Windows (NSIS) target that isn't built yet: nothing in the app is Mac-only, so a Windows job can be added later.
+
+### Installing an unsigned release
+
+Open the `.dmg` and drag Margen to Applications. The first time you open it, macOS says it can't check Margen for malicious software. Click Done, then go to System Settings → Privacy & Security, scroll down to the message about Margen and click **Open Anyway**. Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Margen.app`.
 
 ### Secrets
 

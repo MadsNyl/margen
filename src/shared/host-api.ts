@@ -143,7 +143,7 @@ export interface HostCalls {
   'projects.choose': () => Project | null
   /** Opens a folder as the current Project. Rejects if it isn't there. */
   'projects.open': (path: string) => Project
-  /** Makes an empty folder for a new Project under `~/Documents/Margen/` and opens it. */
+  /** Makes an empty folder for a new Project under `~/Margen/` and opens it. */
   'projects.create': (name: string) => Project
   'projects.current': () => Project | null
   /** Goes back to the Start screen: no Project is open. */
@@ -157,6 +157,12 @@ export interface HostCalls {
   'document.close': () => void
   /** Opens the open Document's file in the default browser. */
   'document.openInBrowser': () => void
+  /**
+   * Exports the open Poster or Slides to PDF at its Template's page size (A4, or one 16:9 page per slide),
+   * after a Save dialog opening in the Project folder. Resolves with where it was saved, or `null` when the
+   * dialog was cancelled; rejects for a Document without a page, or when printing fails.
+   */
+  'document.exportPdf': () => string | null
   /**
    * The user's own edit of an element's plain text in the Document view. Writes
    * it to the file after a Checkpoint; rejects (saying why) while a Turn runs, or

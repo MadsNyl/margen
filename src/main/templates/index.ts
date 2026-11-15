@@ -4,6 +4,8 @@ import type { NarrationAudio } from '../narration'
 import { narrationLengthsTool } from '../narration/tool'
 import type { AgentSetup } from '../sessions'
 import { animationVideoFile, animationVideoInstructions } from './animation-video'
+import { posterFile, posterInstructions } from './poster'
+import { slidesFile, slidesInstructions } from './slides'
 
 // The built-in Templates' starting files and instructions. A Document's
 // Template is the marker in its own file (ADR 0004), read when a Session on it
@@ -27,6 +29,8 @@ const BUILT_IN: Record<MarkedTemplateId, BuiltInTemplate> = {
     file: animationVideoFile,
     setup: ({ file, narration }) => ({ instructions: animationVideoInstructions(), tools: [narrationLengthsTool({ file, audio: narration })] }),
   },
+  poster: { file: posterFile, setup: () => ({ instructions: posterInstructions() }) },
+  slides: { file: slidesFile, setup: () => ({ instructions: slidesInstructions() }) },
 }
 
 /** The first version of a new Document's file: empty for Blank. */

@@ -14,7 +14,7 @@ Settled in the grilling session on 2026-11-11. Terms follow `GLOSSARY.md`; the d
 - The Composer has a model and effort picker that defaults to Claude Code's own default.
 
 ## Projects and Documents
-- After onboarding, the first screen offers: **Open a folder** (any folder becomes a Project) or **New project** (an empty folder at `~/Documents/Margen/<name>`), plus recent Projects.
+- After onboarding, the first screen offers: **Open a folder** (any folder becomes a Project) or **New project** (an empty folder at `~/Margen/<name>`), plus recent Projects.
 - The Project page has a "Let us build …" chat bar and, under it, a grid of every HTML file in the Project (ignoring `node_modules`, `.git` and build output). Clicking a file opens it in the editor.
 - A Document is one HTML file. Its scripts run and it has network access, inside a sandboxed frame with no Node access.
 - Margen is a viewer and annotator, and the Agent edits the Document. The one exception (added 2026-11-12): double-clicking an element's plain text in Browse edits it in place, and ↵ writes it to the file at that element, after a Checkpoint. Text with tags inside or written by a script is left to the Agent, and hand edits wait while a Turn runs. Margen watches the file and live-reloads, keeping scroll position.

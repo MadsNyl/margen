@@ -28,7 +28,7 @@ export interface LaunchedApp {
   app: ElectronApplication
   window: Page
   dataDir: string
-  /** Stands in for ~/Documents/Margen, where new Projects are made. Inside `dataDir`. */
+  /** Stands in for ~/Margen, where new Projects are made. Inside `dataDir`. */
   projectsDir: string
   /** Every TurnInput that reached the fake Agent, in order. */
   sentTurns(): Promise<TurnInput[]>
@@ -45,7 +45,7 @@ export async function launchApp({ recents, agent = {}, pickFolder, pickFiles, pr
   const agentScript = join(dataDir, 'fake-agent.json')
   const sentFile = join(dataDir, 'fake-agent-sent.json')
   await writeFile(agentScript, JSON.stringify({ sentFile, ...agent }))
-  const projectsDir = join(dataDir, 'Documents', 'Margen')
+  const projectsDir = join(dataDir, 'Margen')
   const voicesScript = join(dataDir, 'fake-voices.json')
   const spokenFile = join(dataDir, 'fake-voices-spoken.jsonl')
   await writeFile(voicesScript, JSON.stringify({ catalogue: voices, spokenFile }))

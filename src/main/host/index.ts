@@ -23,7 +23,7 @@ import { applyTextEdit } from '../projects/text-edit'
 import { clearRecents, isFolder, listRecents, recordOpened } from '../projects/recents'
 import { watchDocuments } from '../projects/watch'
 import { withVoiceMarker } from '@shared/narration'
-import { isTemplateChoice, isVideoTemplate, type TemplateChoice } from '@shared/templates'
+import { isTemplateChoice, isVideoTemplate, templatePage, type Page, type TemplateChoice } from '@shared/templates'
 import { documentTemplate, startingFile } from '../templates'
 import { createEmitter } from './emitter'
 import { openEditorDocument, type EditorDocument } from './open-document'
@@ -42,7 +42,7 @@ export interface HostDeps {
   openExternal?: (url: string) => Promise<void>
   /** Opens a folder in the file manager (Electron's `shell.openPath` in the app). */
   showFolder?: (path: string) => Promise<void>
-  /** Where new Projects are made: `~/Documents/Margen` unless tests pass their own. */
+  /** Where new Projects are made: `~/Margen` unless tests pass their own. */
   projectsDir?: string
   /** The running app's version (Electron's `app.getVersion()`). */
   version?: string
@@ -59,7 +59,9 @@ export interface HostDeps {
    * in the app). Without all three, export rejects.
    */
   video?: { ffmpeg?: string; encoder?: readonly string[]; frames?: (url: string) => Promise<VideoFrames> }
-  /** The native Save dialog, opening at `defaultPath`; resolves `undefined` when cancelled. Tests and e2e pass their own. */
+  /** Prints the Document at `url` to PDF at `page`'s size (a hidden window in the app). Without it, PDF export rejects. */
+  printPdf?: (url: string, page: Page) => Promise<Uint8Array>
+  /** The native Save dialog, opening at `defaultPath` (its extension is the file type); resolves `undefined` when cancelled. Tests and e2e pass their own. */
   pickSaveFile?: (defaultPath: string) => Promise<string | undefined>
 }
 
@@ -86,11 +88,12 @@ export function createHost({
   pickFiles = async () => [],
   openExternal = async () => {},
   showFolder = async () => {},
-  projectsDir = join(homedir(), 'Documents', 'Margen'),
+  projectsDir = join(homedir(), 'Margen'),
   version = '0.0.0',
   captureDocument = async () => null,
   voices: voiceDeps = {},
   video = {},
+  printPdf,
   pickSaveFile = async () => undefined,
 }: HostDeps): Host {
   const events = createEmitter<HostEvents>()
@@ -183,6 +186,18 @@ export function createHost({
       exporting = null
       if (audio) await rm(audio.file, { force: true })
     }
+  }
+
+  async function exportOpenPdf(): Promise<string | null> {
+    const { file, info } = requireDocument()
+    const page = templatePage(await documentTemplate(file))
+    if (!page) throw new Error('Only a Poster or Slides exports to PDF')
+    const { project } = requireProject()
+    if (!printPdf) throw new Error('PDF export isn’t available in this build')
+    const output = await pickSaveFile(join(project.path, `${basename(info.path, extname(info.path))}.pdf`))
+    if (!output) return null
+    await writeFile(output, await printPdf(info.url, page))
+    return output
   }
 
   /** The open Document, when it's an Animation video as its file is now; else rejects with `refusal`. */
@@ -369,6 +384,7 @@ export function createHost({
     'voices.download': (pack) => voices.download(pack),
     'voices.delete': (pack) => voices.delete(pack),
     'voices.preview': (voice) => voices.preview(voice),
+    'document.exportPdf': exportOpenPdf,
     'video.export': exportOpenVideo,
     'video.cancelExport': async () => exporting?.abort(),
     'video.narration': async () => readNarration((await requireVideo('Only an Animation video has narration')).file),

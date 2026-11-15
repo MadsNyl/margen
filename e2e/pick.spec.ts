@@ -204,7 +204,7 @@ test("Annotations are numbered per Session: on after the Session's highest, from
   await second.getByRole('button', { name: 'Discard' }).click()
 
   await chat.getByRole('button', { name: 'New session' }).click()
-  await expect(chat.getByText('· Session 2', { exact: true })).toBeVisible()
+  await expect(chat.getByText('Session 2', { exact: true }).filter({ visible: true })).toBeVisible()
   await pickHeading()
   await expect(window.getByRole('dialog', { name: 'Annotation 1' })).toBeVisible()
 })

@@ -1,4 +1,5 @@
 import type { Effort, ModelChoice } from '@shared/agent'
+import { ClaudeSpark } from '../components/icons'
 import { Menu, MenuHeading, MenuItem, useDropdown } from '../components/Menu'
 
 const MODELS = [
@@ -32,9 +33,10 @@ export function ModelPicker({ value, onChange }: { value: ModelChoice; onChange:
         aria-label="Model and effort"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12px] text-tx2 hover:bg-black/[.04] hover:text-tx"
+        className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2 text-[12px] text-tx2 hover:bg-black/[.04] hover:text-tx"
         onClick={() => setOpen(!open)}
       >
+        <ClaudeSpark />
         {effort ? `${model} · ${effort}` : model}
       </button>
       {open && (
@@ -42,6 +44,7 @@ export function ModelPicker({ value, onChange }: { value: ModelChoice; onChange:
           <MenuHeading>Model</MenuHeading>
           {MODELS.map(({ label, value: model }) => (
             <MenuItem key={label} current={model === value.model} onClick={() => pick({ model })}>
+              <ClaudeSpark />
               {label}
             </MenuItem>
           ))}

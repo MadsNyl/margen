@@ -1,4 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#d97706"/>
-  <text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="32" font-weight="600" fill="#ffffff">H</text>
+<!-- Margen's app icon: the Brand mark (src/renderer/src/components/Brand.tsx) on a white macOS tile. build/icon.png is rendered from this. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f1f3"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)" filter="url(#shadow)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" stroke="#000" stroke-opacity="0.06"/>
+  <rect x="347" y="292" width="62.7" height="440" rx="31.35" fill="#ff5a36"/>
+  <rect x="492.2" y="358" width="184.8" height="66" rx="33" fill="#ffb800"/>
+  <rect x="531.8" y="479" width="145.2" height="66" rx="33" fill="#7c6cff"/>
+  <rect x="492.2" y="600" width="184.8" height="66" rx="33" fill="#1e9e5a"/>
 </svg>

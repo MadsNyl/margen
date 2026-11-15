@@ -6,3 +6,7 @@ test-results/
 playwright-report/
 *.log
 .DS_Store
+
+# Projects made before new ones moved to ~/Margen
+shakespeare/
+_old-files/
