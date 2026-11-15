@@ -1,6 +1,6 @@
 {
   "name": "margen",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "private": true,
   "description": "A desktop editor for HTML that runs on your own Claude Code.",
   "license": "MIT",

@@ -107,7 +107,8 @@ test('choosing a Voice marks the video, offers its download, and the narration p
   await window.getByRole('button', { name: 'Download Testa' }).click()
   await expect(window.getByRole('button', { name: 'Download Testa' })).toBeHidden()
   // Spoken ahead of playing, so it starts on time.
-  await expect.poll(async () => (await spoken()).map((line) => line.text)).toEqual(['Hello there.', 'Three words here.'])
+  // In any order: the lines are spoken side by side.
+  await expect.poll(async () => (await spoken()).map((line) => line.text).sort()).toEqual(['Hello there.', 'Three words here.'])
   // The narration runs past the last animation, and so does the video.
   await expect(timer).toHaveText('0:00.0 / 0:02.3')
 

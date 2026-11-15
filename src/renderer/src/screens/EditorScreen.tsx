@@ -97,7 +97,8 @@ export function EditorScreen({ project, document }: { project: Project; document
         <main className="relative mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-card">
           <header className="relative z-10 flex h-12 flex-none items-center justify-between gap-3 px-3">
             <Breadcrumb project={project} document={document} />
-            <div className="flex items-center gap-1">
+            {/* Never squeezed: in a narrow window the breadcrumb's names truncate instead. */}
+            <div className="flex flex-none items-center gap-1">
               {clock ? (
                 <ExportMenu formats={['mp4']} ready={clock.state !== undefined} />
               ) : page ? (
@@ -210,7 +211,7 @@ export function EditorScreen({ project, document }: { project: Project; document
 
 function Slash() {
   return (
-    <span className="mx-0.5 text-sm text-[#c8c8cf]" aria-hidden>
+    <span className="mx-0.5 flex-none text-sm text-[#c8c8cf]" aria-hidden>
       /
     </span>
   )
@@ -222,7 +223,7 @@ function Breadcrumb({ project, document }: { project: Project; document: OpenDoc
   return (
     <nav className="flex min-w-0 items-center gap-1" aria-label="Breadcrumb">
       <button
-        className="rounded-[7px] hover:bg-black/4"
+        className="flex-none rounded-[7px] hover:bg-black/4"
         title="Back to Start"
         aria-label="Back to Start"
         onClick={() => leave(() => host.call('projects.close'))}
@@ -230,8 +231,8 @@ function Breadcrumb({ project, document }: { project: Project; document: OpenDoc
         <Brand />
       </button>
       <Slash />
-      <button className="crumb text-tx2" title="Back to the Project" onClick={() => leave(() => host.call('document.close'))}>
-        {project.name}
+      <button className="crumb min-w-0 text-tx2" title="Back to the Project" onClick={() => leave(() => host.call('document.close'))}>
+        <span className="truncate">{project.name}</span>
       </button>
       <Slash />
       <DocumentSwitcher document={document} />
