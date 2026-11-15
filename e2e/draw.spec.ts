@@ -6,7 +6,10 @@ import { inDocument, launchApp, makeFolder, type LaunchedApp } from './app'
 let launched: LaunchedApp | undefined
 let folder: string | undefined
 
-test.afterEach(async () => {
+// eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo second, after the fixtures.
+test.afterEach(async ({}, testInfo) => {
+  // What the window looked like, for a failure on a machine you can't watch (CI).
+  if (testInfo.status !== testInfo.expectedStatus) await launched?.window.screenshot({ path: testInfo.outputPath('window.png') }).catch(() => {})
   await launched?.close()
   if (folder) await rm(folder, { recursive: true, force: true })
 })
